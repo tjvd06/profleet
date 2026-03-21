@@ -1,0 +1,208 @@
+"use client";
+
+import { useState } from "react";
+import { InstantOfferCard } from "@/components/tenders/InstantOfferCard";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, MapPin, SlidersHorizontal, ChevronDown, Zap } from "lucide-react";
+
+// Mock Data
+const instantOffers = [
+  {
+    id: "IO-101",
+    brand: "Audi",
+    model: "A4 Avant 40 TDI S line",
+    specs: "150 kW (204 PS) · Automatik · Diesel · Mythosschwarz Metallic",
+    availability: "Sofort verfügbar",
+    listPrice: 62450,
+    offerPrice: 50896,
+    savingsPercent: 18.5,
+    leasingRate: 549,
+    financeRate: 590,
+    dealerRating: 98,
+    dealerLocation: "München (DE)"
+  },
+  {
+    id: "IO-102",
+    brand: "BMW",
+    model: "530e xDrive Limousine",
+    specs: "220 kW (299 PS) · Automatik · Hybrid · Saphirschwarz",
+    availability: "In Zulauf (ca. 14 Tage)",
+    listPrice: 78500,
+    offerPrice: 66725,
+    savingsPercent: 15.0,
+    leasingRate: 689,
+    financeRate: null,
+    dealerRating: 95,
+    dealerLocation: "Stuttgart (DE)"
+  },
+  {
+    id: "IO-103",
+    brand: "Mercedes-Benz",
+    model: "C 300 e T-Modell",
+    specs: "230 kW (313 PS) · Automatik · Hybrid · Polarweiß",
+    availability: "Sofort verfügbar",
+    listPrice: 68900,
+    offerPrice: 57876,
+    savingsPercent: 16.0,
+    leasingRate: 610,
+    financeRate: 650,
+    dealerRating: 92,
+    dealerLocation: "Berlin (DE)"
+  },
+  {
+    id: "IO-104",
+    brand: "VW",
+    model: "Tiguan R-Line 2.0 TDI",
+    specs: "110 kW (150 PS) · DSG · Diesel · Pure White",
+    availability: "Sofort verfügbar",
+    listPrice: 53400,
+    offerPrice: 42720,
+    savingsPercent: 20.0,
+    leasingRate: 429,
+    financeRate: 459,
+    dealerRating: 88,
+    dealerLocation: "Leipzig (DE)"
+  },
+  {
+    id: "IO-105",
+    brand: "Volvo",
+    model: "XC60 B4 Mild-Hybrid Plus",
+    specs: "145 kW (197 PS) · Automatik · Benzin · Onyx Black Metallic",
+    availability: "Sofort verfügbar",
+    listPrice: 64100,
+    offerPrice: 53203,
+    savingsPercent: 17.0,
+    leasingRate: null,
+    financeRate: 580,
+    dealerRating: 100,
+    dealerLocation: "Hamburg (DE)"
+  },
+  {
+    id: "IO-106",
+    brand: "Skoda",
+    model: "Octavia Combi RS",
+    specs: "180 kW (245 PS) · DSG · Benzin · Race-Blau Metallic",
+    availability: "In Zulauf (7 Tage)",
+    listPrice: 48900,
+    offerPrice: 42543,
+    savingsPercent: 13.0,
+    leasingRate: 410,
+    financeRate: 440,
+    dealerRating: 94,
+    dealerLocation: "Nürnberg (DE)"
+  }
+];
+
+
+export default function SofortAngebotePage() {
+  return (
+    <div className="bg-slate-50 min-h-screen">
+      
+      {/* Search Header / Filter Section */}
+      <div className="bg-navy-950 pt-16 pb-32 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-900/40 via-transparent to-transparent" />
+        
+        <div className="container mx-auto max-w-7xl px-4 md:px-8 relative z-10 text-center">
+          <div className="inline-flex items-center gap-2 bg-blue-500/20 text-blue-300 px-4 py-1.5 rounded-full text-sm font-semibold mb-6 border border-blue-500/30">
+            <Zap size={16} className="text-amber-400" /> 148 sofort verfügbare Flottenfahrzeuge
+          </div>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tight mb-6">
+            Sofort-Angebote Marktplatz
+          </h1>
+          <p className="text-lg md:text-xl text-blue-100/70 max-w-2xl mx-auto mb-12">
+            Entdecken Sie exklusive Lagerfahrzeuge und Tageszulassungen deutscher Markenvertrags-Händler. Direkt kauf- und leasbar zu Großkundenkonditionen.
+          </p>
+
+          {/* Advanced Search Bar (Hovering over border) */}
+          <div className="bg-white p-2 rounded-2xl md:rounded-full shadow-2xl flex flex-col md:flex-row items-center gap-2 max-w-5xl mx-auto relative translate-y-12 md:translate-y-20 border border-slate-200">
+            
+            <div className="flex-1 flex items-center w-full bg-slate-50/50 rounded-full px-4 py-2">
+              <Search className="text-slate-400 mr-3" size={20} />
+              <Input placeholder="Marke, Modell, Ausstattung..." className="border-0 bg-transparent shadow-none focus-visible:ring-0 text-base h-12 w-full font-medium" />
+            </div>
+            
+            <div className="h-8 w-px bg-slate-200 hidden md:block"></div>
+            
+            <div className="flex-1 flex items-center w-full px-4 py-2 border-t md:border-0 border-slate-100">
+              <Select>
+                <SelectTrigger className="border-0 bg-transparent shadow-none focus:ring-0 text-base h-12 w-full font-medium focus-visible:ring-0">
+                  <SelectValue placeholder="Beliebige Marke" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="audi">Audi</SelectItem>
+                  <SelectItem value="bmw">BMW</SelectItem>
+                  <SelectItem value="mercedes">Mercedes-Benz</SelectItem>
+                  <SelectItem value="vw">Volkswagen</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="h-8 w-px bg-slate-200 hidden md:block"></div>
+
+            <div className="flex-1 flex items-center w-full bg-slate-50/50 rounded-full px-4 py-2">
+              <MapPin className="text-slate-400 mr-3 shrink-0" size={20} />
+              <Input placeholder="PLZ + Radius" className="border-0 bg-transparent shadow-none focus-visible:ring-0 text-base h-12 w-full font-medium" />
+            </div>
+
+            <Button className="w-full md:w-auto h-14 md:h-12 px-8 rounded-xl md:rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-base md:ml-2">
+              Angebote finden
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto max-w-7xl px-4 md:px-8 py-16 mt-16 md:mt-12">
+        {/* Results Metadata & Sort */}
+        <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 border-b border-slate-200 pb-6">
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <Badge className="bg-slate-200 text-slate-700 hover:bg-slate-300 border-none px-3 py-1 font-semibold text-sm cursor-pointer flex items-center gap-1.5">
+              <SlidersHorizontal size={14} /> Filter (2)
+            </Badge>
+            <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 px-3 py-1 font-semibold flex items-center gap-2">
+              Max. 60.000 € <button className="hover:text-blue-900 border-l border-blue-200 pl-1.5 ml-0.5">✕</button>
+            </Badge>
+            <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 px-3 py-1 font-semibold flex items-center gap-2">
+              Benzin & Diesel <button className="hover:text-blue-900 border-l border-blue-200 pl-1.5 ml-0.5">✕</button>
+            </Badge>
+            <button className="text-sm font-semibold text-slate-400 hover:text-navy-900 ml-2">Alle löschen</button>
+          </div>
+          
+          <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+            <span className="text-slate-500 font-semibold text-sm">Sortieren nach:</span>
+            <Select defaultValue="savings">
+              <SelectTrigger className="w-[200px] h-10 border-slate-200 bg-white font-bold text-navy-950 focus:ring-0 rounded-xl">
+                <SelectValue placeholder="Sortierung" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="savings">Höchste Ersparnis</SelectItem>
+                <SelectItem value="price_asc">Preis aufsteigend</SelectItem>
+                <SelectItem value="distance">Entfernung</SelectItem>
+                <SelectItem value="newest">Neueste Inserate</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* 3-Column Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+          {instantOffers.map((offer) => (
+            <InstantOfferCard key={offer.id} offer={offer} />
+          ))}
+        </div>
+
+        {/* Load More */}
+        <div className="mt-16 flex justify-center">
+          <Button variant="outline" size="lg" className="rounded-xl px-12 h-14 border-slate-300 text-slate-600 bg-white hover:bg-slate-50 hover:text-navy-950 font-bold transition-colors">
+            Weitere Angebote laden (142 übrig)
+          </Button>
+        </div>
+        
+      </div>
+
+    </div>
+  );
+}
