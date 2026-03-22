@@ -1,9 +1,37 @@
+"use client";
+
 import Link from "next/link";
-import { Bell, User } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Bell, User, LogOut, Settings } from "lucide-react";
+import { useAuth } from "@/components/providers/auth-provider";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuGroup,
+} from "@/components/ui/dropdown-menu";
 
 export function TopNav() {
-  // Mock login state for now
-  const isLoggedIn = false;
+  const { user, profile, signOut } = useAuth();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    try {
+      // Force the server to delete the Next.js cookies
+      await fetch("/api/auth/signout", { method: "POST" });
+    } catch (e) {
+      console.error("Server signout failed", e);
+    }
+    
+    // Clear the client state
+    await signOut();
+    
+    // Use hard redirect to ensure all Next.js router caches and server cookies are fully cleared
+    window.location.href = "/";
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/80 backdrop-blur-md">
@@ -22,7 +50,7 @@ export function TopNav() {
         </div>
 
         <div className="flex items-center gap-4">
-          {!isLoggedIn ? (
+          {!user ? (
             <>
               <Link href="/anmelden" className="text-sm font-medium text-slate-600 hover:text-navy-950 transition-colors">
                 Anmelden
@@ -37,9 +65,36 @@ export function TopNav() {
                 <Bell size={20} />
                 <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">3</span>
               </button>
-              <Link href="/dashboard" className="flex h-8 w-8 items-center justify-center rounded-full bg-navy-100 text-navy-800">
-                <User size={16} />
-              </Link>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex h-8 w-8 items-center justify-center rounded-full bg-navy-100 text-navy-800 hover:bg-navy-200 transition-colors outline-none focus:ring-2 focus:ring-offset-1 focus:ring-navy-500">
+                  <User size={16} />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 mt-2 rounded-2xl p-2 bg-white border-slate-200">
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="font-bold flex flex-col gap-0.5">
+                      <span className="text-navy-950">{profile?.first_name || "User"} {profile?.last_name || ""}</span>
+                      <span className="text-[11px] text-slate-500 font-medium truncate">{user.email}</span>
+                    </DropdownMenuLabel>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator className="bg-slate-100 my-1" />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem onClick={() => router.push('/dashboard')} className="cursor-pointer rounded-lg px-3 py-2.5 hover:bg-slate-50 focus:bg-slate-50 flex items-center w-full font-semibold text-slate-600">
+                      <User className="mr-2 h-4 w-4 text-slate-400" />
+                      Dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/dashboard/profil')} className="cursor-pointer rounded-lg px-3 py-2.5 hover:bg-slate-50 focus:bg-slate-50 flex items-center w-full font-semibold text-slate-600">
+                      <Settings className="mr-2 h-4 w-4 text-slate-400" />
+                      Profil & Einstellungen
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator className="bg-slate-100 my-1" />
+                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-red-600 hover:bg-red-50 focus:bg-red-50 focus:text-red-700 rounded-lg px-3 py-2.5 font-bold">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Abmelden
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           )}
         </div>

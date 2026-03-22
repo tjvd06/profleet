@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useAuth } from "@/components/providers/auth-provider";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -14,8 +14,21 @@ import {
 import Link from "next/link";
 
 export default function DashboardOverviewPage() {
-  const [isDealer, setIsDealer] = useState(false);
-  const userName = isDealer ? "Autohaus Müller" : "Michael";
+  const { profile, devModeRole, setDevModeRole } = useAuth();
+  
+  // Dev mode toggle logic
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const actualRole = profile?.role || "nachfrager";
+  const activeRole = isDevelopment && devModeRole ? devModeRole : actualRole;
+  const isDealer = activeRole === "anbieter";
+  
+  const handleRoleToggle = (checked: boolean) => {
+    if (isDevelopment) {
+      setDevModeRole(checked ? "anbieter" : "nachfrager");
+    }
+  };
+
+  const userName = isDealer ? (profile?.company_name || "Autohaus Müller") : (profile?.first_name || "Michael");
 
   return (
     <div className="bg-slate-50 min-h-[calc(100vh-80px)] pb-32">
@@ -31,7 +44,7 @@ export default function DashboardOverviewPage() {
             <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/20 text-sm shadow-sm">
               <Badge variant="outline" className="bg-amber-500/20 text-amber-300 border-none uppercase tracking-widest font-black text-[10px] shadow-none hidden sm:inline-flex rounded-md px-2 py-0.5">DEV MODE</Badge>
               <Label className={`cursor-pointer font-bold ${!isDealer ? 'text-white' : 'text-blue-200/50'}`}>Nachfrager</Label>
-              <Switch checked={isDealer} onCheckedChange={setIsDealer} className="data-[state=checked]:bg-blue-500" />
+              <Switch checked={isDealer} onCheckedChange={handleRoleToggle} disabled={!isDevelopment} className="data-[state=checked]:bg-blue-500" />
               <Label className={`cursor-pointer font-bold ${isDealer ? 'text-white' : 'text-blue-200/50'}`}>Anbieter</Label>
             </div>
           </div>

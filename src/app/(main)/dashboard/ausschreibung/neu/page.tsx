@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { WizardStepper } from "@/components/ui-custom/WizardStepper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,14 +9,24 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronRight, ChevronLeft, Settings2, UploadCloud, ListChecks, CheckCircle2, PartyPopper } from "lucide-react";
+import { ChevronRight, ChevronLeft, Settings2, UploadCloud, ListChecks, CheckCircle2, PartyPopper, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { createClient } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 
 const STEPS = ["Fahrzeug", "Details", "Leasing & Finanzen", "Lieferung", "Starten"];
+const DURATION_DAYS: Record<string, number> = { "7": 7, "14": 14, "30": 30 };
 
 export default function NewTenderWizard() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const supabase = createClient();
+
   const [step, setStep] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [duration, setDuration] = useState("14");
 
   // Form State
   const [formData, setFormData] = useState({
@@ -35,8 +46,65 @@ export default function NewTenderWizard() {
   const nextStep = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
   const prevStep = () => setStep((s) => Math.max(s - 1, 0));
 
-  const handlePublish = () => {
-    setIsSuccess(true);
+  const handlePublish = async () => {
+    if (!user) return;
+
+    setIsPublishing(true);
+    setPublishError(null);
+
+    try {
+      const now = new Date();
+      const endDate = new Date(now);
+      endDate.setDate(endDate.getDate() + DURATION_DAYS[duration]);
+
+      // 1. Insert tender
+      const { data: tender, error: tenderError } = await supabase
+        .from("tenders")
+        .insert({
+          buyer_id: user.id,
+          status: "active",
+          start_at: now.toISOString(),
+          end_at: endDate.toISOString(),
+          delivery_plz: formData.zipCode || null,
+          delivery_city: formData.zipCode.length >= 5 ? "München" : null,
+          delivery_radius: formData.radius === "local" ? 50 : null,
+          tender_scope: formData.radius === "nationwide" ? "bundesweit" : "lokal",
+        })
+        .select()
+        .single();
+
+      if (tenderError) throw tenderError;
+
+      // 2. Insert vehicle
+      const { error: vehicleError } = await supabase
+        .from("tender_vehicles")
+        .insert({
+          tender_id: tender.id,
+          config_method: formData.method,
+          brand: formData.brand || null,
+          model_name: formData.model || null,
+          list_price_gross: formData.price ? parseFloat(formData.price) : null,
+          list_price_net: formData.price ? parseFloat(formData.price) / 1.19 : null,
+          quantity: formData.quantity,
+          fleet_discount: formData.fleetDiscount && formData.fleetDiscountPercent
+            ? parseFloat(formData.fleetDiscountPercent)
+            : null,
+          alt_preferences: {
+            accept_other_color: formData.acceptOtherColor,
+          },
+          leasing: formData.types.leasing ? { requested: true } : null,
+          financing: formData.types.financing ? { requested: true } : null,
+        });
+
+      if (vehicleError) throw vehicleError;
+
+      setIsSuccess(true);
+    } catch (err: any) {
+      console.error("Publish error:", err);
+      setPublishError(err?.message || "Fehler beim Veröffentlichen. Bitte erneut versuchen.");
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   if (isSuccess) {
@@ -48,7 +116,7 @@ export default function NewTenderWizard() {
         <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-navy-950 mb-6">Ihre Ausschreibung ist live!</h2>
         <p className="text-xl text-slate-500 max-w-lg mx-auto mb-12 leading-relaxed">Lehnen Sie sich zurück. Wir benachrichtigen Sie per E-Mail, sobald die ersten Angebote von unseren Händlern eintreffen.</p>
         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-          <Button variant="outline" className="rounded-xl border-slate-200 h-14 px-8 text-lg font-semibold text-slate-600 hover:text-navy-950 hover:bg-slate-50">Zur Übersicht</Button>
+          <Button variant="outline" className="rounded-xl border-slate-200 h-14 px-8 text-lg font-semibold text-slate-600 hover:text-navy-950 hover:bg-slate-50" onClick={() => router.push("/dashboard/ausschreibungen")}>Zur Übersicht</Button>
           <Button className="rounded-xl bg-navy-900 hover:bg-navy-950 text-white h-14 px-8 text-lg font-semibold shadow-lg shadow-navy-900/20" onClick={() => { setIsSuccess(false); setStep(0); }}>Weitere Ausschreibung anlegen</Button>
         </div>
       </div>
@@ -343,7 +411,7 @@ export default function NewTenderWizard() {
             
             <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100">
               <h3 className="text-xl font-bold text-navy-950 mb-6">Wie lange soll die Ausschreibung laufen?</h3>
-              <RadioGroup defaultValue="14" className="flex flex-col sm:flex-row gap-4">
+              <RadioGroup value={duration} onValueChange={setDuration} className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1 flex items-center p-4 bg-white border border-slate-200 rounded-2xl cursor-pointer hover:border-blue-300 hover:bg-blue-50/30 transition-all [&:has([data-state=checked])]:border-blue-500 [&:has([data-state=checked])]:bg-blue-50">
                   <RadioGroupItem value="7" id="p-7" className="scale-125 mr-4" />
                   <Label htmlFor="p-7" className="text-lg font-bold cursor-pointer w-full">7 Tage</Label>
@@ -361,12 +429,18 @@ export default function NewTenderWizard() {
                 </div>
               </RadioGroup>
             </div>
+
+            {publishError && (
+              <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 font-semibold text-sm">
+                {publishError}
+              </div>
+            )}
           </div>
         )}
       </div>
 
       <div className="flex justify-between items-center bg-white/80 backdrop-blur-xl p-4 sm:p-6 rounded-[2rem] border border-slate-200 shadow-xl sticky bottom-6 z-50">
-        <Button variant="ghost" onClick={prevStep} disabled={step === 0} className="rounded-xl text-slate-500 hover:text-navy-950 font-semibold text-base h-12 px-6">
+        <Button variant="ghost" onClick={prevStep} disabled={step === 0 || isPublishing} className="rounded-xl text-slate-500 hover:text-navy-950 font-semibold text-base h-12 px-6">
           <ChevronLeft className="mr-2" size={18} /> Zurück
         </Button>
         {step < STEPS.length - 1 ? (
@@ -374,8 +448,12 @@ export default function NewTenderWizard() {
             Weiter <ChevronRight className="ml-2 group-hover:translate-x-1 transition-transform" size={18} />
           </Button>
         ) : (
-          <Button onClick={handlePublish} className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white shadow-lg shadow-blue-500/30 h-14 px-10 text-lg font-bold transition-transform hover:scale-105 active:scale-95 group">
-            Jetzt veröffentlichen <CheckCircle2 className="ml-3 drop-shadow-sm" size={22} />
+          <Button onClick={handlePublish} disabled={isPublishing} className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white shadow-lg shadow-blue-500/30 h-14 px-10 text-lg font-bold transition-transform hover:scale-105 active:scale-95 group">
+            {isPublishing ? (
+              <><Loader2 className="animate-spin mr-2" size={20} /> Wird veröffentlicht...</>
+            ) : (
+              <>Jetzt veröffentlichen <CheckCircle2 className="ml-3 drop-shadow-sm" size={22} /></>
+            )}
           </Button>
         )}
       </div>
