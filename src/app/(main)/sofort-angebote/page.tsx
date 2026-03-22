@@ -102,9 +102,9 @@ export default function SofortAngebotePage() {
     <div className="bg-slate-50 min-h-screen">
       
       {/* Search Header / Filter Section */}
-      <div className="bg-navy-950 pt-16 pb-32 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-900/40 via-transparent to-transparent" />
+      <div className="relative bg-gradient-to-br from-navy-950 via-navy-900 to-blue-900 pt-16 pb-32 overflow-hidden">
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
         
         <div className="container mx-auto max-w-7xl px-4 md:px-8 relative z-10 text-center">
           <div className="inline-flex items-center gap-2 bg-blue-500/20 text-blue-300 px-4 py-1.5 rounded-full text-sm font-semibold mb-6 border border-blue-500/30">

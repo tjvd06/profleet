@@ -20,31 +20,37 @@ export default function DashboardOverviewPage() {
   return (
     <div className="bg-slate-50 min-h-[calc(100vh-80px)] pb-32">
       
-      {/* Dev Toggle Header (Mock) */}
-      <div className="bg-white border-b border-slate-200 py-3 sticky top-0 z-30 shadow-sm">
-        <div className="container mx-auto max-w-7xl px-4 md:px-8 flex justify-end items-center">
-          <div className="flex items-center gap-4 bg-slate-100 p-2 rounded-2xl border border-slate-200 text-sm">
-            <Badge variant="outline" className="bg-amber-100 text-amber-800 border-none uppercase tracking-widest font-black text-[10px] shadow-none hidden sm:inline-flex rounded-md px-2 py-0.5">DEV MODE</Badge>
-            <Label className={`cursor-pointer font-bold ${!isDealer ? 'text-blue-700' : 'text-slate-500'}`}>Nachfrager</Label>
-            <Switch checked={isDealer} onCheckedChange={setIsDealer} className="data-[state=checked]:bg-navy-900" />
-            <Label className={`cursor-pointer font-bold ${isDealer ? 'text-navy-900' : 'text-slate-500'}`}>Anbieter</Label>
+      {/* Combined Header Segment */}
+      <div className="relative bg-gradient-to-br from-navy-950 via-navy-900 to-blue-900 text-white pt-6 pb-12 shadow-sm overflow-hidden z-20">
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
+        
+        <div className="container mx-auto max-w-7xl px-4 md:px-8 relative z-10 flex flex-col gap-8">
+          {/* Dev Toggle Top */}
+          <div className="flex justify-end items-center">
+            <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/20 text-sm shadow-sm">
+              <Badge variant="outline" className="bg-amber-500/20 text-amber-300 border-none uppercase tracking-widest font-black text-[10px] shadow-none hidden sm:inline-flex rounded-md px-2 py-0.5">DEV MODE</Badge>
+              <Label className={`cursor-pointer font-bold ${!isDealer ? 'text-white' : 'text-blue-200/50'}`}>Nachfrager</Label>
+              <Switch checked={isDealer} onCheckedChange={setIsDealer} className="data-[state=checked]:bg-blue-500" />
+              <Label className={`cursor-pointer font-bold ${isDealer ? 'text-white' : 'text-blue-200/50'}`}>Anbieter</Label>
+            </div>
+          </div>
+
+          {/* Welcome Text */}
+          <div>
+            <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-3">
+              Willkommen zurück, {userName}! 👋
+            </h1>
+            <p className="text-lg text-blue-100/80 font-medium max-w-2xl">
+              {isDealer 
+                ? "Hier ist Ihr aktueller Überblick über den Marktplatz und eingehende Anfragen." 
+                : "Ihre Flottenbeschaffung auf einen Blick. So läuft es aktuell:"}
+            </p>
           </div>
         </div>
       </div>
 
       <div className="container mx-auto max-w-7xl px-4 md:px-8 mt-10 space-y-12">
-        
-        {/* Welcome Section */}
-        <div>
-          <h1 className="text-4xl md:text-5xl font-black text-navy-950 tracking-tight mb-3">
-            Willkommen zurück, {userName}! 👋
-          </h1>
-          <p className="text-lg text-slate-500 font-medium">
-            {isDealer 
-              ? "Hier ist Ihr aktueller Überblick über den Marktplatz und eingehende Anfragen." 
-              : "Ihre Flottenbeschaffung auf einen Blick. So läuft es aktuell:"}
-          </p>
-        </div>
 
         {/* =========================================
             BUYER VIEW

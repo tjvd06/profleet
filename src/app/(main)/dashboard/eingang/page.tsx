@@ -56,21 +56,23 @@ export default function InboxPage() {
   return (
     <div className="bg-slate-50 min-h-[calc(100vh-80px)] pb-24">
       {/* Header Segment */}
-      <div className="bg-white border-b border-slate-200 py-12 md:py-16">
-        <div className="container mx-auto max-w-7xl px-4 md:px-8">
+      <div className="relative bg-gradient-to-br from-navy-950 via-navy-900 to-blue-900 text-white py-12 md:py-16 overflow-hidden">
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
+        <div className="container mx-auto max-w-7xl px-4 md:px-8 relative z-10">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>
-              <h1 className="text-4xl md:text-5xl font-bold text-navy-950 tracking-tight mb-4">Eingang Ausschreibungen</h1>
-              <p className="text-lg text-slate-500 max-w-2xl leading-relaxed">Aktuell 34 neue Ausschreibungen in Ihrem Vertriebsgebiet, die auf Ihre eingestellten Filterkonditionen zutreffen.</p>
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Eingang Ausschreibungen</h1>
+              <p className="text-lg text-blue-100/80 max-w-2xl leading-relaxed">Aktuell 34 neue Ausschreibungen in Ihrem Vertriebsgebiet, die auf Ihre eingestellten Filterkonditionen zutreffen.</p>
             </div>
-            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex gap-4 mt-auto">
-              <div className="text-center px-4 border-r border-blue-200/50">
-                <div className="text-2xl font-black text-blue-700">34</div>
-                <div className="text-sm font-semibold text-blue-900/60 uppercase tracking-wider">Neu</div>
+            <div className="bg-white/10 border border-white/20 backdrop-blur-md rounded-2xl p-4 flex gap-4 mt-auto">
+              <div className="text-center px-4 border-r border-white/20">
+                <div className="text-2xl font-black text-cyan-300">34</div>
+                <div className="text-sm font-semibold text-blue-200/80 uppercase tracking-wider">Neu</div>
               </div>
               <div className="text-center px-4">
-                <div className="text-2xl font-black text-amber-500">2</div>
-                <div className="text-sm font-semibold text-amber-900/60 uppercase tracking-wider">Wunschhändler</div>
+                <div className="text-2xl font-black text-amber-400">2</div>
+                <div className="text-sm font-semibold text-amber-200/80 uppercase tracking-wider">Wunschhändler</div>
               </div>
             </div>
           </div>

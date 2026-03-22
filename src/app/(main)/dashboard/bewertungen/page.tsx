@@ -92,21 +92,23 @@ export default function AnalyticsPage() {
     <div className="bg-slate-50 min-h-[calc(100vh-80px)] pb-32">
       
       {/* Dev Toggle Header */}
-      <div className="bg-white border-b border-slate-200 py-6 sticky top-0 z-30 shadow-sm">
-        <div className="container mx-auto max-w-6xl px-4 md:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div className="relative bg-gradient-to-br from-navy-950 via-navy-900 to-blue-900 text-white py-8 sticky top-0 z-30 shadow-md overflow-hidden">
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
+        <div className="container mx-auto max-w-6xl px-4 md:px-8 flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">
           <div>
-            <h1 className="text-3xl font-black text-navy-950 flex items-center gap-3">
-              <BarChart3 size={28} className="text-blue-600" />
+            <h1 className="text-3xl font-black flex items-center gap-3">
+              <BarChart3 size={28} className="text-blue-400" />
               Bewertungen & Statistik
             </h1>
-            <p className="text-sm text-slate-500 font-medium mt-1">Ihr Profil-Stand und Plattform-Aktivitäten auf einen Blick.</p>
+            <p className="text-sm text-blue-100/80 font-medium mt-1">Ihr Profil-Stand und Plattform-Aktivitäten auf einen Blick.</p>
           </div>
           
-          <div className="flex items-center gap-4 bg-slate-100 p-2 rounded-2xl border border-slate-200">
-            <Badge variant="outline" className="bg-amber-100 text-amber-800 border-none uppercase tracking-widest font-black text-[10px] shadow-none hidden sm:inline-flex rounded-md px-2 py-0.5">DEV MODE</Badge>
-            <Label className={`cursor-pointer font-bold ${!isDealer ? 'text-blue-700' : 'text-slate-500'}`}>Nachfrager (Kunde)</Label>
-            <Switch checked={isDealer} onCheckedChange={setIsDealer} className="data-[state=checked]:bg-navy-900" />
-            <Label className={`cursor-pointer font-bold ${isDealer ? 'text-navy-900' : 'text-slate-500'}`}>Anbieter (Händler)</Label>
+          <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/20">
+            <Badge variant="outline" className="bg-amber-500/20 text-amber-300 border-none uppercase tracking-widest font-black text-[10px] shadow-none hidden sm:inline-flex rounded-md px-2 py-0.5">DEV MODE</Badge>
+            <Label className={`cursor-pointer font-bold ${!isDealer ? 'text-white' : 'text-blue-200/50'}`}>Nachfrager (Kunde)</Label>
+            <Switch checked={isDealer} onCheckedChange={setIsDealer} className="data-[state=checked]:bg-blue-500" />
+            <Label className={`cursor-pointer font-bold ${isDealer ? 'text-white' : 'text-blue-200/50'}`}>Anbieter (Händler)</Label>
           </div>
         </div>
       </div>

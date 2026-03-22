@@ -64,17 +64,19 @@ export default function ManageInstantOffersPage() {
   return (
     <div className="bg-slate-50 min-h-[calc(100vh-80px)] pb-24">
       {/* Header Segment */}
-      <div className="bg-white border-b border-slate-200 py-12">
-        <div className="container mx-auto max-w-7xl px-4 md:px-8">
+      <div className="relative bg-gradient-to-br from-navy-950 via-navy-900 to-blue-900 text-white py-12 overflow-hidden">
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
+        <div className="container mx-auto max-w-7xl px-4 md:px-8 relative z-10">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>
-              <h1 className="text-4xl font-bold text-navy-950 tracking-tight mb-4">Sofort-Angebote verwalten</h1>
-              <p className="text-lg text-slate-500 max-w-2xl leading-relaxed">
+              <h1 className="text-4xl font-bold tracking-tight mb-4">Sofort-Angebote verwalten</h1>
+              <p className="text-lg text-blue-100/80 max-w-2xl leading-relaxed">
                 Behalten Sie Ihre Live-Inserate im Blick, tracken Sie Performance und verwalten Sie eingehende Kundenanfragen (Leads).
               </p>
             </div>
             <Link href="/dashboard/sofort-angebote/neu">
-              <Button className="rounded-xl h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg shadow-md hover:shadow-lg transition-all">
+              <Button className="rounded-xl h-14 px-8 bg-blue-600 hover:bg-blue-500 text-white font-bold text-lg shadow-md hover:shadow-lg hover:shadow-blue-500/20 transition-all border border-blue-500/50">
                 <Plus size={20} className="mr-2" /> Neues Sofort-Angebot
               </Button>
             </Link>

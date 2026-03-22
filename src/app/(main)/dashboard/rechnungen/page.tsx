@@ -96,13 +96,15 @@ export default function InvoicesPage() {
     <div className="bg-slate-50 min-h-[calc(100vh-80px)] pb-32">
       
       {/* Header Segment */}
-      <div className="bg-white border-b border-slate-200 py-12">
-        <div className="container mx-auto max-w-5xl px-4 md:px-8">
-          <h1 className="text-4xl font-black text-navy-950 tracking-tight mb-4 flex items-center gap-3">
-            <FileText size={32} className="text-blue-600" />
+      <div className="relative bg-gradient-to-br from-navy-950 via-navy-900 to-blue-900 text-white py-12 overflow-hidden">
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
+        <div className="container mx-auto max-w-5xl px-4 md:px-8 relative z-10">
+          <h1 className="text-4xl font-black tracking-tight mb-4 flex items-center gap-3">
+            <FileText size={32} className="text-blue-400" />
             Rechnungen & Kosten
           </h1>
-          <p className="text-lg text-slate-500 font-medium max-w-2xl leading-relaxed">
+          <p className="text-lg text-blue-100/80 font-medium max-w-2xl leading-relaxed">
             Volle Transparenz über Ihre angefallenen Plattform-Gebühren, Kontaktaufdeckungen und Inseratskosten.
           </p>
         </div>
