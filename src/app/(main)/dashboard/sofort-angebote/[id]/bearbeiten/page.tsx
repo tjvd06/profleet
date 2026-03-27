@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  ChevronLeft, Plus, Minus, Loader2, PartyPopper, Camera,
+  ChevronLeft, Plus, Minus, Loader2, CheckCircle, Camera,
   MapPin, Euro, Clock, Truck,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
@@ -17,22 +17,30 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { VehicleConfigForm } from "@/components/wizard/VehicleConfigForm";
 import { ImageUpload, type ImageItem } from "@/components/ui-custom/ImageUpload";
 import type { VehicleConfig } from "@/types/vehicle";
-import { createEmptyVehicleConfig, buildEquipmentJson } from "@/types/vehicle";
+import { buildEquipmentJson, dbRowToVehicleConfig } from "@/types/vehicle";
+import { type InstantOfferRow, getImageUrl } from "@/lib/instant-offers";
 
 const RADIUS_OPTIONS = [25, 50, 75, 100, 150, 200];
 
-export default function CreateInstantOfferPage() {
+export default function EditInstantOfferPage() {
+  const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
   const supabase = createClient();
+  const offerId = params.id as string;
 
-  // Vehicle config (single vehicle)
-  const [vehicle, setVehicle] = useState<VehicleConfig>(createEmptyVehicleConfig());
+  // Loading existing data
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [existingOffer, setExistingOffer] = useState<InstantOfferRow | null>(null);
+
+  // Vehicle config
+  const [vehicle, setVehicle] = useState<VehicleConfig | null>(null);
 
   // Quantity
   const [quantity, setQuantity] = useState(1);
 
-  // Images
+  // Images — mix of existing (storagePath set) and new (file set)
   const [images, setImages] = useState<ImageItem[]>([]);
 
   // Delivery
@@ -66,8 +74,7 @@ export default function CreateInstantOfferPage() {
   const [duration, setDuration] = useState(14);
 
   // UI state
-  const [isPublishing, setIsPublishing] = useState(false);
-  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
@@ -76,50 +83,132 @@ export default function CreateInstantOfferPage() {
   const transfer = parseFloat(transferCost) || 0;
   const registration = parseFloat(registrationCost) || 0;
   const totalPrice = purchaseNet + transfer + registration;
-
-  const isValid = vehicle.brand !== null && vehicle.model !== null && purchaseNet > 0;
+  const isValid = vehicle?.brand != null && vehicle?.model != null && purchaseNet > 0;
 
   /* -------------------------------------------------------------- */
-  /* Upload images to Supabase Storage                               */
+  /* Fetch existing offer and populate form                          */
   /* -------------------------------------------------------------- */
-  const uploadImages = async (userId: string): Promise<string[]> => {
+  useEffect(() => {
+    if (!offerId) return;
+    (async () => {
+      const { data, error: fetchError } = await supabase
+        .from("instant_offers")
+        .select("*")
+        .eq("id", offerId)
+        .single();
+
+      if (fetchError || !data) {
+        setNotFound(true);
+        setInitialLoading(false);
+        return;
+      }
+
+      const offer = data as InstantOfferRow;
+      setExistingOffer(offer);
+
+      // Vehicle config from DB row
+      setVehicle(dbRowToVehicleConfig(offer as unknown as Record<string, unknown>));
+
+      // Quantity
+      setQuantity(offer.quantity);
+
+      // Existing images → ImageItem with storagePath
+      if (offer.images && offer.images.length > 0) {
+        setImages(
+          offer.images.map((path) => ({
+            id: crypto.randomUUID(),
+            preview: getImageUrl(path),
+            storagePath: path,
+          }))
+        );
+      }
+
+      // Delivery
+      setDeliveryPlz(offer.delivery_plz || "");
+      setDeliveryCity(offer.delivery_city || "");
+      setDeliveryRadius(offer.delivery_radius || 100);
+
+      // Pricing
+      setPurchasePriceNet(offer.purchase_price_net != null ? String(offer.purchase_price_net) : "");
+      setDiscountPercent(offer.discount_percent != null ? String(offer.discount_percent) : "");
+
+      // Leasing
+      setLeasingEnabled(offer.leasing_enabled);
+      setLeasingRate(offer.leasing_rate_net != null ? String(offer.leasing_rate_net) : "");
+      setLeasingDuration(offer.leasing_duration != null ? String(offer.leasing_duration) : "36");
+      setLeasingMileage(offer.leasing_mileage != null ? String(offer.leasing_mileage) : "15000");
+      setLeasingConditions(offer.leasing_conditions || "");
+
+      // Financing
+      setFinancingEnabled(offer.financing_enabled);
+      setFinancingRate(offer.financing_rate_net != null ? String(offer.financing_rate_net) : "");
+      setFinancingDuration(offer.financing_duration != null ? String(offer.financing_duration) : "48");
+      setFinancingDownpayment(offer.financing_downpayment != null ? String(offer.financing_downpayment) : "");
+      setFinancingConditions(offer.financing_conditions || "");
+
+      // Additional costs
+      setTransferCost(offer.transfer_cost != null ? String(offer.transfer_cost) : "");
+      setRegistrationCost(offer.registration_cost != null ? String(offer.registration_cost) : "");
+
+      // Duration
+      setDuration(offer.duration_days);
+
+      setInitialLoading(false);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offerId]);
+
+  /* -------------------------------------------------------------- */
+  /* Upload only NEW images, return all paths in order               */
+  /* -------------------------------------------------------------- */
+  const resolveImagePaths = async (userId: string): Promise<string[]> => {
     const paths: string[] = [];
     for (const img of images) {
-      if (!img.file) continue;
-      const ext = img.file.name.split(".").pop() || "jpg";
-      const path = `${userId}/${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage
-        .from("instant-offer-images")
-        .upload(path, img.file, { contentType: img.file.type });
-      if (error) throw new Error(`Bild-Upload fehlgeschlagen: ${error.message}`);
-      paths.push(path);
+      if (img.storagePath) {
+        // Existing image — keep its storage path
+        paths.push(img.storagePath);
+      } else if (img.file) {
+        // New image — upload to storage
+        const ext = img.file.name.split(".").pop() || "jpg";
+        const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("instant-offer-images")
+          .upload(path, img.file, { contentType: img.file.type });
+        if (uploadError) throw new Error(`Bild-Upload fehlgeschlagen: ${uploadError.message}`);
+        paths.push(path);
+      }
     }
     return paths;
   };
 
   /* -------------------------------------------------------------- */
-  /* Save offer (draft or publish)                                   */
+  /* Delete removed images from storage                              */
   /* -------------------------------------------------------------- */
-  const handleSave = async (publish: boolean) => {
-    if (!user) return;
-    if (publish && !isValid) return;
+  const deleteRemovedImages = async () => {
+    if (!existingOffer?.images) return;
+    const currentPaths = new Set(images.filter((i) => i.storagePath).map((i) => i.storagePath!));
+    const removedPaths = existingOffer.images.filter((p) => !currentPaths.has(p));
+    if (removedPaths.length > 0) {
+      await supabase.storage.from("instant-offer-images").remove(removedPaths);
+    }
+  };
 
-    const setLoading = publish ? setIsPublishing : setIsSavingDraft;
-    setLoading(true);
+  /* -------------------------------------------------------------- */
+  /* Save (UPDATE)                                                   */
+  /* -------------------------------------------------------------- */
+  const handleSave = async () => {
+    if (!user || !vehicle || !isValid) return;
+    setIsSaving(true);
     setError(null);
 
     try {
-      // Upload images
-      const imagePaths = images.length > 0 ? await uploadImages(user.id) : [];
+      // Upload new images & get all paths in order
+      const imagePaths = await resolveImagePaths(user.id);
 
-      const now = new Date();
-      const expiresAt = new Date(now);
-      expiresAt.setDate(expiresAt.getDate() + duration);
+      // Delete removed images from storage
+      await deleteRemovedImages();
 
       const payload = {
-        dealer_id: user.id,
-        status: publish ? "active" : "draft",
-
         // Vehicle
         vehicle_type: vehicle.vehicleType,
         brand: vehicle.brand,
@@ -173,29 +262,49 @@ export default function CreateInstantOfferPage() {
 
         // Duration
         duration_days: duration,
-        published_at: publish ? now.toISOString() : null,
-        expires_at: publish ? expiresAt.toISOString() : null,
       };
 
-      const { error: insertError } = await supabase
+      const { error: updateError } = await supabase
         .from("instant_offers")
-        .insert(payload);
+        .update(payload)
+        .eq("id", offerId);
 
-      if (insertError) throw insertError;
+      if (updateError) throw updateError;
 
-      if (publish) {
-        setIsSuccess(true);
-      } else {
-        router.push("/dashboard/sofort-angebote");
-      }
+      setIsSuccess(true);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Fehler beim Speichern. Bitte erneut versuchen.";
-      console.error("Save error:", err);
+      console.error("Update error:", err);
       setError(message);
     } finally {
-      setLoading(false);
+      setIsSaving(false);
     }
   };
+
+  /* -------------------------------------------------------------- */
+  /* Loading / Not Found                                             */
+  /* -------------------------------------------------------------- */
+  if (initialLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[60vh]">
+        <Loader2 className="animate-spin text-blue-600" size={40} />
+      </div>
+    );
+  }
+
+  if (notFound || !vehicle) {
+    return (
+      <div className="text-center py-24 max-w-4xl mx-auto px-4">
+        <h1 className="text-3xl font-bold text-navy-950 mb-4">Angebot nicht gefunden</h1>
+        <p className="text-slate-500 mb-8">Das Sofort-Angebot existiert nicht oder Sie haben keinen Zugriff.</p>
+        <Link href="/dashboard/sofort-angebote">
+          <Button className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 h-12">
+            Zurück zur Übersicht
+          </Button>
+        </Link>
+      </div>
+    );
+  }
 
   /* -------------------------------------------------------------- */
   /* Success Screen                                                  */
@@ -204,13 +313,13 @@ export default function CreateInstantOfferPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] text-center px-4 animate-in fade-in zoom-in duration-500">
         <div className="w-28 h-28 bg-gradient-to-tr from-green-400 to-green-500 text-white rounded-[2rem] shadow-xl flex items-center justify-center mb-10 rotate-12 hover:rotate-0 transition-transform duration-500">
-          <PartyPopper size={56} className="drop-shadow-md" />
+          <CheckCircle size={56} className="drop-shadow-md" />
         </div>
         <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-navy-950 mb-6">
-          Ihr Sofort-Angebot ist live!
+          Änderungen gespeichert!
         </h2>
         <p className="text-xl text-slate-500 max-w-lg mx-auto mb-12 leading-relaxed">
-          Ihr Angebot ist jetzt auf dem Marktplatz sichtbar. Interessenten können Sie direkt kontaktieren.
+          Ihr Sofort-Angebot wurde erfolgreich aktualisiert.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
           <Button
@@ -222,20 +331,9 @@ export default function CreateInstantOfferPage() {
           </Button>
           <Button
             className="rounded-xl bg-navy-900 hover:bg-navy-950 text-white h-14 px-8 text-lg font-semibold shadow-lg"
-            onClick={() => {
-              setIsSuccess(false);
-              setVehicle(createEmptyVehicleConfig());
-              setImages([]);
-              setQuantity(1);
-              setPurchasePriceNet("");
-              setDiscountPercent("");
-              setLeasingEnabled(false);
-              setFinancingEnabled(false);
-              setTransferCost("");
-              setRegistrationCost("");
-            }}
+            onClick={() => router.push(`/sofort-angebote/${offerId}`)}
           >
-            Weiteres Angebot erstellen
+            Angebot ansehen
           </Button>
         </div>
       </div>
@@ -256,16 +354,14 @@ export default function CreateInstantOfferPage() {
                 <ChevronLeft size={20} />
               </Button>
             </Link>
-            <h1 className="font-bold text-lg md:text-xl">Neues Sofort-Angebot erstellen</h1>
+            <h1 className="font-bold text-lg md:text-xl">Sofort-Angebot bearbeiten</h1>
           </div>
         </div>
       </div>
 
       <div className="container mx-auto max-w-4xl px-4 md:px-8 py-8 md:py-12 space-y-10">
 
-        {/* ============================================================ */}
-        {/* 1. Fahrzeug-Konfiguration                                    */}
-        {/* ============================================================ */}
+        {/* 1. Fahrzeug-Konfiguration */}
         <section className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm">
           <h2 className="text-xl font-bold text-navy-950 mb-6">1. Fahrzeug-Konfiguration</h2>
           <VehicleConfigForm
@@ -276,9 +372,7 @@ export default function CreateInstantOfferPage() {
           />
         </section>
 
-        {/* ============================================================ */}
-        {/* 2. Verfügbare Anzahl                                         */}
-        {/* ============================================================ */}
+        {/* 2. Verfügbare Anzahl */}
         <section className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm">
           <h2 className="text-xl font-bold text-navy-950 mb-6">2. Verfügbare Anzahl</h2>
           <div className="flex items-center gap-6">
@@ -303,9 +397,7 @@ export default function CreateInstantOfferPage() {
           </div>
         </section>
 
-        {/* ============================================================ */}
-        {/* 3. Fahrzeugbilder                                            */}
-        {/* ============================================================ */}
+        {/* 3. Fahrzeugbilder */}
         <section className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -316,9 +408,7 @@ export default function CreateInstantOfferPage() {
           <ImageUpload images={images} onChange={setImages} />
         </section>
 
-        {/* ============================================================ */}
-        {/* 4. Lieferung                                                 */}
-        {/* ============================================================ */}
+        {/* 4. Lieferung */}
         <section className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center">
@@ -360,9 +450,7 @@ export default function CreateInstantOfferPage() {
           </div>
         </section>
 
-        {/* ============================================================ */}
-        {/* 5. Preise & Konditionen                                      */}
-        {/* ============================================================ */}
+        {/* 5. Preise & Konditionen */}
         <section className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center">
@@ -522,9 +610,7 @@ export default function CreateInstantOfferPage() {
           </div>
         </section>
 
-        {/* ============================================================ */}
-        {/* 6. Zusatzkosten & Gesamtpreis                                */}
-        {/* ============================================================ */}
+        {/* 6. Zusatzkosten */}
         <section className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center">
@@ -564,9 +650,7 @@ export default function CreateInstantOfferPage() {
           )}
         </section>
 
-        {/* ============================================================ */}
-        {/* 7. Laufzeit                                                  */}
-        {/* ============================================================ */}
+        {/* 7. Sichtbarkeit */}
         <section className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-8 w-8 rounded-lg bg-cyan-100 flex items-center justify-center">
@@ -592,40 +676,31 @@ export default function CreateInstantOfferPage() {
           </div>
         </section>
 
-        {/* ============================================================ */}
-        {/* Error display                                                */}
-        {/* ============================================================ */}
+        {/* Error display */}
         {error && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 font-semibold text-sm">
             {error}
           </div>
         )}
 
-        {/* ============================================================ */}
-        {/* Sticky Action Buttons                                        */}
-        {/* ============================================================ */}
+        {/* Sticky Action Buttons */}
         <div className="bg-white/90 backdrop-blur-xl p-4 sm:p-6 rounded-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.05)] border border-slate-200 sticky bottom-6 z-50 flex flex-col sm:flex-row justify-between items-center gap-4">
           <Button
             variant="outline"
             className="w-full sm:w-auto rounded-xl hover:bg-slate-100 h-14 px-8 text-slate-600 font-semibold text-lg border-slate-300"
-            onClick={() => handleSave(false)}
-            disabled={isSavingDraft || isPublishing}
+            onClick={() => router.push("/dashboard/sofort-angebote")}
           >
-            {isSavingDraft ? (
-              <><Loader2 className="animate-spin mr-2" size={18} /> Wird gespeichert...</>
-            ) : (
-              "Als Entwurf speichern"
-            )}
+            Abbrechen
           </Button>
           <Button
             className="w-full sm:w-auto rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-90 text-white shadow-lg shadow-blue-500/20 px-10 h-14 text-lg font-bold transition-transform hover:scale-105 disabled:opacity-40"
-            onClick={() => handleSave(true)}
-            disabled={!isValid || isPublishing || isSavingDraft}
+            onClick={handleSave}
+            disabled={!isValid || isSaving}
           >
-            {isPublishing ? (
-              <><Loader2 className="animate-spin mr-2" size={18} /> Wird veröffentlicht...</>
+            {isSaving ? (
+              <><Loader2 className="animate-spin mr-2" size={18} /> Wird gespeichert...</>
             ) : (
-              "Veröffentlichen"
+              "Änderungen speichern"
             )}
           </Button>
         </div>

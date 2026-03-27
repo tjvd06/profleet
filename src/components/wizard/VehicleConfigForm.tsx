@@ -34,6 +34,9 @@ interface VehicleConfigFormProps {
   onSave: () => void;
   onCancel?: () => void;
   showCancel?: boolean;
+  /** "tender" (default) shows method selection + save/cancel buttons.
+   *  "instant-offer" hides method selection, upload mode, quantity stepper, and action buttons. */
+  mode?: "tender" | "instant-offer";
 }
 
 type SectionDef = {
@@ -68,6 +71,7 @@ export function VehicleConfigForm({
   onSave,
   onCancel,
   showCancel = false,
+  mode = "tender",
 }: VehicleConfigFormProps) {
   const [openSections, setOpenSections] = useState<Set<number>>(new Set([0]));
 
@@ -197,39 +201,41 @@ export function VehicleConfigForm({
 
   return (
     <div className="space-y-6">
-      {/* ---- Method Selection ---- */}
-      <div>
-        <h2 className="text-2xl font-bold text-navy-950 mb-6">Konfigurationsmethode wählen</h2>
-        <RadioGroup
-          value={vehicle.method}
-          onValueChange={(v) => update({ method: v as VehicleConfig["method"] })}
-          className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8"
-        >
-          {[
-            { id: "configurator", icon: Settings2, title: "Konfigurator", desc: "Schritt für Schritt konfigurieren" },
-            { id: "upload", icon: UploadCloud, title: "Datei hochladen", desc: "PDF, DOC, TXT hochladen" },
-          ].map((opt) => (
-            <div key={opt.id} className="relative">
-              <RadioGroupItem value={opt.id} id={`method-${vehicle.id}-${opt.id}`} className="peer sr-only" />
-              <Label
-                htmlFor={`method-${vehicle.id}-${opt.id}`}
-                className="flex flex-col items-center justify-center p-6 bg-white border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 hover:border-blue-300 peer-data-[state=checked]:border-2 peer-data-[state=checked]:border-blue-500 peer-data-[state=checked]:bg-blue-50 peer-data-[state=checked]:shadow-md transition-all text-center h-full group"
-              >
-                <div className="h-12 w-12 mb-3 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                  <opt.icon size={22} className="text-slate-500 group-hover:text-blue-500 transition-colors" />
-                </div>
-                <span className="font-bold text-navy-950 text-base block mb-1">{opt.title}</span>
-                <span className="text-xs font-normal text-slate-500">{opt.desc}</span>
-              </Label>
-            </div>
-          ))}
-        </RadioGroup>
-      </div>
+      {/* ---- Method Selection (tender mode only) ---- */}
+      {mode === "tender" && (
+        <div>
+          <h2 className="text-2xl font-bold text-navy-950 mb-6">Konfigurationsmethode wählen</h2>
+          <RadioGroup
+            value={vehicle.method}
+            onValueChange={(v) => update({ method: v as VehicleConfig["method"] })}
+            className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8"
+          >
+            {[
+              { id: "configurator", icon: Settings2, title: "Konfigurator", desc: "Schritt für Schritt konfigurieren" },
+              { id: "upload", icon: UploadCloud, title: "Datei hochladen", desc: "PDF, DOC, TXT hochladen" },
+            ].map((opt) => (
+              <div key={opt.id} className="relative">
+                <RadioGroupItem value={opt.id} id={`method-${vehicle.id}-${opt.id}`} className="peer sr-only" />
+                <Label
+                  htmlFor={`method-${vehicle.id}-${opt.id}`}
+                  className="flex flex-col items-center justify-center p-6 bg-white border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 hover:border-blue-300 peer-data-[state=checked]:border-2 peer-data-[state=checked]:border-blue-500 peer-data-[state=checked]:bg-blue-50 peer-data-[state=checked]:shadow-md transition-all text-center h-full group"
+                >
+                  <div className="h-12 w-12 mb-3 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                    <opt.icon size={22} className="text-slate-500 group-hover:text-blue-500 transition-colors" />
+                  </div>
+                  <span className="font-bold text-navy-950 text-base block mb-1">{opt.title}</span>
+                  <span className="text-xs font-normal text-slate-500">{opt.desc}</span>
+                </Label>
+              </div>
+            ))}
+          </RadioGroup>
+        </div>
+      )}
 
       {/* ================================================================ */}
       {/* CONFIGURATOR MODE                                                */}
       {/* ================================================================ */}
-      {vehicle.method === "configurator" && (
+      {(vehicle.method === "configurator" || mode === "instant-offer") && (
         <div className="space-y-3">
           {/* ---- Section 0: Fahrzeug (Pflicht) ---- */}
           <div className="border border-slate-200 rounded-2xl overflow-hidden">
@@ -258,29 +264,31 @@ export function VehicleConfigForm({
                   {sel("Marke *", vehicle.brand, brands, (v) => update({ brand: v, model: null }), { loading: loadingBrands })}
                   {sel("Modell *", vehicle.model, models, (v) => update({ model: v }), { disabled: !vehicle.brand, loading: loadingModels })}
                 </div>
-                {/* Quantity Stepper */}
-                <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                  <div>
-                    <Label className="text-sm font-bold text-navy-950 block">Stückzahl</Label>
-                    <p className="text-xs text-slate-500">Wie viele Fahrzeuge dieser Konfiguration?</p>
+                {/* Quantity Stepper (tender mode only — instant-offer has its own stepper) */}
+                {mode === "tender" && (
+                  <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                    <div>
+                      <Label className="text-sm font-bold text-navy-950 block">Stückzahl</Label>
+                      <p className="text-xs text-slate-500">Wie viele Fahrzeuge dieser Konfiguration?</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => update({ quantity: Math.max(1, vehicle.quantity - 1) })} disabled={vehicle.quantity <= 1} className="h-9 w-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 transition-colors disabled:opacity-40">
+                        <Minus size={14} />
+                      </button>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="99"
+                        value={vehicle.quantity}
+                        onChange={(e) => update({ quantity: Math.max(1, Math.min(99, parseInt(e.target.value) || 1)) })}
+                        className="w-14 text-center font-bold text-base rounded-lg h-9 bg-white border-slate-200 focus-visible:ring-blue-500"
+                      />
+                      <button onClick={() => update({ quantity: Math.min(99, vehicle.quantity + 1) })} className="h-9 w-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 transition-colors">
+                        <Plus size={14} />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => update({ quantity: Math.max(1, vehicle.quantity - 1) })} disabled={vehicle.quantity <= 1} className="h-9 w-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 transition-colors disabled:opacity-40">
-                      <Minus size={14} />
-                    </button>
-                    <Input
-                      type="number"
-                      min="1"
-                      max="99"
-                      value={vehicle.quantity}
-                      onChange={(e) => update({ quantity: Math.max(1, Math.min(99, parseInt(e.target.value) || 1)) })}
-                      className="w-14 text-center font-bold text-base rounded-lg h-9 bg-white border-slate-200 focus-visible:ring-blue-500"
-                    />
-                    <button onClick={() => update({ quantity: Math.min(99, vehicle.quantity + 1) })} className="h-9 w-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 transition-colors">
-                      <Plus size={14} />
-                    </button>
-                  </div>
-                </div>
+                )}
               </div>
             )}
           </div>
@@ -525,9 +533,9 @@ export function VehicleConfigForm({
       )}
 
       {/* ================================================================ */}
-      {/* UPLOAD MODE                                                      */}
+      {/* UPLOAD MODE (tender mode only)                                   */}
       {/* ================================================================ */}
-      {vehicle.method === "upload" && (
+      {mode === "tender" && vehicle.method === "upload" && (
         <div className="space-y-6">
           {/* Section 1 fields for upload */}
           <div className="border border-slate-200 rounded-2xl p-6 space-y-4">
@@ -597,21 +605,23 @@ export function VehicleConfigForm({
         </div>
       )}
 
-      {/* ---- Save / Cancel ---- */}
-      <div className="flex justify-end gap-3 pt-2">
-        {showCancel && onCancel && (
-          <Button variant="ghost" onClick={onCancel} className="rounded-xl text-slate-500 h-11 px-6">
-            <X size={16} className="mr-2" /> Abbrechen
+      {/* ---- Save / Cancel (tender mode only) ---- */}
+      {mode === "tender" && (
+        <div className="flex justify-end gap-3 pt-2">
+          {showCancel && onCancel && (
+            <Button variant="ghost" onClick={onCancel} className="rounded-xl text-slate-500 h-11 px-6">
+              <X size={16} className="mr-2" /> Abbrechen
+            </Button>
+          )}
+          <Button
+            onClick={onSave}
+            disabled={!isValid}
+            className="rounded-xl bg-blue-500 hover:bg-blue-600 text-white h-11 px-8 font-semibold shadow-sm disabled:opacity-40"
+          >
+            <Check size={16} className="mr-2" /> Fahrzeug übernehmen
           </Button>
-        )}
-        <Button
-          onClick={onSave}
-          disabled={!isValid}
-          className="rounded-xl bg-blue-500 hover:bg-blue-600 text-white h-11 px-8 font-semibold shadow-sm disabled:opacity-40"
-        >
-          <Check size={16} className="mr-2" /> Fahrzeug übernehmen
-        </Button>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -14,7 +14,21 @@
       "Bash(ls -la /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/ausschreibung/)",
       "Bash(ls -la /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/ausschreibung/[id\\\\\\)/)",
       "Bash(ls -la \"/c/Projekte/profleet/src/app/\\(main\\)/dashboard/ausschreibung/[id]/\")",
-      "Bash(ls c:/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/ausschreibung/)"
+      "Bash(ls c:/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/ausschreibung/)",
+      "Bash(npm install:*)",
+      "Bash(cat \"/c/Projekte/profleet/src/app/\\(main\\)/dashboard/eingang/page.tsx\")",
+      "Bash(cat \"/c/Projekte/profleet/src/app/\\(main\\)/dashboard/ausschreibungen/page.tsx\")",
+      "Bash(wc -l \"/c/Projekte/profleet/src/app/\\(main\\)/dashboard/ausschreibungen/page.tsx\")",
+      "Bash(head -200 \"/c/Projekte/profleet/src/app/\\(main\\)/dashboard/ausschreibungen/page.tsx\")",
+      "Bash(tail -300 \"/c/Projekte/profleet/src/app/\\(main\\)/dashboard/ausschreibungen/page.tsx\")",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(head -200 \"/c/Projekte/profleet/src/app/\\(main\\)/ausschreibungen/page.tsx\")",
+      "Bash(find /c/Projekte/profleet -name schema.sql -o -name *.sql -path */supabase/*)",
+      "Bash(npx next:*)",
+      "Bash(ls -la /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/)",
+      "Bash(ls -la /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/sofort-angebote/)",
+      "Bash(ls -la /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/sofort-angebote/)",
+      "Bash(ls \"c:/Projekte/profleet/src/app/\\(main\\)/dashboard/sofort-angebote/\")"
     ]
   }
 }

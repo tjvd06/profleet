@@ -17,17 +17,15 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/components/providers/auth-provider";
 import { StatusTracker } from "@/components/chat/StatusTracker";
+import { VehicleDetailSections } from "@/components/tenders/VehicleDetailSections";
+import { dbRowToVehicleConfig } from "@/types/vehicle";
 import { toast } from "sonner";
 import Link from "next/link";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type TenderVehicle = {
-  id: string;
-  brand: string | null;
-  model_name: string | null;
-  list_price_gross: number | null;
-  quantity: number;
-};
+// Broad type – Supabase returns all tender_vehicles columns including equipment JSONB
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TenderVehicle = Record<string, any>;
 
 type Offer = {
   id: string;
@@ -494,7 +492,11 @@ export default function MyTendersPage() {
   };
 
   const renderActiveCard = (tender: Tender) => {
-    const vehicle = tender.tender_vehicles?.[0];
+    const vehicles = tender.tender_vehicles || [];
+    const vehicle = vehicles[0];
+    const vehicleConfigs = vehicles.map((v: Record<string, unknown>) => dbRowToVehicleConfig(v));
+    const totalQty = vehicles.reduce((s: number, v: TenderVehicle) => s + (v.quantity || 1), 0);
+    const isMulti = vehicleConfigs.length > 1;
     const bestPrice = tender.offers.length > 0
       ? Math.min(...tender.offers.filter(o => o.purchase_price).map(o => o.purchase_price!))
       : null;
@@ -530,12 +532,22 @@ export default function MyTendersPage() {
                     </Badge>
                   )}
                 </div>
-                <h3 className="text-2xl font-bold text-navy-950">{vehicle?.brand || "Fahrzeug"} {vehicle?.model_name || ""}</h3>
+                <h3 className="text-2xl font-bold text-navy-950">
+                  {isMulti
+                    ? `${vehicleConfigs.length} Konfigurationen · ${totalQty} Fahrzeuge`
+                    : `${vehicle?.brand || "Fahrzeug"} ${vehicle?.model_name || ""}`}
+                </h3>
                 <p className="text-sm text-slate-500 font-medium mt-1">
-                  Erstellt: {createdAgo(tender.created_at)} · Menge: <span className="text-navy-900 font-bold">{vehicle?.quantity ?? 1}x</span>
-                  {vehicle?.list_price_gross && <> · Listenpreis: <span className="text-navy-900 font-bold">{vehicle.list_price_gross.toLocaleString("de-DE")} €</span></>}
+                  Erstellt: {createdAgo(tender.created_at)}
+                  {!isMulti && <> · Menge: <span className="text-navy-900 font-bold">{vehicle?.quantity ?? 1}x</span></>}
+                  {!isMulti && vehicle?.list_price_gross && <> · Listenpreis: <span className="text-navy-900 font-bold">{vehicle.list_price_gross.toLocaleString("de-DE")} €</span></>}
                   {bestPrice && <> · Bester Preis: <span className="text-green-600 font-bold">{bestPrice.toLocaleString("de-DE")} €</span>{savings && <span className="text-green-600 font-bold"> (-{savings}%)</span>}</>}
                 </p>
+                {isMulti && (
+                  <p className="text-xs text-slate-400 mt-1">
+                    {vehicleConfigs.map((c: any) => `${c.quantity}x ${c.brand || "—"} ${c.model || ""}`).join(" · ")}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -556,6 +568,40 @@ export default function MyTendersPage() {
 
         {expandedTender === tender.id && (
           <div className="bg-white p-6 md:p-8 animate-in slide-in-from-top-4 duration-300">
+            {/* Per-vehicle detail cards – same as DealerTenderCard */}
+            <div className="space-y-4 mb-8">
+              {vehicleConfigs.map((config: any, i: number) => {
+                const raw = vehicles[i];
+                return (
+                  <div key={config.id || i} className="bg-slate-50 border border-slate-200 rounded-2xl p-5 relative overflow-hidden">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-bold text-navy-950 text-base">
+                        {isMulti && <span className="text-blue-600 mr-1">Fahrzeug {i + 1}:</span>}
+                        {config.brand || "—"} {config.model || ""} {raw?.trim_level || ""}
+                        <span className="text-slate-500 font-normal ml-2">· {config.quantity} Stück</span>
+                      </h3>
+                      {config.listPriceGross != null && (
+                        <span className="text-sm font-bold text-navy-900 bg-white px-3 py-1 rounded-lg border border-slate-200 shrink-0">
+                          ca. {config.listPriceGross.toLocaleString("de-DE")} € brutto
+                        </span>
+                      )}
+                    </div>
+                    <VehicleDetailSections vehicle={config} />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Summary row for multi-vehicle */}
+            {isMulti && (
+              <div className="flex items-center justify-between bg-navy-950 text-white px-5 py-3 rounded-xl mb-8 text-sm">
+                <span className="font-bold">Gesamt: {totalQty} Fahrzeug{totalQty !== 1 ? "e" : ""}</span>
+                <span className="font-bold text-amber-400">
+                  ca. {vehicles.reduce((s: number, v: TenderVehicle) => s + ((v.list_price_gross || 0) * (v.quantity || 1)), 0).toLocaleString("de-DE")} € brutto
+                </span>
+              </div>
+            )}
+
             {renderOffersTable(tender)}
           </div>
         )}
@@ -702,24 +748,81 @@ export default function MyTendersPage() {
                     description="Abgeschlossene oder zurückgezogene Ausschreibungen erscheinen hier."
                   />
                 ) : completedTenders.map(tender => {
-                  const vehicle = tender.tender_vehicles?.[0];
+                  const vehicles = tender.tender_vehicles || [];
+                  const vehicle = vehicles[0];
+                  const vehicleConfigs = vehicles.map((v: Record<string, unknown>) => dbRowToVehicleConfig(v));
+                  const totalQty = vehicles.reduce((s: number, v: TenderVehicle) => s + (v.quantity || 1), 0);
+                  const isMulti = vehicleConfigs.length > 1;
                   return (
-                    <Card key={tender.id} className="border-slate-200 shadow-sm rounded-3xl overflow-hidden p-6 md:p-8">
-                      <div className="flex justify-between items-start gap-4">
-                        <div>
-                          <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <Badge variant="outline" className="font-mono text-slate-500 bg-slate-50 text-xs">{tender.id.split("-")[0].toUpperCase()}</Badge>
-                            <Badge className={tender.status === "cancelled" ? "bg-red-100 text-red-700 border-none" : "bg-green-100 text-green-700 border-none"}>
-                              {tender.status === "cancelled" ? "Zurückgezogen" : "Abgeschlossen"}
-                            </Badge>
+                    <Card key={tender.id} className="border-slate-200 shadow-sm rounded-3xl overflow-hidden">
+                      <div
+                        className={`p-6 md:p-8 cursor-pointer transition-colors ${expandedTender === tender.id ? "bg-slate-50 border-b border-slate-200" : "bg-white hover:bg-slate-50/50"}`}
+                        onClick={() => setExpandedTender(expandedTender === tender.id ? null : tender.id)}
+                      >
+                        <div className="flex justify-between items-start gap-4">
+                          <div>
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <Badge variant="outline" className="font-mono text-slate-500 bg-slate-50 text-xs">{tender.id.split("-")[0].toUpperCase()}</Badge>
+                              <Badge className={tender.status === "cancelled" ? "bg-red-100 text-red-700 border-none" : "bg-green-100 text-green-700 border-none"}>
+                                {tender.status === "cancelled" ? "Zurückgezogen" : "Abgeschlossen"}
+                              </Badge>
+                            </div>
+                            <h3 className="text-2xl font-bold text-navy-950 mb-1">
+                              {isMulti
+                                ? `${vehicleConfigs.length} Konfigurationen · ${totalQty} Fahrzeuge`
+                                : `${vehicle?.brand || "—"} ${vehicle?.model_name || ""}`}
+                            </h3>
+                            <p className="text-sm font-medium text-slate-500">
+                              {tender.status === "cancelled" ? "Zurückgezogen" : "Abgeschlossen"} am: {formatDate(tender.end_at)}
+                            </p>
+                            {isMulti && (
+                              <p className="text-xs text-slate-400 mt-1">
+                                {vehicleConfigs.map((c: any) => `${c.quantity}x ${c.brand || "—"} ${c.model || ""}`).join(" · ")}
+                              </p>
+                            )}
                           </div>
-                          <h3 className="text-2xl font-bold text-navy-950 mb-1">{vehicle?.brand || "—"} {vehicle?.model_name || ""}</h3>
-                          <p className="text-sm font-medium text-slate-500">
-                            {tender.status === "cancelled" ? "Zurückgezogen" : "Abgeschlossen"} am: {formatDate(tender.end_at)}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <TenderMenu tender={tender} />
+                            <Button variant="ghost" size="icon" className="rounded-full bg-white border border-slate-200 shadow-sm text-slate-400 hover:text-navy-900 h-10 w-10 shrink-0">
+                              {expandedTender === tender.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                            </Button>
+                          </div>
                         </div>
-                        <TenderMenu tender={tender} />
                       </div>
+                      {expandedTender === tender.id && (
+                        <div className="bg-white p-6 md:p-8 animate-in slide-in-from-top-4 duration-300">
+                          <div className="space-y-4">
+                            {vehicleConfigs.map((config: any, i: number) => {
+                              const raw = vehicles[i];
+                              return (
+                                <div key={config.id || i} className="bg-slate-50 border border-slate-200 rounded-2xl p-5 relative overflow-hidden">
+                                  <div className="flex items-center justify-between mb-3">
+                                    <h3 className="font-bold text-navy-950 text-base">
+                                      {isMulti && <span className="text-blue-600 mr-1">Fahrzeug {i + 1}:</span>}
+                                      {config.brand || "—"} {config.model || ""} {raw?.trim_level || ""}
+                                      <span className="text-slate-500 font-normal ml-2">· {config.quantity} Stück</span>
+                                    </h3>
+                                    {config.listPriceGross != null && (
+                                      <span className="text-sm font-bold text-navy-900 bg-white px-3 py-1 rounded-lg border border-slate-200 shrink-0">
+                                        ca. {config.listPriceGross.toLocaleString("de-DE")} € brutto
+                                      </span>
+                                    )}
+                                  </div>
+                                  <VehicleDetailSections vehicle={config} />
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {isMulti && (
+                            <div className="flex items-center justify-between bg-navy-950 text-white px-5 py-3 rounded-xl mt-4 text-sm">
+                              <span className="font-bold">Gesamt: {totalQty} Fahrzeug{totalQty !== 1 ? "e" : ""}</span>
+                              <span className="font-bold text-amber-400">
+                                ca. {vehicles.reduce((s: number, v: TenderVehicle) => s + ((v.list_price_gross || 0) * (v.quantity || 1)), 0).toLocaleString("de-DE")} € brutto
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </Card>
                   );
                 })}
@@ -734,34 +837,87 @@ export default function MyTendersPage() {
                     description="Wenn Sie einen Wizard zwischenspeichern, erscheint er hier."
                   />
                 ) : (
-                  <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-6">
                     {draftTenders.map(draft => {
-                      const vehicle = draft.tender_vehicles?.[0];
+                      const vehicles = draft.tender_vehicles || [];
+                      const vehicle = vehicles[0];
+                      const vehicleConfigs = vehicles.map((v: Record<string, unknown>) => dbRowToVehicleConfig(v));
+                      const totalQty = vehicles.reduce((s: number, v: TenderVehicle) => s + (v.quantity || 1), 0);
+                      const isMulti = vehicleConfigs.length > 1;
                       return (
-                        <Card key={draft.id} className="border-slate-200 shadow-sm rounded-3xl p-6 md:p-8 flex flex-col justify-between">
-                          <div className="mb-8">
+                        <Card key={draft.id} className="border-slate-200 shadow-sm rounded-3xl overflow-hidden">
+                          <div
+                            className={`p-6 md:p-8 cursor-pointer transition-colors ${expandedTender === draft.id ? "bg-slate-50 border-b border-slate-200" : "bg-white hover:bg-slate-50/50"}`}
+                            onClick={() => setExpandedTender(expandedTender === draft.id ? null : draft.id)}
+                          >
                             <div className="flex justify-between items-start mb-4">
                               <Badge variant="outline" className="font-mono text-slate-500 bg-slate-50 text-xs">{draft.id.split("-")[0].toUpperCase()}</Badge>
                               <div className="flex items-center gap-2">
                                 <Badge className="bg-amber-100 text-amber-700 border-none">Entwurf</Badge>
                                 <TenderMenu tender={draft} />
+                                <Button variant="ghost" size="icon" className="rounded-full bg-white border border-slate-200 shadow-sm text-slate-400 hover:text-navy-900 h-10 w-10 shrink-0">
+                                  {expandedTender === draft.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                                </Button>
                               </div>
                             </div>
-                            <h3 className="text-2xl font-bold text-navy-950 mb-2">{vehicle?.brand || "—"} {vehicle?.model_name || ""}</h3>
+                            <h3 className="text-2xl font-bold text-navy-950 mb-2">
+                              {isMulti
+                                ? `${vehicleConfigs.length} Konfigurationen · ${totalQty} Fahrzeuge`
+                                : `${vehicle?.brand || "—"} ${vehicle?.model_name || ""}`}
+                            </h3>
                             <p className="text-sm font-medium text-slate-500">Zuletzt gespeichert: {createdAgo(draft.created_at)}</p>
+                            {isMulti && (
+                              <p className="text-xs text-slate-400 mt-1">
+                                {vehicleConfigs.map((c: any) => `${c.quantity}x ${c.brand || "—"} ${c.model || ""}`).join(" · ")}
+                              </p>
+                            )}
+                            <div className="flex flex-wrap gap-3 mt-6">
+                              <Button
+                                variant="outline"
+                                className="rounded-xl shadow-sm text-slate-600 hover:text-navy-900 border-slate-300"
+                                onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/ausschreibung/${draft.id}/bearbeiten`); }}
+                              >
+                                <Pencil size={16} className="mr-2" /> Bearbeiten
+                              </Button>
+                              <Button className="rounded-xl shadow-md bg-blue-600 hover:bg-blue-700 text-white font-bold" onClick={(e) => e.stopPropagation()}>
+                                <Globe size={16} className="mr-2" /> Veröffentlichen
+                              </Button>
+                            </div>
                           </div>
-                          <div className="flex flex-wrap gap-3 mt-auto">
-                            <Button
-                              variant="outline"
-                              className="rounded-xl shadow-sm text-slate-600 hover:text-navy-900 border-slate-300"
-                              onClick={() => router.push(`/dashboard/ausschreibung/${draft.id}/bearbeiten`)}
-                            >
-                              <Pencil size={16} className="mr-2" /> Bearbeiten
-                            </Button>
-                            <Button className="rounded-xl shadow-md bg-blue-600 hover:bg-blue-700 text-white font-bold">
-                              <Globe size={16} className="mr-2" /> Veröffentlichen
-                            </Button>
-                          </div>
+                          {expandedTender === draft.id && (
+                            <div className="bg-white p-6 md:p-8 animate-in slide-in-from-top-4 duration-300">
+                              <div className="space-y-4">
+                                {vehicleConfigs.map((config: any, i: number) => {
+                                  const raw = vehicles[i];
+                                  return (
+                                    <div key={config.id || i} className="bg-slate-50 border border-slate-200 rounded-2xl p-5 relative overflow-hidden">
+                                      <div className="flex items-center justify-between mb-3">
+                                        <h3 className="font-bold text-navy-950 text-base">
+                                          {isMulti && <span className="text-blue-600 mr-1">Fahrzeug {i + 1}:</span>}
+                                          {config.brand || "—"} {config.model || ""} {raw?.trim_level || ""}
+                                          <span className="text-slate-500 font-normal ml-2">· {config.quantity} Stück</span>
+                                        </h3>
+                                        {config.listPriceGross != null && (
+                                          <span className="text-sm font-bold text-navy-900 bg-white px-3 py-1 rounded-lg border border-slate-200 shrink-0">
+                                            ca. {config.listPriceGross.toLocaleString("de-DE")} € brutto
+                                          </span>
+                                        )}
+                                      </div>
+                                      <VehicleDetailSections vehicle={config} />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              {isMulti && (
+                                <div className="flex items-center justify-between bg-navy-950 text-white px-5 py-3 rounded-xl mt-4 text-sm">
+                                  <span className="font-bold">Gesamt: {totalQty} Fahrzeug{totalQty !== 1 ? "e" : ""}</span>
+                                  <span className="font-bold text-amber-400">
+                                    ca. {vehicles.reduce((s: number, v: TenderVehicle) => s + ((v.list_price_gross || 0) * (v.quantity || 1)), 0).toLocaleString("de-DE")} € brutto
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </Card>
                       );
                     })}
