@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import {
   Settings2, UploadCloud, Check, X, Minus, Plus, ChevronDown,
   Car, Cog, Gauge, Weight, Leaf, Paintbrush, Sparkles, Sofa, Star, Euro,
+  FileText, Trash2,
 } from "lucide-react";
 import { useVehicleModels, useVehicleModelsByBrand } from "@/hooks/useVehicleModels";
 import type { VehicleConfig } from "@/types/vehicle";
@@ -88,7 +89,8 @@ export function VehicleConfigForm({
 
   const update = (partial: Partial<VehicleConfig>) => onChange({ ...vehicle, ...partial });
 
-  const isValid = vehicle.brand !== null && vehicle.model !== null;
+  const isValid = vehicle.brand !== null && vehicle.model !== null
+    && (vehicle.method !== "upload" || !!vehicle.uploadFile || !!vehicle.configFilePath);
 
   /* ---------- small reusable renderers ---------- */
 
@@ -590,18 +592,75 @@ export function VehicleConfigForm({
           </div>
 
           {/* Upload Zone */}
-          <div className="border-2 border-dashed border-slate-300 bg-slate-50/50 rounded-2xl p-10 flex flex-col items-center justify-center text-slate-500 hover:bg-slate-50 hover:border-blue-300 transition-colors cursor-pointer group">
-            <div className="h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center mb-4 group-hover:bg-blue-100 transition-colors">
-              <UploadCloud size={28} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
+          {vehicle.uploadFile ? (
+            <div className="border border-slate-200 bg-white rounded-2xl p-5 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="h-12 w-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                  <FileText size={22} className="text-blue-600" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-bold text-navy-950 text-sm truncate">{vehicle.uploadFile.name}</p>
+                  <p className="text-xs text-slate-500">{(vehicle.uploadFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => update({ uploadFile: null })}
+                className="h-9 w-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-red-500 hover:bg-red-50 hover:border-red-200 transition-colors shrink-0"
+              >
+                <Trash2 size={16} />
+              </button>
             </div>
-            <h4 className="text-base font-bold text-navy-900 mb-1">Konfiguration hochladen</h4>
-            <p className="text-slate-500 text-sm mb-4 max-w-xs text-center">
-              Ziehen Sie Ihre PDF, DOC oder TXT Datei in diesen Bereich oder klicken Sie hier.
-            </p>
-            <Button variant="outline" className="rounded-full border-blue-200 text-blue-600 hover:bg-blue-50">
-              Datei auswählen
-            </Button>
-          </div>
+          ) : (
+            <div
+              className="border-2 border-dashed border-slate-300 bg-slate-50/50 rounded-2xl p-10 flex flex-col items-center justify-center text-slate-500 hover:bg-slate-50 hover:border-blue-300 transition-colors cursor-pointer group relative"
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const file = e.dataTransfer.files?.[0];
+                if (!file) return;
+                const ALLOWED = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain"];
+                const MAX_SIZE = 10 * 1024 * 1024;
+                if (!ALLOWED.includes(file.type)) {
+                  alert("Nur PDF, DOC, DOCX oder TXT Dateien sind erlaubt.");
+                  return;
+                }
+                if (file.size > MAX_SIZE) {
+                  alert("Die Datei darf maximal 10 MB groß sein.");
+                  return;
+                }
+                update({ uploadFile: file });
+              }}
+              onClick={() => {
+                const input = document.createElement("input");
+                input.type = "file";
+                input.accept = ".pdf,.doc,.docx,.txt";
+                input.onchange = () => {
+                  const file = input.files?.[0];
+                  if (!file) return;
+                  const MAX_SIZE = 10 * 1024 * 1024;
+                  if (file.size > MAX_SIZE) {
+                    alert("Die Datei darf maximal 10 MB groß sein.");
+                    return;
+                  }
+                  update({ uploadFile: file });
+                };
+                input.click();
+              }}
+            >
+              <div className="h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center mb-4 group-hover:bg-blue-100 transition-colors">
+                <UploadCloud size={28} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
+              </div>
+              <h4 className="text-base font-bold text-navy-900 mb-1">Konfiguration hochladen</h4>
+              <p className="text-slate-500 text-sm mb-4 max-w-xs text-center">
+                Ziehen Sie Ihre PDF, DOC, DOCX oder TXT Datei in diesen Bereich oder klicken Sie hier. Max. 10 MB.
+              </p>
+              <Button variant="outline" className="rounded-full border-blue-200 text-blue-600 hover:bg-blue-50" onClick={(e) => e.stopPropagation()}>
+                Datei auswählen
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

@@ -20,6 +20,7 @@ export function InstantOfferCard({
   initialBookmarked = false,
   userId,
   onDelete,
+  onBookmarkToggle,
 }: {
   offer: InstantOfferRow;
   viewMode?: ViewMode;
@@ -27,6 +28,7 @@ export function InstantOfferCard({
   initialBookmarked?: boolean;
   userId?: string | null;
   onDelete?: (id: string) => void;
+  onBookmarkToggle?: () => void;
 }) {
   const [bookmarked, setBookmarked] = useState(initialBookmarked);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -46,6 +48,12 @@ export function InstantOfferCard({
 
     const newState = !bookmarked;
     setBookmarked(newState);
+
+    // If an in-memory toggle handler is provided, use it instead of Supabase
+    if (onBookmarkToggle) {
+      onBookmarkToggle();
+      return;
+    }
 
     if (newState) {
       await supabase.from("bookmarks").insert({ user_id: userId, instant_offer_id: offer.id });
@@ -96,7 +104,7 @@ export function InstantOfferCard({
           {viewMode === "seller" && isOwnOffer && (
             <div className="absolute top-4 right-4">
               <Badge className="bg-blue-600 text-white border-none shadow-sm px-2.5 py-1 text-xs font-bold flex items-center gap-1.5">
-                <Pencil size={11} /> Mein Inserat
+                <Pencil size={11} /> Ihr Angebot
               </Badge>
             </div>
           )}
@@ -164,7 +172,7 @@ export function InstantOfferCard({
             {/* Buyer CTA */}
             {viewMode === "buyer" && (
               <Button className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm mb-3 shadow-sm">
-                <Phone size={14} className="mr-2" /> Kontakt aufnehmen
+                <Phone size={14} className="mr-2" /> Anfrage senden
               </Button>
             )}
 

@@ -160,9 +160,12 @@ function CollapsibleSection({ section, defaultOpen }: { section: Section; defaul
 export function VehicleDetailSections({
   vehicle,
   defaultOpenAll,
+  viewerRole,
 }: {
   vehicle: VehicleConfig;
   defaultOpenAll?: boolean;
+  /** "nachfrager" hides the dealer-facing upload hint box */
+  viewerRole?: "nachfrager" | "haendler";
 }) {
   const sections = buildSections(vehicle);
 
@@ -173,13 +176,15 @@ export function VehicleDetailSections({
         {sections.filter((s) => s.key === "fahrzeug").map((s) => (
           <CollapsibleSection key={s.key} section={s} defaultOpen={true} />
         ))}
-        <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
-          <FileDown size={20} className="text-amber-600 shrink-0" />
-          <div>
-            <p className="font-semibold text-amber-800 text-sm">Detaillierte Konfiguration als Datei hochgeladen</p>
-            <p className="text-amber-600 text-xs mt-0.5">Die Konfigurationsdatei wurde vom Nachfrager bereitgestellt.</p>
+        {viewerRole !== "nachfrager" && (
+          <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+            <FileDown size={20} className="text-amber-600 shrink-0" />
+            <div>
+              <p className="font-semibold text-amber-800 text-sm">Detaillierte Konfiguration als Datei hochgeladen</p>
+              <p className="text-amber-600 text-xs mt-0.5">Die Konfigurationsdatei wurde vom Nachfrager bereitgestellt.</p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }

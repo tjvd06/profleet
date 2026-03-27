@@ -27,7 +27,7 @@ export default function HomePage() {
             Neuwagen einkaufen wie die Großen.
           </h1>
           <p className="text-xl text-slate-300 mb-10 max-w-2xl leading-relaxed">
-            Die Ausschreibungsplattform für Unternehmen. Konfigurieren Sie Ihr Wunschauto, erhalten Sie Top-Angebote von Händlern aus ganz Deutschland — kostenlos und anonym.
+            Die Ausschreibungsplattform für Unternehmen. Konfigurieren Sie Ihr Wunschauto, erhalten Sie Top-Angebote von Händlern aus ganz Deutschland — kostenlos und transparent.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 mb-16">
             <Button size="lg" className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-400 hover:opacity-90 text-white font-semibold px-8 h-14 text-lg">
@@ -64,13 +64,13 @@ export default function HomePage() {
         <div className="container mx-auto max-w-7xl px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-bold text-navy-950 mb-4">In 3 Schritten zum Bestpreis</h2>
-            <p className="text-lg text-slate-500 max-w-2xl mx-auto">Einfach, anonym und unverbindlich. So beschaffen clevere Flottenmanager heute Fahrzeuge.</p>
+            <p className="text-lg text-slate-500 max-w-2xl mx-auto">Einfach, transparent und unverbindlich. So beschaffen clevere Flottenmanager heute Fahrzeuge.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
               { step: 1, title: 'Fahrzeug konfigurieren', desc: 'Wählen Sie Marke, Modell und Ausstattung — oder laden Sie eine fertige Konfiguration hoch.' },
-              { step: 2, title: 'Angebote erhalten', desc: 'Händler aus ganz Deutschland bieten auf Ihre Ausschreibung. Sie bleiben anonym.' },
+              { step: 2, title: 'Angebote erhalten', desc: 'Händler aus ganz Deutschland bieten auf Ihre Ausschreibung. Alle Daten sind sofort sichtbar.' },
               { step: 3, title: 'Bestes Angebot wählen', desc: 'Vergleichen Sie Preise, Leasing- und Finanzierungsraten. Kontaktieren Sie Ihren Wunschhändler.' }
             ].map((item) => (
               <div key={item.step} className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 relative group hover:shadow-md transition-shadow">
@@ -166,7 +166,7 @@ export default function HomePage() {
               <div className="flex gap-1 mb-6 text-amber-500">
                 <Star className="fill-current" /> <Star className="fill-current" /> <Star className="fill-current" /> <Star className="fill-current" /> <Star className="fill-current" />
               </div>
-              <p className="text-xl font-medium text-navy-900 mb-8 italic">"Der Prozess ist sensationell einfach. Die Anonymität zu Beginn der Ausschreibung gibt uns das Gefühl, wirklich objektive Preise angeboten zu bekommen."</p>
+              <p className="text-xl font-medium text-navy-900 mb-8 italic">"Der Prozess ist sensationell einfach. Die vollständige Transparenz gibt uns das Gefühl, wirklich fundierte Entscheidungen treffen zu können."</p>
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-cyan-100 rounded-full flex items-center justify-center text-cyan-700 font-bold">JW</div>
                 <div>
@@ -192,9 +192,9 @@ export default function HomePage() {
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-2">
-              <AccordionTrigger className="text-lg font-semibold text-navy-900">Bleibe ich während der Ausschreibung anonym?</AccordionTrigger>
+              <AccordionTrigger className="text-lg font-semibold text-navy-900">Wer sieht meine Daten?</AccordionTrigger>
               <AccordionContent className="text-slate-600">
-                Ja, 100%. Händler sehen nur die Fahrzeugdetails und Ihre Postleitzahl. Erst wenn Sie sich aktiv dazu entscheiden, einem Händler Ihre Kontaktdaten freizugeben (durch den Klick auf "Kontakt aufnehmen"), wird Ihre Identität für diesen einen Händler sichtbar.
+                Auf proFleet setzen wir auf vollständige Transparenz. Eingeloggte Händler sehen Ihr Firmenprofil, Ihren Namen und Ihre Kontaktdaten direkt bei der Ausschreibung. Ebenso sehen Sie alle Daten der Händler, die Angebote abgeben. So können beide Seiten fundierte Entscheidungen treffen.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-3">

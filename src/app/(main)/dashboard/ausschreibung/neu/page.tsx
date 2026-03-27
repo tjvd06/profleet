@@ -148,8 +148,35 @@ export default function NewTenderWizard() {
         financing: sharedData.types.financing ? { requested: true } : null,
       }));
 
-      const { error: vehicleError } = await supabase.from("tender_vehicles").insert(vehiclePayloads);
+      const { data: insertedVehicles, error: vehicleError } = await supabase
+        .from("tender_vehicles")
+        .insert(vehiclePayloads)
+        .select("id");
       if (vehicleError) throw vehicleError;
+
+      // Upload config files for vehicles with method="upload"
+      if (insertedVehicles) {
+        for (let i = 0; i < vehicles.length; i++) {
+          const v = vehicles[i];
+          if (v.method === "upload" && v.uploadFile) {
+            const vehicleId = insertedVehicles[i]?.id;
+            if (!vehicleId) continue;
+            const ext = v.uploadFile.name.split(".").pop() || "pdf";
+            const safeName = v.uploadFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+            const storagePath = `${user.id}/${vehicleId}/${safeName}`;
+            const { error: uploadError } = await supabase.storage
+              .from("tender-config-files")
+              .upload(storagePath, v.uploadFile, { contentType: v.uploadFile.type });
+            if (uploadError) throw new Error(`Datei-Upload fehlgeschlagen: ${uploadError.message}`);
+            // Save the storage path to the tender_vehicle row
+            const { error: updateError } = await supabase
+              .from("tender_vehicles")
+              .update({ config_file_path: storagePath })
+              .eq("id", vehicleId);
+            if (updateError) throw updateError;
+          }
+        }
+      }
 
       setIsSuccess(true);
     } catch (err: unknown) {

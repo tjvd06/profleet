@@ -8,7 +8,7 @@ const NACHFRAGER_BLOCKED: string[] = [
   "/dashboard/eingang",
   "/dashboard/angebote",
   "/dashboard/sofort-angebote/neu",
-  "/dashboard/rechnungen",
+  "/dashboard/abo",
 ];
 
 // Paths that Anbieter cannot access (prefix-matched)

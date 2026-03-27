@@ -26,6 +26,22 @@ type TenderVehicle = {
   body_type: string | null;
   color: string | null;
   equipment: any;
+  config_file_path: string | null;
+};
+
+type BuyerProfile = {
+  id: string;
+  company_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  industry: string | null;
+  zip: string | null;
+  city: string | null;
+  street: string | null;
+  phone: string | null;
+  email_public: string | null;
+  subscription_tier: string | null;
+  created_at: string | null;
 };
 
 type Tender = {
@@ -39,6 +55,7 @@ type Tender = {
   tender_scope: string;
   created_at: string;
   tender_vehicles: TenderVehicle[];
+  buyer: BuyerProfile | null;
 };
 
 function timeLeft(endAt: string | null): string {
@@ -79,10 +96,24 @@ function mapTenderToCardProps(
     if (v.financing?.requested && !seen.has("Finanzierung")) { requestedTypes.push("Finanzierung"); seen.add("Finanzierung"); }
   });
 
+  const buyer = tender.buyer;
+  const buyerName = buyer
+    ? ([buyer.first_name, buyer.last_name].filter(Boolean).join(" ") || "—")
+    : "—";
+  const buyerCompany = buyer?.company_name || "Unternehmen";
+
   return {
     id: tender.id,
     timeLeft: timeLeft(tender.end_at),
-    buyerType: "Unternehmen",
+    buyerType: buyerCompany,
+    buyerName,
+    buyerProfession: buyer?.industry || null,
+    buyerCity: buyer?.city || null,
+    buyerPlz: buyer?.zip || null,
+    buyerStreet: buyer?.street || null,
+    buyerEmail: buyer?.email_public || null,
+    buyerPhone: buyer?.phone || null,
+    buyerMemberSince: buyer?.created_at || null,
     location: tender.delivery_plz
       ? `${tender.delivery_city || "Unbekannt"} (${tender.delivery_plz})`
       : tender.tender_scope === "bundesweit" ? "Bundesweit" : "Lokal",
@@ -157,7 +188,23 @@ export default function InboxPage() {
           console.error("[Eingang] Supabase error:", err.message);
           setError(err.message);
         } else if (data) {
-          setTenders(data as Tender[]);
+          // Load buyer profiles separately (no FK relation in schema)
+          const buyerIds = Array.from(new Set((data as Tender[]).map((t) => t.buyer_id).filter(Boolean)));
+          let buyerMap: Record<string, BuyerProfile> = {};
+          if (buyerIds.length > 0) {
+            const { data: profiles } = await supabase
+              .from("profiles")
+              .select("id, company_name, first_name, last_name, industry, zip, city, street, phone, email_public, subscription_tier, created_at")
+              .in("id", buyerIds);
+            if (profiles) {
+              profiles.forEach((p: any) => { buyerMap[p.id] = p; });
+            }
+          }
+          const tendersWithBuyer = (data as Tender[]).map((t) => ({
+            ...t,
+            buyer: buyerMap[t.buyer_id] || null,
+          }));
+          setTenders(tendersWithBuyer);
           const answered = new Set<string>();
           const myOfferMap: Record<string, { purchasePriceNet: number; totalPrice: number }> = {};
           if (offersData) {

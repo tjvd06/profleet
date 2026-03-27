@@ -1,12 +1,14 @@
 "use client";
 
 import { useAuth } from "@/components/providers/auth-provider";
+import { useSubscription } from "@/components/providers/subscription-provider";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Sparkles, Inbox, PiggyBank, Star, Handshake,
   CarFront, FileText, ChevronRight, Activity, Bell, AlertTriangle,
-  MessageCircle, TrendingUp, Trophy, ArrowRight, Loader2, InboxIcon
+  MessageCircle, TrendingUp, Trophy, ArrowRight, Loader2, InboxIcon,
+  Crown, Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -14,6 +16,10 @@ import { createClient } from "@/lib/supabase";
 
 export default function DashboardOverviewPage() {
   const { user, profile, isLoading: authLoading } = useAuth();
+  const {
+    tier, subscriptionSince, monthlyOfferCount, activeInstantOfferCount,
+    getOfferLimit, getInstantOfferLimit, isLoading: subLoading,
+  } = useSubscription();
 
   const isDealer = profile?.role === "anbieter";
   const userName = isDealer ? (profile?.company_name || "Händler") : (profile?.first_name || "User");
@@ -226,7 +232,89 @@ export default function DashboardOverviewPage() {
            ========================================= */}
         {isDealer && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-12">
-            
+
+            {/* Subscription Card + Usage */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+              {/* Current Abo */}
+              <Card className="p-6 rounded-3xl border-2 border-emerald-200 shadow-sm bg-white relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                  <Crown size={80} />
+                </div>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    tier === "premium" ? "bg-amber-100 text-amber-600" :
+                    tier === "pro" ? "bg-blue-100 text-blue-600" :
+                    "bg-slate-100 text-slate-500"
+                  }`}>
+                    {tier === "premium" ? <Crown size={20} /> : tier === "pro" ? <Zap size={20} /> : <Star size={20} />}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-black text-navy-950 capitalize">{tier}-Abo</span>
+                      {tier === "pro" && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-500">Pro</span>}
+                      {tier === "premium" && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600">Premium</span>}
+                    </div>
+                    {subscriptionSince && (
+                      <p className="text-xs text-slate-400">seit {new Date(subscriptionSince).toLocaleDateString("de-DE", { day: "2-digit", month: "short", year: "numeric" })}</p>
+                    )}
+                  </div>
+                </div>
+                <Link href="/dashboard/abo" className="inline-flex items-center text-sm font-bold text-blue-600 hover:text-blue-700 gap-1 mt-2">
+                  Abo verwalten <ArrowRight size={14} />
+                </Link>
+              </Card>
+
+              {/* Offers this month */}
+              <Card className="p-6 rounded-3xl border-slate-200 shadow-sm bg-white">
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Angebote diesen Monat</div>
+                {(() => {
+                  const limit = getOfferLimit();
+                  return (
+                    <>
+                      <div className="text-3xl font-black text-navy-950 mb-2">
+                        {subLoading ? <Loader2 size={20} className="animate-spin text-slate-300" /> : (
+                          limit !== null ? `${monthlyOfferCount}/${limit}` : <>{monthlyOfferCount} <span className="text-sm font-bold text-slate-400">Unbegrenzt</span></>
+                        )}
+                      </div>
+                      {limit !== null && !subLoading && (
+                        <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${monthlyOfferCount >= limit ? "bg-red-500" : "bg-blue-500"}`}
+                            style={{ width: `${Math.min((monthlyOfferCount / limit) * 100, 100)}%` }}
+                          />
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </Card>
+
+              {/* Active instant offers */}
+              <Card className="p-6 rounded-3xl border-slate-200 shadow-sm bg-white">
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Sofort-Angebote aktiv</div>
+                {(() => {
+                  const limit = getInstantOfferLimit();
+                  return (
+                    <>
+                      <div className="text-3xl font-black text-navy-950 mb-2">
+                        {subLoading ? <Loader2 size={20} className="animate-spin text-slate-300" /> : (
+                          limit !== null ? `${activeInstantOfferCount}/${limit}` : <>{activeInstantOfferCount} <span className="text-sm font-bold text-slate-400">Unbegrenzt</span></>
+                        )}
+                      </div>
+                      {limit !== null && !subLoading && (
+                        <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${activeInstantOfferCount >= limit ? "bg-red-500" : "bg-emerald-500"}`}
+                            style={{ width: `${Math.min((activeInstantOfferCount / limit) * 100, 100)}%` }}
+                          />
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </Card>
+            </div>
+
             {/* 4 Metric Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
               <Card className="p-6 rounded-3xl border-slate-200 shadow-sm bg-white hover:border-blue-300 transition-colors group">
@@ -270,7 +358,7 @@ export default function DashboardOverviewPage() {
                   <div className="w-12 h-12 rounded-2xl bg-yellow-50 text-yellow-500 flex items-center justify-center group-hover:bg-yellow-500 group-hover:text-white transition-colors">
                     <Star size={24} />
                   </div>
-                  <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">Dealer Rating</div>
+                  <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">Bewertung</div>
                 </div>
                 <div className="text-4xl font-black text-navy-950">
                   {statsLoading ? <Loader2 size={24} className="animate-spin text-slate-300" /> : `${dealerStats.dealerRating}%`}

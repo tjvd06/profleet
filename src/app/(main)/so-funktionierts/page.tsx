@@ -28,8 +28,8 @@ const buyerSteps = [
   },
   {
     icon: <Handshake size={32} className="text-blue-600" />,
-    title: "4. Kontakt aufnehmen",
-    description: "Wählen Sie das attraktivste Angebot aus und decken Sie die Händlerdaten auf. Erst ab hier entstehen Verbindlichkeiten."
+    title: "4. Anfrage senden",
+    description: "Wählen Sie das attraktivste Angebot aus und senden Sie eine Anfrage. Alle Händlerdaten sind bereits sichtbar, sodass Sie fundiert entscheiden können."
   },
   {
     icon: <Star size={32} className="text-blue-600" />,
@@ -47,7 +47,7 @@ const dealerSteps = [
   {
     icon: <FileText size={32} className="text-navy-900" />,
     title: "2. Angebot erstellen",
-    description: "Mit unserem digitalen Wizard kalkulieren Sie in Sekunden Ihr Gegenangebot. Ihr Angebot tritt anonym im Ranking gegen Wettbewerber an."
+    description: "Mit unserem digitalen Wizard kalkulieren Sie in Sekunden Ihr Gegenangebot. Ihr Angebot tritt im Ranking gegen Wettbewerber an."
   },
   {
     icon: <MessageCircle size={32} className="text-navy-900" />,
@@ -151,7 +151,7 @@ export default function HowItWorksPage() {
                     </li>
                     <li className="flex gap-3 items-start font-medium">
                       <CheckCircle2 className="text-emerald-400 shrink-0 mt-1" size={20} />
-                      Ausschreibungen sind anonym, bis Sie sich aktiv für ein Angebot entscheiden.
+                      Alle Händlerdaten sind von Anfang an sichtbar — vollständige Transparenz für fundierte Entscheidungen.
                     </li>
                     <li className="flex gap-3 items-start font-medium">
                       <CheckCircle2 className="text-emerald-400 shrink-0 mt-1" size={20} />

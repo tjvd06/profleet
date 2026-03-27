@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useSubscription } from "@/components/providers/subscription-provider";
 import { VehicleConfigForm } from "@/components/wizard/VehicleConfigForm";
 import { ImageUpload, type ImageItem } from "@/components/ui-custom/ImageUpload";
 import type { VehicleConfig } from "@/types/vehicle";
@@ -24,6 +25,7 @@ const RADIUS_OPTIONS = [25, 50, 75, 100, 150, 200];
 export default function CreateInstantOfferPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { canCreateInstantOffer, activeInstantOfferCount, getInstantOfferLimit, isLoading: subLoading } = useSubscription();
   const supabase = createClient();
 
   // Vehicle config (single vehicle)
@@ -196,6 +198,41 @@ export default function CreateInstantOfferPage() {
       setLoading(false);
     }
   };
+
+  /* -------------------------------------------------------------- */
+  /* Subscription Limit Check                                        */
+  /* -------------------------------------------------------------- */
+  if (!subLoading && !canCreateInstantOffer()) {
+    const limit = getInstantOfferLimit();
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-navy-950/80 via-blue-900/60 to-navy-950/80 backdrop-blur-sm">
+        <div className="bg-white/90 backdrop-blur-xl border border-slate-200 rounded-3xl p-8 md:p-12 max-w-lg mx-4 shadow-2xl text-center">
+          <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <span className="text-3xl">&#9888;&#65039;</span>
+          </div>
+          <h2 className="text-2xl font-black text-navy-950 mb-3">Sofort-Angebot-Limit erreicht</h2>
+          <p className="text-slate-500 font-medium mb-8 leading-relaxed">
+            Sie haben bereits {activeInstantOfferCount} von {limit} gleichzeitig aktiven Sofort-Angeboten.
+            {limit === 1
+              ? " Upgraden Sie auf Pro fuer bis zu 10 gleichzeitige Sofort-Angebote."
+              : " Upgraden Sie auf Premium fuer unbegrenzte Sofort-Angebote."}
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link href="/dashboard/abo">
+              <Button className="h-12 px-8 rounded-xl font-bold text-white shadow-lg" style={{ background: "linear-gradient(135deg, #3B82F6, #22D3EE)" }}>
+                {limit === 1 ? "Auf Pro upgraden" : "Auf Premium upgraden"}
+              </Button>
+            </Link>
+            <Link href="/dashboard/sofort-angebote">
+              <Button variant="ghost" className="h-12 px-8 rounded-xl font-bold text-slate-500">
+                Zurueck
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   /* -------------------------------------------------------------- */
   /* Success Screen                                                  */

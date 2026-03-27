@@ -11,16 +11,17 @@ import {
 import {
   Clock, ChevronDown, ChevronUp, CheckCircle2, FileEdit, Loader2, Plus,
   MoreHorizontal, Pencil, Trash2, AlertTriangle, Globe, XCircle, Building2,
-  MessageCircle, ShieldAlert, Phone,
+  MessageCircle, ShieldAlert, Phone, Mail, MapPin, Send,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/components/providers/auth-provider";
-import { StatusTracker } from "@/components/chat/StatusTracker";
 import { VehicleDetailSections } from "@/components/tenders/VehicleDetailSections";
+import { ConfigFileDownload } from "@/components/tenders/ConfigFileDownload";
 import { dbRowToVehicleConfig } from "@/types/vehicle";
 import { toast } from "sonner";
 import Link from "next/link";
+import { SubscriptionBadge } from "@/components/ui-custom/SubscriptionBadge";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 // Broad type – Supabase returns all tender_vehicles columns including equipment JSONB
@@ -30,9 +31,36 @@ type TenderVehicle = Record<string, any>;
 type Offer = {
   id: string;
   dealer_id: string;
+  tender_vehicle_id: string | null;
   total_price: number | null;
   purchase_price: number | null;
   lease_rate: number | null;
+  transfer_cost: number | null;
+  registration_cost: number | null;
+  offered_quantity: number | null;
+  delivery_plz: string | null;
+  delivery_city: string | null;
+  delivery_date: string | null;
+  deviation_type: string | null;
+  deviation_details: { description?: string } | null;
+  offer_details: {
+    exactMatch?: boolean;
+    dayRegistration?: boolean;
+    dayRegistrationDate?: string | null;
+    dayRegistrationKm?: string | null;
+    listPriceNetConfirm?: number | null;
+    hasFleetContract?: boolean;
+    fleetContractDiscount?: number | null;
+    hasSpecialAgreement?: boolean;
+    specialAgreementDiscount?: number | null;
+    leasingDuration?: string;
+    leasingKmYear?: string;
+    leasingDownPayment?: string;
+    financingRate?: number | null;
+    financingDuration?: string;
+    financingDownPayment?: string;
+    financingResidual?: string;
+  } | null;
   created_at: string;
 };
 
@@ -53,8 +81,14 @@ type DealerProfile = {
   company_name: string | null;
   first_name: string | null;
   last_name: string | null;
-  phone: string | null;
+  dealer_type: string | null;
+  zip: string | null;
   city: string | null;
+  street: string | null;
+  phone: string | null;
+  email_public: string | null;
+  subscription_tier: string | null;
+  created_at: string | null;
 };
 
 type Tender = {
@@ -181,7 +215,7 @@ export default function MyTendersPage() {
           Promise.race([
             supabase
               .from("tenders")
-              .select("*, tender_vehicles(*), offers(id, dealer_id, total_price, purchase_price, lease_rate, created_at)")
+              .select("*, tender_vehicles(*), offers(*)")
               .eq("buyer_id", user.id)
               .order("created_at", { ascending: false }),
             new Promise<never>((_, reject) =>
@@ -204,13 +238,16 @@ export default function MyTendersPage() {
           const loadedContacts = (contactsData || []) as Contact[];
           setContacts(loadedContacts);
 
-          // Load dealer profiles for all contacted dealers
-          const dealerIds = Array.from(new Set(loadedContacts.map((c) => c.dealer_id)));
-          if (dealerIds.length > 0) {
+          // Load dealer profiles for ALL dealers who submitted offers (full transparency)
+          const allDealerIds = Array.from(new Set([
+            ...loadedContacts.map((c) => c.dealer_id),
+            ...(data as Tender[]).flatMap((t) => t.offers.map((o) => o.dealer_id)),
+          ]));
+          if (allDealerIds.length > 0) {
             const { data: profiles } = await supabase
               .from("profiles")
-              .select("id, company_name, first_name, last_name, phone, city")
-              .in("id", dealerIds);
+              .select("id, company_name, first_name, last_name, dealer_type, zip, city, street, phone, email_public, subscription_tier, created_at")
+              .in("id", allDealerIds);
             if (profiles) {
               const map: Record<string, DealerProfile> = {};
               profiles.forEach((p: DealerProfile) => { map[p.id] = p; });
@@ -259,7 +296,7 @@ export default function MyTendersPage() {
       // Load dealer profile
       const { data: prof } = await supabase
         .from("profiles")
-        .select("id, company_name, first_name, last_name, phone, city")
+        .select("id, company_name, first_name, last_name, dealer_type, zip, city, street, phone, email_public, subscription_tier, created_at")
         .eq("id", offer.dealer_id)
         .single();
       if (prof) {
@@ -362,97 +399,204 @@ export default function MyTendersPage() {
       );
     }
 
-    // Assign stable anonymous IDs based on submission order
-    const bySubmission = [...tender.offers].sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
-    const anonId = new Map(bySubmission.map((o, i) => [o.id, i + 1]));
-
     // Display sorted by purchase_price ascending (best first)
     const sorted = [...tender.offers].sort((a, b) => (a.purchase_price ?? Infinity) - (b.purchase_price ?? Infinity));
+
+    const tenderContacts = contacts.filter(c => c.tender_id === tender.id);
 
     return (
       <div className="space-y-4">
         {sorted.map((offer, i) => {
           const contact = getContactForOffer(offer.id);
-          const dealerProfile = contact ? dealerProfiles[contact.dealer_id] : null;
-          const anonNum = anonId.get(offer.id) ?? 0;
-          const isRevealed = !!contact;
+          const dealerProfile = dealerProfiles[offer.dealer_id] || null;
+          const hasContact = !!contact;
+          const d = offer.offer_details;
 
           return (
             <div key={offer.id} className={`border rounded-2xl overflow-hidden ${i === 0 ? "border-green-200 bg-green-50/30" : "border-slate-200 bg-white"}`}>
               {/* Offer header row */}
               <div className="px-6 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${
-                    isRevealed ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"
-                  }`}>
-                    {isRevealed ? (dealerProfile?.company_name?.[0] || "H") : `#${anonNum}`}
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 bg-blue-100 text-blue-700">
+                    {(dealerProfile?.company_name?.[0] || "H")}
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-navy-950">
-                        {isRevealed
-                          ? dealerProfile?.company_name || "Händler"
-                          : `Anbieter #${anonNum}`
-                        }
+                        {dealerProfile?.company_name || "Händler"}
                       </span>
+                      {dealerProfile && <SubscriptionBadge tier={dealerProfile.subscription_tier} />}
+                      {dealerProfile?.dealer_type && (
+                        <Badge variant="outline" className="text-xs border-slate-200 text-slate-500">{dealerProfile.dealer_type}</Badge>
+                      )}
                       {i === 0 && <Badge className="bg-green-100 text-green-700 border-none text-xs">Bester Preis</Badge>}
-                      {isRevealed && (
-                        <Badge className="bg-blue-50 text-blue-600 border border-blue-200 text-xs">Kontakt aktiv</Badge>
+                      {hasContact && (
+                        <Badge className="bg-blue-50 text-blue-600 border border-blue-200 text-xs">Anfrage gesendet</Badge>
                       )}
                     </div>
-                    {isRevealed && dealerProfile && (
-                      <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
+                    {dealerProfile && (
+                      <div className="flex items-center gap-4 mt-1 text-xs text-slate-500 flex-wrap">
                         {dealerProfile.first_name && (
                           <span>{dealerProfile.first_name} {dealerProfile.last_name}</span>
                         )}
-                        {dealerProfile.phone && (
-                          <span className="flex items-center gap-1"><Phone size={10} /> {dealerProfile.phone}</span>
+                        {(dealerProfile.zip || dealerProfile.city) && (
+                          <span className="flex items-center gap-1"><MapPin size={10} /> {dealerProfile.zip || ""} {dealerProfile.city || ""}</span>
                         )}
-                        {dealerProfile.city && (
-                          <span>{dealerProfile.city}</span>
+                        {dealerProfile.email_public && (
+                          <a href={`mailto:${dealerProfile.email_public}`} className="flex items-center gap-1 text-blue-600 hover:text-blue-700"><Mail size={10} /> {dealerProfile.email_public}</a>
+                        )}
+                        {dealerProfile.phone && (
+                          <a href={`tel:${dealerProfile.phone}`} className="flex items-center gap-1 text-blue-600 hover:text-blue-700"><Phone size={10} /> {dealerProfile.phone}</a>
                         )}
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-6 text-sm">
-                  <div className="text-right">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase">Kaufpreis</div>
+                <div className="text-right shrink-0">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase">Eingegangen</div>
+                  <div className="text-slate-500 text-xs">{formatDate(offer.created_at)}</div>
+                </div>
+              </div>
+
+              {/* Full offer details */}
+              <div className="px-6 py-5 border-t border-slate-100">
+                {/* Price grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                  <div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase">Kaufpreis netto</div>
                     <div className="font-bold text-navy-950 text-lg">
                       {offer.purchase_price ? `${offer.purchase_price.toLocaleString("de-DE")} €` : "—"}
                     </div>
                   </div>
-                  {offer.lease_rate && (
-                    <div className="text-right">
-                      <div className="text-[10px] font-bold text-slate-400 uppercase">Leasing</div>
-                      <div className="font-semibold text-slate-700">{offer.lease_rate.toLocaleString("de-DE")} €</div>
+                  <div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase">Überführung netto</div>
+                    <div className="font-semibold text-navy-950">
+                      {offer.transfer_cost ? `${offer.transfer_cost.toLocaleString("de-DE")} €` : "—"}
                     </div>
-                  )}
-                  <div className="text-right">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase">Gesamt</div>
-                    <div className="font-bold text-navy-950">
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase">Zulassung netto</div>
+                    <div className="font-semibold text-navy-950">
+                      {offer.registration_cost ? `${offer.registration_cost.toLocaleString("de-DE")} €` : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase">Gesamtpreis netto</div>
+                    <div className="font-black text-blue-700 text-lg">
                       {offer.total_price ? `${offer.total_price.toLocaleString("de-DE")} €` : "—"}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase">Datum</div>
-                    <div className="text-slate-500 text-xs">{formatDate(offer.created_at)}</div>
-                  </div>
                 </div>
+
+                {/* Quantity + delivery */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                  {offer.offered_quantity != null && (
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase">Angebotene Stückzahl</div>
+                      <div className="font-semibold text-navy-950">{offer.offered_quantity}</div>
+                    </div>
+                  )}
+                  {(offer.delivery_plz || offer.delivery_city) && (
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase">Lieferort</div>
+                      <div className="font-semibold text-navy-950">{offer.delivery_plz || ""} {offer.delivery_city || ""}</div>
+                    </div>
+                  )}
+                  {offer.delivery_date && (
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase">Frühester Liefertermin</div>
+                      <div className="font-semibold text-navy-950">{formatDate(offer.delivery_date)}</div>
+                    </div>
+                  )}
+                  {d?.listPriceNetConfirm != null && (
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase">Listenpreis netto bestätigt</div>
+                      <div className="font-semibold text-navy-950">{d.listPriceNetConfirm.toLocaleString("de-DE")} €</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Leasing / Financing */}
+                {(offer.lease_rate || d?.financingRate) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    {offer.lease_rate && (
+                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase mb-2">Leasing</div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div><span className="text-slate-500">Rate netto:</span> <span className="font-bold text-navy-950">{offer.lease_rate.toLocaleString("de-DE")} €</span></div>
+                          {d?.leasingDuration && <div><span className="text-slate-500">Laufzeit:</span> <span className="font-semibold">{d.leasingDuration} Mon.</span></div>}
+                          {d?.leasingKmYear && <div><span className="text-slate-500">KM/Jahr:</span> <span className="font-semibold">{parseInt(d.leasingKmYear).toLocaleString("de-DE")}</span></div>}
+                          {d?.leasingDownPayment && d.leasingDownPayment !== "0" && <div><span className="text-slate-500">Anzahlung:</span> <span className="font-semibold">{d.leasingDownPayment} €</span></div>}
+                        </div>
+                      </div>
+                    )}
+                    {d?.financingRate && (
+                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase mb-2">Finanzierung</div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div><span className="text-slate-500">Rate netto:</span> <span className="font-bold text-navy-950">{d.financingRate.toLocaleString("de-DE")} €</span></div>
+                          {d.financingDuration && <div><span className="text-slate-500">Laufzeit:</span> <span className="font-semibold">{d.financingDuration} Mon.</span></div>}
+                          {d.financingDownPayment && d.financingDownPayment !== "0" && <div><span className="text-slate-500">Anzahlung:</span> <span className="font-semibold">{d.financingDownPayment} €</span></div>}
+                          {d.financingResidual && <div><span className="text-slate-500">Restzahlung:</span> <span className="font-semibold">{d.financingResidual} €</span></div>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Contract details */}
+                {(d?.hasFleetContract || d?.hasSpecialAgreement) && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {d?.hasFleetContract && (
+                      <Badge className="bg-purple-50 text-purple-700 border border-purple-200 text-xs">
+                        Großkundenvertrag{d.fleetContractDiscount ? ` (${d.fleetContractDiscount}%)` : ""}
+                      </Badge>
+                    )}
+                    {d?.hasSpecialAgreement && (
+                      <Badge className="bg-purple-50 text-purple-700 border border-purple-200 text-xs">
+                        Sondervereinbarung{d.specialAgreementDiscount ? ` (${d.specialAgreementDiscount}%)` : ""}
+                      </Badge>
+                    )}
+                  </div>
+                )}
+
+                {/* Configuration match + deviation */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {d?.exactMatch ? (
+                    <Badge className="bg-green-50 text-green-700 border border-green-200 text-xs flex items-center gap-1">
+                      <CheckCircle2 size={12} /> Exakte Konfiguration
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-xs">
+                      Alternative Konfiguration
+                    </Badge>
+                  )}
+                  {d?.dayRegistration && (
+                    <Badge className="bg-slate-100 text-slate-600 border-none text-xs">
+                      Tageszulassung{d.dayRegistrationDate ? ` (${formatDate(d.dayRegistrationDate)})` : ""}{d.dayRegistrationKm ? `, ${d.dayRegistrationKm} km` : ""}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Deviation description */}
+                {offer.deviation_type && offer.deviation_details?.description && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+                    <div className="text-[10px] font-bold text-amber-600 uppercase mb-1">Abweichung</div>
+                    <p className="text-sm text-amber-900">{offer.deviation_details.description}</p>
+                  </div>
+                )}
               </div>
 
               {/* Contact/Chat actions */}
               <div className="px-6 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-3">
-                {!isRevealed ? (
+                {!hasContact ? (
                   <Button
                     size="sm"
                     onClick={() => setContactConfirmOffer({ tenderId: tender.id, offer })}
                     className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold h-9 px-4"
                   >
-                    <MessageCircle size={14} className="mr-1.5" /> Kontakt aufnehmen
+                    <Send size={14} className="mr-1.5" /> Anfrage senden
                   </Button>
                 ) : (
                   <div className="flex items-center gap-2">
@@ -467,21 +611,14 @@ export default function MyTendersPage() {
                     </Link>
                   </div>
                 )}
-                <span className="text-[10px] text-slate-400">{isRevealed ? `Kontakt seit ${formatDate(contact!.created_at)}` : "Identität noch verborgen"}</span>
+                <span className="text-[10px] text-slate-400">{hasContact ? `Anfrage gesendet am ${formatDate(contact!.created_at)}` : ""}</span>
               </div>
 
-              {/* Status tracker for contacted offers */}
-              {isRevealed && contact && (
-                <div className="px-6 py-4 border-t border-slate-100">
-                  <StatusTracker
-                    contact={contact}
-                    currentUserId={user!.id}
-                    onUpdate={(updated) => {
-                      setContacts((prev) =>
-                        prev.map((c) => c.id === contact.id ? { ...c, ...updated } : c)
-                      );
-                    }}
-                  />
+              {/* Contact status */}
+              {hasContact && contact && (
+                <div className="px-6 py-3 border-t border-slate-100 flex items-center gap-2 text-xs text-green-700 bg-green-50/50">
+                  <CheckCircle2 size={14} className="text-green-500" />
+                  <span className="font-semibold">Sie haben Kontakt zum Händler aufgenommen</span>
                 </div>
               )}
             </div>
@@ -580,13 +717,18 @@ export default function MyTendersPage() {
                         {config.brand || "—"} {config.model || ""} {raw?.trim_level || ""}
                         <span className="text-slate-500 font-normal ml-2">· {config.quantity} Stück</span>
                       </h3>
-                      {config.listPriceGross != null && (
-                        <span className="text-sm font-bold text-navy-900 bg-white px-3 py-1 rounded-lg border border-slate-200 shrink-0">
-                          ca. {config.listPriceGross.toLocaleString("de-DE")} € brutto
-                        </span>
-                      )}
+                      <div className="flex items-center gap-3 shrink-0">
+                        {config.method === "upload" && raw?.config_file_path && (
+                          <ConfigFileDownload filePath={raw.config_file_path} />
+                        )}
+                        {config.listPriceGross != null && (
+                          <span className="text-sm font-bold text-navy-900 bg-white px-3 py-1 rounded-lg border border-slate-200">
+                            ca. {config.listPriceGross.toLocaleString("de-DE")} € brutto
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <VehicleDetailSections vehicle={config} />
+                    <VehicleDetailSections vehicle={config} viewerRole="nachfrager" />
                   </div>
                 );
               })}
@@ -636,13 +778,13 @@ export default function MyTendersPage() {
       )}
       {contactConfirmOffer && (
         <ConfirmDialog
-          title="Kontakt aufnehmen?"
-          description="Achtung: Mit dem Kontaktklick wird Ihre Identität gegenüber diesem Anbieter offengelegt. Der Anbieter erhält Ihren Firmennamen und Ihre Kontaktdaten."
-          confirmLabel="Ja, Kontakt aufnehmen"
+          title="Anfrage senden?"
+          description="Sie senden eine Anfrage an diesen Händler. Die Ausschreibung läuft weiter."
+          confirmLabel="Ja, Anfrage senden"
           confirmClass="bg-blue-600 hover:bg-blue-700"
           icon={
             <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center shrink-0">
-              <ShieldAlert className="text-blue-600" size={24} />
+              <Send className="text-blue-600" size={24} />
             </div>
           }
           loading={actionLoading}
@@ -808,7 +950,7 @@ export default function MyTendersPage() {
                                       </span>
                                     )}
                                   </div>
-                                  <VehicleDetailSections vehicle={config} />
+                                  <VehicleDetailSections vehicle={config} viewerRole="nachfrager" />
                                 </div>
                               );
                             })}
@@ -903,7 +1045,7 @@ export default function MyTendersPage() {
                                           </span>
                                         )}
                                       </div>
-                                      <VehicleDetailSections vehicle={config} />
+                                      <VehicleDetailSections vehicle={config} viewerRole="nachfrager" />
                                     </div>
                                   );
                                 })}

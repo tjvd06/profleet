@@ -66,6 +66,7 @@ export interface VehicleConfig {
 
   // Upload
   uploadFile?: File | null;
+  configFilePath?: string | null;
 }
 
 export function createEmptyVehicleConfig(): VehicleConfig {
@@ -200,5 +201,6 @@ export function dbRowToVehicleConfig(v: Record<string, unknown>): VehicleConfig 
     interiorExtras: (eq.interiorExtras as string[]) || [],
     listPriceNet: (v.list_price_net as number) ?? null,
     listPriceGross: (v.list_price_gross as number) ?? null,
+    configFilePath: (v.config_file_path as string) || null,
   };
 }

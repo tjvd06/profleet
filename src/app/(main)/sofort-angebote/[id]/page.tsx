@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { SavingsBadge } from "@/components/ui-custom/SavingsBadge";
 import {
   ChevronLeft, ChevronRight, Bookmark, Phone, MapPin, Package,
-  Calendar, Loader2, ShieldCheck, ChevronDown, ChevronUp, Info
+  Calendar, Loader2, ShieldCheck, ChevronDown, ChevronUp, Info, Mail, Building2, Send,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -37,12 +37,27 @@ export default function InstantOfferDetailPage() {
   // Image carousel
   const [currentImage, setCurrentImage] = useState(0);
 
+  // Dealer profile
+  const [dealerProfile, setDealerProfile] = useState<{
+    company_name: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    dealer_type: string | null;
+    zip: string | null;
+    city: string | null;
+    street: string | null;
+    phone: string | null;
+    email_public: string | null;
+    subscription_tier: string | null;
+    created_at: string | null;
+  } | null>(null);
+
   // Collapsible sections
   const [showEquipment, setShowEquipment] = useState(true);
   const [showLeasing, setShowLeasing] = useState(false);
   const [showFinancing, setShowFinancing] = useState(false);
 
-  // Fetch offer
+  // Fetch offer + dealer profile
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase
@@ -54,7 +69,18 @@ export default function InstantOfferDetailPage() {
       if (error || !data) {
         setNotFound(true);
       } else {
-        setOffer(data as InstantOfferRow);
+        const offerData = data as InstantOfferRow;
+        setOffer(offerData);
+
+        // Load dealer profile
+        if (offerData.dealer_id) {
+          const { data: dp } = await supabase
+            .from("profiles")
+            .select("company_name, first_name, last_name, dealer_type, zip, city, street, phone, email_public, subscription_tier, created_at")
+            .eq("id", offerData.dealer_id)
+            .single();
+          if (dp) setDealerProfile(dp);
+        }
       }
       setLoading(false);
     })();
@@ -394,16 +420,46 @@ export default function InstantOfferDetailPage() {
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
               <h2 className="text-lg font-bold text-navy-950 mb-4">Anbieter</h2>
               <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center">
-                  <ShieldCheck size={24} className="text-slate-400" />
+                <div className="w-12 h-12 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-center">
+                  <Building2 size={24} className="text-blue-600" />
                 </div>
                 <div>
-                  <div className="font-bold text-navy-950">Verifizierter Anbieter</div>
-                  <div className="flex items-center gap-1.5 text-sm text-slate-500">
-                    <MapPin size={14} /> {location}
-                  </div>
+                  <div className="font-bold text-navy-950 text-lg">{dealerProfile?.company_name || "Anbieter"}</div>
+                  {dealerProfile?.first_name && (
+                    <div className="text-sm text-slate-600">{dealerProfile.first_name} {dealerProfile.last_name}</div>
+                  )}
                 </div>
               </div>
+              {dealerProfile && (
+                <div className="space-y-2 mb-4">
+                  {dealerProfile.dealer_type && (
+                    <div className="text-sm text-slate-500">
+                      <span className="font-semibold text-slate-400 text-xs uppercase tracking-wider">Händlertyp:</span>{" "}
+                      <span className="font-medium text-slate-700">{dealerProfile.dealer_type}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1.5 text-sm text-slate-600">
+                    <MapPin size={14} className="shrink-0 text-slate-400" />
+                    {dealerProfile.street && <span>{dealerProfile.street}, </span>}
+                    {dealerProfile.zip || ""} {dealerProfile.city || location}
+                  </div>
+                  {dealerProfile.email_public && (
+                    <a href={`mailto:${dealerProfile.email_public}`} className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium">
+                      <Mail size={14} className="shrink-0" /> {dealerProfile.email_public}
+                    </a>
+                  )}
+                  {dealerProfile.phone && (
+                    <a href={`tel:${dealerProfile.phone}`} className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium">
+                      <Phone size={14} className="shrink-0" /> {dealerProfile.phone}
+                    </a>
+                  )}
+                  {dealerProfile.created_at && (
+                    <div className="text-xs text-slate-400 mt-1">
+                      Mitglied seit {new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" }).format(new Date(dealerProfile.created_at))}
+                    </div>
+                  )}
+                </div>
+              )}
               {offer.delivery_radius && (
                 <div className="flex items-center gap-2 text-sm text-slate-500 bg-slate-50 rounded-xl p-3 border border-slate-100">
                   <Info size={14} className="text-slate-400 shrink-0" />
@@ -416,7 +472,7 @@ export default function InstantOfferDetailPage() {
             <div className="space-y-3 sticky bottom-6">
               {user && isBuyer && (
                 <Button className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg shadow-lg shadow-blue-600/20">
-                  <Phone size={18} className="mr-2" /> Kontakt aufnehmen
+                  <Send size={18} className="mr-2" /> Anfrage senden
                 </Button>
               )}
               {user ? (
@@ -435,7 +491,7 @@ export default function InstantOfferDetailPage() {
               ) : (
                 <Link href="/login" className="block">
                   <Button variant="outline" className="w-full h-14 rounded-2xl border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-lg">
-                    Anmelden um Kontakt aufzunehmen
+                    Anmelden um alle Details zu sehen
                   </Button>
                 </Link>
               )}

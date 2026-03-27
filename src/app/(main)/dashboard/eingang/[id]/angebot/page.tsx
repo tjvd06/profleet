@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import {
   ChevronLeft,
+  ChevronDown,
   CheckCircle2,
   ShieldCheck,
   Mail,
@@ -18,14 +19,27 @@ import {
   Check,
   Circle,
   ClipboardList,
+  User,
+  Car,
+  Settings2,
+  FileText,
+  Truck,
+  BarChart3,
+  Phone,
+  Star,
+  X as XIcon,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useSubscription } from "@/components/providers/subscription-provider";
 import { dbRowToVehicleConfig } from "@/types/vehicle";
 import type { VehicleConfig } from "@/types/vehicle";
 import { VehicleDetailSections } from "@/components/tenders/VehicleDetailSections";
+import { ConfigFileDownload } from "@/components/tenders/ConfigFileDownload";
+import { RatingBadge } from "@/components/ui-custom/RatingBadge";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -46,13 +60,33 @@ type TenderVehicleRow = Record<string, unknown> & {
   equipment: any;
 };
 
+type BuyerProfile = {
+  company_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  industry: string | null;
+  zip: string | null;
+  city: string | null;
+  street: string | null;
+  phone: string | null;
+  email_public: string | null;
+  subscription_tier: string | null;
+  created_at: string | null;
+};
+
 type TenderData = {
   id: string;
+  buyer_id: string;
+  status: string;
   delivery_plz: string | null;
   delivery_city: string | null;
+  delivery_radius: number | null;
   tender_scope: string;
+  start_at: string | null;
   end_at: string | null;
+  preferred_dealer: { name?: string; id?: string } | null;
   tender_vehicles: TenderVehicleRow[];
+  buyer: BuyerProfile | null;
 };
 
 type VehicleOfferForm = {
@@ -220,12 +254,80 @@ function SummaryTab({ active, onClick }: { active: boolean; onClick: () => void 
 }
 
 /* ------------------------------------------------------------------ */
+/*  Collapsible Panel + Helpers for Left Panel                         */
+/* ------------------------------------------------------------------ */
+
+function CollapsiblePanel({
+  title,
+  icon: Icon,
+  defaultOpen = true,
+  highlight = false,
+  children,
+}: {
+  title: string;
+  icon: React.ElementType;
+  defaultOpen?: boolean;
+  highlight?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className={`rounded-3xl border overflow-hidden shadow-sm shrink-0 ${highlight ? "bg-gradient-to-br from-blue-50/80 to-cyan-50/50 border-blue-200/60" : "bg-white/80 backdrop-blur-sm border-slate-200"}`}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-6 py-5 hover:bg-slate-50/50 transition-colors text-left"
+      >
+        <div className="flex items-center gap-3">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${highlight ? "bg-blue-100" : "bg-slate-100"}`}>
+            <Icon size={16} className="text-blue-600 shrink-0" />
+          </div>
+          <span className="text-lg font-bold text-navy-950">{title}</span>
+        </div>
+        <ChevronDown size={18} className={`text-slate-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="px-6 pb-6 animate-in fade-in slide-in-from-top-2 duration-200">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KV({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div>
+      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">{label}</div>
+      <div className={`font-semibold text-slate-900 text-sm ${mono ? "font-mono" : ""}`}>{value}</div>
+    </div>
+  );
+}
+
+function YesNo({ label, value, detail }: { label: string; value: boolean; detail?: string }) {
+  return (
+    <div className="flex items-start gap-2">
+      {value ? (
+        <CheckCircle2 size={16} className="text-green-500 shrink-0 mt-0.5" />
+      ) : (
+        <XIcon size={16} className="text-red-400 shrink-0 mt-0.5" />
+      )}
+      <div>
+        <span className="text-sm text-slate-900 font-medium">{label}</span>
+        {value && detail && <span className="text-sm text-slate-500 ml-1">({detail})</span>}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Main Page Component                                                */
 /* ------------------------------------------------------------------ */
 
 export default function OfferCreationPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
+  const { canCreateOffer, monthlyOfferCount, getOfferLimit, isLoading: subLoading } = useSubscription();
   const [supabase] = useState(() => createClient());
 
   const [tender, setTender] = useState<TenderData | null>(null);
@@ -233,6 +335,8 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
   const [pageError, setPageError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [offerCount, setOfferCount] = useState(0);
+  const [bestOfferPrice, setBestOfferPrice] = useState<number | null>(null);
 
   // Per-vehicle form state
   const [forms, setForms] = useState<VehicleOfferForm[]>([]);
@@ -263,7 +367,35 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
         }
 
         const t = tenderResult.data as TenderData;
+
+        // Load buyer profile separately (no FK relation in schema)
+        if (t.buyer_id) {
+          const { data: buyerData } = await supabase
+            .from("profiles")
+            .select("company_name, first_name, last_name, industry, zip, city, street, phone, email_public, subscription_tier, created_at")
+            .eq("id", t.buyer_id)
+            .single();
+          t.buyer = buyerData || null;
+        }
+
         setTender(t);
+
+        // Fetch offer count and best price for this tender
+        const { count } = await supabase
+          .from("offers")
+          .select("*", { count: "exact", head: true })
+          .eq("tender_id", params.id);
+        setOfferCount(count || 0);
+
+        const { data: bestOffer } = await supabase
+          .from("offers")
+          .select("purchase_price")
+          .eq("tender_id", params.id)
+          .order("purchase_price", { ascending: true })
+          .limit(1);
+        if (bestOffer && bestOffer.length > 0) {
+          setBestOfferPrice(bestOffer[0].purchase_price);
+        }
 
         const existingOffers = (offersResult.data || []) as any[];
 
@@ -440,6 +572,40 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
   }
 
   /* ---------------------------------------------------------------- */
+  /*  Subscription Limit Check                                         */
+  /* ---------------------------------------------------------------- */
+
+  if (!subLoading && !isEdit && !canCreateOffer()) {
+    const limit = getOfferLimit();
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-navy-950/80 via-blue-900/60 to-navy-950/80 backdrop-blur-sm">
+        <div className="bg-white/90 backdrop-blur-xl border border-slate-200 rounded-3xl p-8 md:p-12 max-w-lg mx-4 shadow-2xl text-center">
+          <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <span className="text-3xl">&#9888;&#65039;</span>
+          </div>
+          <h2 className="text-2xl font-black text-navy-950 mb-3">Monatliches Kontingent erreicht</h2>
+          <p className="text-slate-500 font-medium mb-8 leading-relaxed">
+            Sie haben diesen Monat bereits {monthlyOfferCount} von {limit} Angeboten abgegeben.
+            Upgraden Sie auf Pro fuer unbegrenzte Angebote.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link href="/dashboard/abo">
+              <Button className="h-12 px-8 rounded-xl font-bold text-white shadow-lg" style={{ background: "linear-gradient(135deg, #3B82F6, #22D3EE)" }}>
+                Auf Pro upgraden
+              </Button>
+            </Link>
+            <Link href="/dashboard/eingang">
+              <Button variant="ghost" className="h-12 px-8 rounded-xl font-bold text-slate-500">
+                Zurueck
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---------------------------------------------------------------- */
   /*  Render                                                           */
   /* ---------------------------------------------------------------- */
 
@@ -594,50 +760,229 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
           /*  PER-VEHICLE FORM VIEW                                        */
           /* ============================================================ */
           <div className="flex flex-col lg:flex-row gap-8">
-            {/* LEFT SIDE: Read-Only Details (Sticky) */}
-            <div className="lg:w-[45%] lg:sticky lg:top-[130px] h-fit flex flex-col gap-6">
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-                <h2 className="text-xl font-bold text-navy-950 mb-6 flex items-center gap-2 border-b border-slate-100 pb-4">
-                  Besonderheiten & Regeln <ShieldCheck className="text-green-500" />
-                </h2>
-                <ul className="space-y-4 text-slate-600">
-                  <li className="flex gap-3">
-                    <div className="w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">1</div>
-                    <p><strong className="text-navy-900">Anonymität wahren:</strong> Versuchen Sie nicht, Kontaktinformationen im Angebot zu platzieren.</p>
-                  </li>
-                  <li className="flex gap-3">
-                    <div className="w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">2</div>
-                    <p><strong className="text-navy-900">Endpreisgarantie:</strong> Kalkulieren Sie ehrlich inklusive aller Nebenkosten.</p>
-                  </li>
-                </ul>
-              </div>
+            {/* LEFT SIDE: Read-Only Details */}
+            <div className="lg:w-[45%] flex flex-col gap-4 lg:sticky lg:top-[80px] lg:self-start lg:max-h-[calc(100vh-100px)] lg:overflow-y-auto lg:pr-2 lg:pb-8 scrollbar-thin">
+              {/* Sektion 1: Nachfrager */}
+              <CollapsiblePanel
+                title="Nachfrager"
+                icon={User}
+                defaultOpen
+                highlight
+              >
+                {tender.buyer ? (() => {
+                  const b = tender.buyer;
+                  const name = [b.first_name, b.last_name].filter(Boolean).join(" ") || "—";
+                  const company = b.company_name || "—";
+                  const memberSince = b.created_at
+                    ? new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" }).format(new Date(b.created_at))
+                    : "—";
+                  return (
+                    <div className="space-y-5">
+                      <div>
+                        <div className="text-xl font-black text-navy-950">{company}</div>
+                        <div className="text-sm text-slate-600 font-medium mt-1">Ansprechpartner: {name}</div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                        {b.industry && (
+                          <div>
+                            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Branche</div>
+                            <div className="font-semibold text-slate-900 text-sm">{b.industry}</div>
+                          </div>
+                        )}
+                        <div>
+                          <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Mitglied seit</div>
+                          <div className="font-semibold text-slate-900 text-sm">{memberSince}</div>
+                        </div>
+                      </div>
+                      <div className="border-t border-slate-200/60 pt-4">
+                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Adresse</div>
+                        <div className="font-medium text-slate-900 text-sm leading-relaxed">
+                          {b.street && <div>{b.street}</div>}
+                          <div>{b.zip || ""} {b.city || "—"}</div>
+                        </div>
+                      </div>
+                      <div className="border-t border-slate-200/60 pt-4 space-y-2.5">
+                        {b.email_public && (
+                          <a href={`mailto:${b.email_public}`} className="flex items-center gap-2.5 text-blue-600 hover:text-blue-700 text-sm font-medium">
+                            <Mail size={15} className="shrink-0" /> {b.email_public}
+                          </a>
+                        )}
+                        {b.phone && (
+                          <a href={`tel:${b.phone}`} className="flex items-center gap-2.5 text-blue-600 hover:text-blue-700 text-sm font-medium">
+                            <Phone size={15} className="shrink-0" /> {b.phone}
+                          </a>
+                        )}
+                      </div>
+                      <div className="border-t border-slate-200/60 pt-4 flex items-center gap-3">
+                        <RatingBadge score={95} />
+                        <span className="text-xs text-slate-400 font-medium">Käufer-Bewertung</span>
+                      </div>
+                    </div>
+                  );
+                })() : (
+                  <div className="text-sm text-slate-500 py-2">Nachfrager-Profil nicht verfügbar</div>
+                )}
+              </CollapsiblePanel>
 
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-                <h2 className="text-xl font-bold text-navy-950 border-b border-slate-100 pb-4 mb-4">Nachfrager-Profil</h2>
-                <div className="grid grid-cols-2 gap-y-4">
-                  <div>
-                    <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Standort</div>
-                    <div className="font-semibold text-navy-900">{tender.delivery_city || "—"} ({tender.delivery_plz || "—"})</div>
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Radius</div>
-                    <div className="font-semibold text-navy-900">{tender.tender_scope === "bundesweit" ? "Bundesweit" : "Lokal"}</div>
-                  </div>
-                </div>
-              </div>
+              {/* Sektion 2: Fahrzeug-Konfiguration */}
+              {vehicles.map((v, vi) => {
+                const config = vehicleConfigs[vi];
+                if (!config) return null;
+                const methodLabel = v.config_method === "upload" ? "Datei-Upload" : v.config_method === "minimum" ? "Mindestausstattung" : "Konfigurator";
+                const kw = (v as any).power_kw ?? config.powerFrom;
+                const ps = (v as any).power_ps ?? (kw ? Math.round(kw * 1.36) : null);
+                const isAwd = (v as any).awd === true;
+                return (
+                  <CollapsiblePanel
+                    key={v.id}
+                    title={`Fahrzeug ${vehicles.length > 1 ? vi + 1 + ": " : ""}${v.brand || "—"} ${v.model_name || ""}`}
+                    icon={Car}
+                    defaultOpen={vi === activeTab}
+                  >
+                    <div className="space-y-5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge className="bg-blue-50 text-blue-700 border border-blue-200 text-xs">{methodLabel}</Badge>
+                        <Badge className="bg-slate-100 text-slate-700 border-none text-xs font-bold">{v.quantity} Stk.</Badge>
+                        {v.config_method === "upload" && (v as any).config_file_path && (
+                          <ConfigFileDownload filePath={(v as any).config_file_path} />
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                        {config.vehicleType && <KV label="Fahrzeugart" value={config.vehicleType} />}
+                        {config.brand && <KV label="Marke" value={config.brand} />}
+                        {config.model && <KV label="Modellbezeichnung" value={config.model} />}
+                        {(v as any).model_series && <KV label="Modellreihe" value={(v as any).model_series} />}
+                        {(v as any).trim_level && <KV label="Ausstattungslinie" value={(v as any).trim_level} />}
+                        {config.bodyType && <KV label="Karosserieform" value={config.bodyType} />}
+                        {config.doors != null && <KV label="Anzahl Türen" value={String(config.doors)} />}
+                        {config.fuelType && <KV label="Kraftstoffart" value={config.fuelType} />}
+                        {config.transmission && <KV label="Getriebe" value={config.transmission} />}
+                        {kw != null && <KV label="Motorleistung" value={`${kw} kW / ${ps} PS`} />}
+                        <KV label="Allradantrieb" value={isAwd ? "Ja" : "Nein"} />
+                        {config.exteriorColor && (
+                          <div>
+                            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-0.5">Farbe</div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-slate-900 text-sm">{config.exteriorColor}</span>
+                              {config.metallic && <Badge className="bg-purple-50 text-purple-700 border border-purple-200 text-[10px]">Metallic</Badge>}
+                            </div>
+                          </div>
+                        )}
+                        {config.listPriceNet != null && <KV label="Listenpreis netto" value={`${config.listPriceNet.toLocaleString("de-DE")} €`} mono />}
+                        {config.listPriceGross != null && <KV label="Listenpreis brutto" value={`${config.listPriceGross.toLocaleString("de-DE")} €`} mono />}
+                      </div>
+                      {/* Equipment chips */}
+                      {config.method === "configurator" && [...config.exteriorExtras, ...config.interiorExtras].length > 0 && (
+                        <div className="pt-2 border-t border-slate-100">
+                          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Ausstattung</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {[...config.exteriorExtras, ...config.interiorExtras].map((item) => (
+                              <span key={item} className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-lg border border-blue-100">{item}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CollapsiblePanel>
+                );
+              })}
 
-              {/* Vehicle Details — Collapsible Sections */}
-              {currentConfig && (
-                <div className="bg-slate-100 border border-slate-200 rounded-3xl p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-bold text-navy-950">
-                      Fahrzeug {activeTab + 1}: {currentVehicle!.brand} {currentVehicle!.model_name}
-                    </h2>
-                    <Badge className="bg-navy-100 text-navy-800 border-none font-bold">{currentVehicle!.quantity}x</Badge>
+              {/* Sektion 3: Anforderungen */}
+              {currentVehicle && (
+                <CollapsiblePanel title="Anforderungen" icon={Settings2} defaultOpen>
+                  <div className="space-y-3.5">
+                    <YesNo label="Großkundenvertrag" value={!!(currentVehicle.fleet_discount && currentVehicle.fleet_discount > 0)} detail={currentVehicle.fleet_discount ? `${currentVehicle.fleet_discount}% Rabatt` : undefined} />
+                    <div className="border-t border-slate-200/60 pt-4 mt-4">
+                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">Alternative Angebote erwünscht</div>
+                      <div className="space-y-2.5">
+                        <YesNo label="Andere Farbe akzeptabel" value={!!currentVehicle.alt_preferences?.accept_other_color} />
+                        <YesNo label="Höhere Ausstattung akzeptabel" value={!!currentVehicle.alt_preferences?.accept_higher_trim} />
+                        <YesNo label="Tageszulassung akzeptabel" value={!!currentVehicle.alt_preferences?.accept_day_registration} />
+                      </div>
+                    </div>
                   </div>
-                  <VehicleDetailSections vehicle={currentConfig} />
-                </div>
+                </CollapsiblePanel>
               )}
+
+              {/* Sektion 4: Angebotsarten */}
+              {currentVehicle && (
+                <CollapsiblePanel title="Angebotsarten" icon={FileText} defaultOpen>
+                  <div className="space-y-3.5">
+                    <YesNo label="Kauf" value={true} />
+                    <YesNo label="Leasing" value={!!currentVehicle.leasing?.requested} />
+                    {currentVehicle.leasing?.requested && (
+                      <div className="ml-6 bg-slate-50 rounded-xl p-4 space-y-3">
+                        {currentVehicle.leasing.duration && <KV label="Gewünschte Laufzeit" value={`${currentVehicle.leasing.duration} Monate`} />}
+                        {currentVehicle.leasing.km_year && <KV label="KM pro Jahr" value={currentVehicle.leasing.km_year.toLocaleString("de-DE")} />}
+                        {currentVehicle.leasing.down_payment && <KV label="Anzahlung" value={`${currentVehicle.leasing.down_payment}%`} />}
+                        {currentVehicle.leasing.usage && <KV label="Fahrzeugeinsatz" value={currentVehicle.leasing.usage} />}
+                      </div>
+                    )}
+                    <YesNo label="Finanzierung" value={!!currentVehicle.financing?.requested} />
+                    {currentVehicle.financing?.requested && (
+                      <div className="ml-6 bg-slate-50 rounded-xl p-4 space-y-3">
+                        {currentVehicle.financing.duration && <KV label="Gewünschte Laufzeit" value={`${currentVehicle.financing.duration} Monate`} />}
+                        {currentVehicle.financing.down_payment && <KV label="Anzahlung" value={`${currentVehicle.financing.down_payment}%`} />}
+                        {currentVehicle.financing.residual && <KV label="Max. Restzahlung" value={`${currentVehicle.financing.residual}%`} />}
+                      </div>
+                    )}
+                  </div>
+                </CollapsiblePanel>
+              )}
+
+              {/* Sektion 5: Lieferung & Ausschreibung */}
+              <CollapsiblePanel title="Lieferung & Ausschreibung" icon={Truck} defaultOpen>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                    <KV label="Auslieferungsort" value={`${tender.delivery_plz || "—"} ${tender.delivery_city || ""}`} />
+                    <KV label="Ausschreibungsradius" value={tender.tender_scope === "bundesweit" ? "Bundesweit" : `${tender.delivery_radius || "—"} km`} />
+                    {tender.start_at && <KV label="Laufzeit Start" value={new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(tender.start_at))} />}
+                    {tender.end_at && <KV label="Laufzeit Ende" value={new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(tender.end_at))} />}
+                  </div>
+                  {tender.preferred_dealer?.name && (
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                      <KV label="Wunschhändler" value={tender.preferred_dealer.name} />
+                    </div>
+                  )}
+                  {user && tender.preferred_dealer?.id === user.id && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2 text-amber-800 text-sm font-semibold">
+                      <AlertTriangle size={16} className="text-amber-500 shrink-0" />
+                      Sie wurden als Wunschhändler ausgewählt!
+                    </div>
+                  )}
+                  <div className="border-t border-slate-200/60 pt-4">
+                    <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">Gewünschte Zusatzangaben</div>
+                    <div className="space-y-2.5">
+                      {currentVehicle && (
+                        <>
+                          <YesNo label="Überführungskosten inkl. Übergabeinspektion" value={true} />
+                          <YesNo label="Zulassungskosten am Auslieferungsort" value={true} />
+                          <YesNo label="Gesamtpreis (Abholpreis)" value={true} />
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CollapsiblePanel>
+
+              {/* Sektion 6: Ausschreibungsstatus */}
+              <CollapsiblePanel title="Ausschreibungsstatus" icon={BarChart3} defaultOpen>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Badge className={`${tender.status === "active" ? "bg-green-100 text-green-700" : tender.status === "cancelled" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-700"} border-none font-semibold`}>
+                      {tender.status === "active" ? "Aktiv" : tender.status === "cancelled" ? "Abgebrochen" : "Abgeschlossen"}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                    {tender.start_at && tender.end_at && (
+                      <KV label="Laufzeit" value={`${new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit" }).format(new Date(tender.start_at))} – ${new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(tender.end_at))}`} />
+                    )}
+                    <KV label="Verbleibende Zeit" value={timeLeft(tender.end_at)} />
+                    <KV label="Anzahl Angebote" value={String(offerCount)} />
+                    {bestOfferPrice != null && <KV label="Bestes Angebot" value={`${bestOfferPrice.toLocaleString("de-DE")} €`} mono />}
+                  </div>
+                </div>
+              </CollapsiblePanel>
             </div>
 
             {/* RIGHT SIDE: Interactive Form */}

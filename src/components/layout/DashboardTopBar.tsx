@@ -21,6 +21,7 @@ const BREADCRUMB_MAP: Record<string, string> = {
   "/dashboard/nachrichten": "Nachrichten",
   "/dashboard/bewertungen": "Bewertungen",
   "/dashboard/rechnungen": "Rechnungen",
+  "/dashboard/abo": "Abo & Abrechnung",
   "/dashboard/profil": "Profil",
   "/dashboard/einstellungen": "Einstellungen",
 };

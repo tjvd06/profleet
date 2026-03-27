@@ -6,10 +6,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Handshake, Archive, Clock, ExternalLink, Loader2, MessageCircle, Phone, Building2 } from "lucide-react";
+import { Activity, Handshake, Archive, Clock, ExternalLink, Loader2, MessageCircle, Phone, Building2, Mail, MapPin, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { createClient } from "@/lib/supabase";
-import { StatusTracker } from "@/components/chat/StatusTracker";
 import Link from "next/link";
 
 type BuyerProfile = {
@@ -17,8 +16,12 @@ type BuyerProfile = {
   company_name: string | null;
   first_name: string | null;
   last_name: string | null;
-  phone: string | null;
+  industry: string | null;
+  zip: string | null;
   city: string | null;
+  street: string | null;
+  phone: string | null;
+  email_public: string | null;
 };
 
 type Contact = {
@@ -93,7 +96,7 @@ export default function DealerOffersPage() {
               .select(`
                 *,
                 tenders (
-                  id, status, end_at
+                  id, status, end_at, buyer_id
                 ),
                 tender_vehicles!tender_vehicle_id (
                   brand, model_name, quantity, list_price_gross
@@ -121,13 +124,16 @@ export default function DealerOffersPage() {
           const loadedContacts = (contactsData || []) as Contact[];
           setContacts(loadedContacts);
 
-          // Load buyer profiles for all contacts
-          const buyerIds = Array.from(new Set(loadedContacts.map((c) => c.buyer_id)));
-          if (buyerIds.length > 0) {
+          // Load buyer profiles for ALL tenders (full transparency)
+          const allBuyerIds = Array.from(new Set([
+            ...loadedContacts.map((c) => c.buyer_id),
+            ...data.filter((o: any) => o.tenders?.buyer_id).map((o: any) => o.tenders.buyer_id),
+          ]));
+          if (allBuyerIds.length > 0) {
             const { data: profiles } = await supabase
               .from("profiles")
-              .select("id, company_name, first_name, last_name, phone, city")
-              .in("id", buyerIds);
+              .select("id, company_name, first_name, last_name, industry, zip, city, street, phone, email_public")
+              .in("id", allBuyerIds);
             if (profiles) {
               const map: Record<string, BuyerProfile> = {};
               profiles.forEach((p: BuyerProfile) => { map[p.id] = p; });
@@ -165,10 +171,28 @@ export default function DealerOffersPage() {
     const vehicleLabel = vehicle
       ? `${vehicle.brand || ""} ${vehicle.model_name || ""}`.trim() || "Fahrzeug"
       : "Ausschreibung";
+    const buyer = offer.tenders?.buyer_id ? buyerProfiles[offer.tenders.buyer_id] : null;
 
     return (
       <Card key={offer.id} className="border-slate-200 shadow-sm rounded-3xl overflow-hidden">
         <div className="p-6 md:p-8">
+          {/* Buyer info row */}
+          {buyer && (
+            <div className="flex items-center gap-3 mb-4 pb-4 border-b border-slate-100">
+              <div className="w-10 h-10 bg-purple-50 border border-purple-100 rounded-xl flex items-center justify-center text-purple-600 shrink-0">
+                <Building2 size={18} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-navy-950 text-sm">{buyer.company_name || "Nachfrager"}</div>
+                <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+                  {buyer.first_name && <span>{buyer.first_name} {buyer.last_name}</span>}
+                  {(buyer.zip || buyer.city) && <span className="flex items-center gap-1"><MapPin size={10} /> {buyer.zip || ""} {buyer.city || ""}</span>}
+                  {buyer.email_public && <a href={`mailto:${buyer.email_public}`} className="flex items-center gap-1 text-blue-600"><Mail size={10} /> {buyer.email_public}</a>}
+                  {buyer.phone && <a href={`tel:${buyer.phone}`} className="flex items-center gap-1 text-blue-600"><Phone size={10} /> {buyer.phone}</a>}
+                </div>
+              </div>
+            </div>
+          )}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-start gap-5">
               <div className="w-14 h-14 bg-blue-50 border border-blue-100 rounded-2xl flex items-center justify-center text-blue-600 font-black text-xl shrink-0">
@@ -274,10 +298,12 @@ export default function DealerOffersPage() {
               <h3 className="text-xl font-bold text-navy-950">
                 {buyer?.company_name || "Unbekannt"}
               </h3>
-              <div className="flex items-center gap-4 mt-1 text-sm text-slate-500">
+              <div className="flex items-center gap-4 mt-1 text-sm text-slate-500 flex-wrap">
                 {buyer?.first_name && <span>{buyer.first_name} {buyer.last_name}</span>}
-                {buyer?.phone && <span className="flex items-center gap-1"><Phone size={12} /> {buyer.phone}</span>}
-                {buyer?.city && <span>{buyer.city}</span>}
+                {buyer?.industry && <span>{buyer.industry}</span>}
+                {(buyer?.zip || buyer?.city) && <span className="flex items-center gap-1"><MapPin size={12} /> {buyer?.street ? `${buyer.street}, ` : ""}{buyer?.zip || ""} {buyer?.city || ""}</span>}
+                {buyer?.email_public && <a href={`mailto:${buyer.email_public}`} className="flex items-center gap-1 text-blue-600 hover:text-blue-700"><Mail size={12} /> {buyer.email_public}</a>}
+                {buyer?.phone && <a href={`tel:${buyer.phone}`} className="flex items-center gap-1 text-blue-600 hover:text-blue-700"><Phone size={12} /> {buyer.phone}</a>}
               </div>
             </div>
             <div className="text-right text-xs text-slate-400 shrink-0">
@@ -309,16 +335,11 @@ export default function DealerOffersPage() {
             </div>
           </div>
 
-          {/* Status tracker */}
-          <StatusTracker
-            contact={contact}
-            currentUserId={user!.id}
-            onUpdate={(updated) => {
-              setContacts((prev) =>
-                prev.map((c) => c.id === contact.id ? { ...c, ...updated } : c)
-              );
-            }}
-          />
+          {/* Contact status */}
+          <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm font-semibold text-green-700">
+            <CheckCircle2 size={16} />
+            Der Nachfrager hat Kontakt zu Ihnen aufgenommen
+          </div>
 
           {/* Chat button */}
           <div className="mt-5 flex justify-end">

@@ -47,8 +47,8 @@ export default function ForDealersLandingPage() {
               <div className="text-sm text-blue-200/70 font-bold uppercase tracking-widest">Ø Zeit für Gegengebot</div>
             </div>
             <div>
-              <div className="text-3xl font-black text-emerald-400 mb-1">30 €</div>
-              <div className="text-sm text-blue-200/70 font-bold uppercase tracking-widest">Nur bei Erfolg</div>
+              <div className="text-3xl font-black text-emerald-400 mb-1">0 €</div>
+              <div className="text-sm text-blue-200/70 font-bold uppercase tracking-widest">Starter kostenlos</div>
             </div>
             <div>
               <div className="text-3xl font-black text-white mb-1">98%</div>
@@ -80,9 +80,9 @@ export default function ForDealersLandingPage() {
             <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-6">
               <ShieldCheck size={28} />
             </div>
-            <h3 className="text-xl font-bold text-navy-950 mb-3">Nur bei Erfolg zahlen</h3>
+            <h3 className="text-xl font-bold text-navy-950 mb-3">Flexibles Abo-Modell</h3>
             <p className="text-sm text-slate-500 font-medium leading-relaxed">
-              Grundgebührfrei. Sie zahlen eine kleine Gebühr (30€) erst, wenn der Kunde entscheidet, exklusiv mit Ihnen Kontakt aufzunehmen.
+              Starten Sie kostenlos mit dem Starter-Tarif. Upgraden Sie bei Bedarf auf Pro (99 €/Monat) oder Premium (249 €/Monat) fuer mehr Funktionen.
             </p>
           </Card>
 
@@ -138,7 +138,7 @@ export default function ForDealersLandingPage() {
                 {[1,2,3,4,5].map(i => <Star key={i} size={20} fill="currentColor" />)}
               </div>
               <p className="text-navy-950 font-medium italic mb-8 leading-relaxed">
-                "Die Kontakt-Gebühr von 30€ ist im Vergleich zu anderen CPL-Anbietern ein absoluter Traum, besonders da die Qualität der Anfragen immens hoch ist."
+                "Das Abo-Modell ist super fair und transparent. Besonders die Qualitaet der Anfragen ist immens hoch — das Pro-Abo hat sich fuer uns sofort gelohnt."
               </p>
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center font-bold text-white">SW</div>
@@ -180,14 +180,14 @@ export default function ForDealersLandingPage() {
           <AccordionItem value="item-1" className="border-b-0 px-4">
             <AccordionTrigger className="text-lg font-bold text-navy-950 hover:no-underline py-6">Ist die Registrierung kostenlos?</AccordionTrigger>
             <AccordionContent className="text-slate-500 font-medium text-base leading-relaxed pb-6">
-              Ja, die Erstellung Ihres Händler-Profils und die Nutzung der Plattform sind grundsätzlich kostenlos. Wir erheben keine monatlichen Grundgebühren oder Abo-Kosten.
+              Ja, mit dem Starter-Tarif ist die Nutzung komplett kostenlos. Sie koennen bis zu 3 Angebote pro Monat abgeben und 1 Sofort-Angebot aktiv halten — ohne Kreditkarte.
             </AccordionContent>
           </AccordionItem>
           <div className="h-px bg-slate-100 mx-4" />
           <AccordionItem value="item-2" className="border-b-0 px-4">
             <AccordionTrigger className="text-lg font-bold text-navy-950 hover:no-underline py-6">Wann entstehen Kosten?</AccordionTrigger>
             <AccordionContent className="text-slate-500 font-medium text-base leading-relaxed pb-6">
-              Kosten in Höhe von nur 30€ entstehen ausschließlich dann, wenn ein Einkäufer Ihr Angebot in einer Ausschreibung akzeptiert und die Kontaktdaten aufgedeckt werden. Für das Inserieren von Sofort-Angeboten fällt eine Listing-Gebühr an (ca. 5€ nach Free-Tier).
+              Mit dem Pro-Abo (99 €/Monat netto) erhalten Sie unbegrenzte Angebote, bis zu 10 Sofort-Angebote, E-Mail-Benachrichtigungen und ein Statistik-Dashboard. Das Premium-Abo (249 €/Monat netto) bietet zusaetzlich bevorzugte Platzierung, erweiterte Statistiken und persoenlichen Support.
             </AccordionContent>
           </AccordionItem>
           <div className="h-px bg-slate-100 mx-4" />

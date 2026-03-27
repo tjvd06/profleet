@@ -28,7 +28,18 @@
       "Bash(ls -la /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/)",
       "Bash(ls -la /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/sofort-angebote/)",
       "Bash(ls -la /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/sofort-angebote/)",
-      "Bash(ls \"c:/Projekte/profleet/src/app/\\(main\\)/dashboard/sofort-angebote/\")"
+      "Bash(ls \"c:/Projekte/profleet/src/app/\\(main\\)/dashboard/sofort-angebote/\")",
+      "Bash(grep -E \"^d|\\\\.json$|\\\\.ts|\\\\.js\")",
+      "Bash(ls c:/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/)",
+      "Bash(npx shadcn@latest add dialog --yes)",
+      "Bash(npx shadcn@latest add dialog --yes --overwrite)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(ls -la /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/sofort-angebote/neu/)",
+      "Bash(find /c/Projekte/profleet -name *.env* -o -name supabase.ts -o -name *supabase*)",
+      "Bash(find /c/Projekte/profleet -type f -name *.md)",
+      "Bash(ls -la /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/)",
+      "Bash(ls -la /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/nachrichten/)",
+      "Bash(ls -la /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/eingang/)"
     ]
   }
 }

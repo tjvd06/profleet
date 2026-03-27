@@ -5,12 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Send, Loader2, MessageCircle, Search, ArrowLeft, Info, X,
-  Phone, Building2, FileText, Check, CheckCheck,
+  Send, Loader2, MessageCircle, Search, ArrowLeft, Info,
+  Phone, Check, CheckCheck, Mail, MapPin, Car, Users, ExternalLink,
+  Smile,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useSearchParams } from "next/navigation";
+import { SubscriptionBadge } from "@/components/ui-custom/SubscriptionBadge";
+import Link from "next/link";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type Message = {
@@ -22,6 +25,28 @@ type Message = {
   created_at: string;
 };
 
+type PartnerProfile = {
+  id: string;
+  company_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  email_public: string | null;
+  city: string | null;
+  zip: string | null;
+  street: string | null;
+  role: string | null;
+  subscription_tier: string | null;
+  industry: string | null;
+  dealer_type: string | null;
+};
+
+type TenderInfo = {
+  id: string;
+  status: string;
+  tender_vehicles: { brand: string | null; model_name: string | null; quantity: number }[];
+};
+
 type ContactWithProfile = {
   id: string;
   tender_id: string;
@@ -29,17 +54,10 @@ type ContactWithProfile = {
   buyer_id: string;
   dealer_id: string;
   status: string;
-  dealer_responded: boolean;
-  contract_concluded: boolean | null;
   created_at: string;
-  // Joined partner profile
-  partnerName: string;
-  partnerCompany: string;
-  partnerPhone: string | null;
-  partnerCity: string | null;
-  // Joined tender info
+  partner: PartnerProfile | null;
+  tender: TenderInfo | null;
   tenderLabel: string;
-  // Message preview
   lastMessage: string | null;
   lastMessageAt: string | null;
   unreadCount: number;
@@ -86,8 +104,8 @@ export default function MessagesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
-  const [showInfo, setShowInfo] = useState(false);
   const [mobileShowChat, setMobileShowChat] = useState(!!initialContactId);
+  const [showDetails, setShowDetails] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -107,7 +125,6 @@ export default function MessagesPage() {
     let cancelled = false;
 
     (async () => {
-      // Load contacts
       const { data: rawContacts } = await supabase
         .from("contacts")
         .select("*")
@@ -119,30 +136,25 @@ export default function MessagesPage() {
         return;
       }
 
-      // Load partner profiles
       const partnerIds = rawContacts.map((c: any) =>
         c.buyer_id === user.id ? c.dealer_id : c.buyer_id
       );
       const uniquePartnerIds = Array.from(new Set(partnerIds));
 
       const [profilesResult, messagesResult, tendersResult] = await Promise.all([
-        supabase.from("profiles").select("id, company_name, first_name, last_name, phone, city").in("id", uniquePartnerIds),
+        supabase.from("profiles").select("id, company_name, first_name, last_name, phone, email_public, city, zip, street, role, subscription_tier, industry, dealer_type").in("id", uniquePartnerIds),
         supabase.from("messages").select("contact_id, content, sender_id, read, created_at").in("contact_id", rawContacts.map((c: any) => c.id)).order("created_at", { ascending: false }),
-        supabase.from("tenders").select("id, tender_vehicles(brand, model_name)").in("id", rawContacts.map((c: any) => c.tender_id)),
+        supabase.from("tenders").select("id, status, tender_vehicles(brand, model_name, quantity)").in("id", rawContacts.map((c: any) => c.tender_id)),
       ]);
 
       if (cancelled) return;
 
-      const profileMap: Record<string, any> = {};
+      const profileMap: Record<string, PartnerProfile> = {};
       (profilesResult.data || []).forEach((p: any) => { profileMap[p.id] = p; });
 
-      const tenderMap: Record<string, string> = {};
-      (tendersResult.data || []).forEach((t: any) => {
-        const v = t.tender_vehicles?.[0];
-        tenderMap[t.id] = v ? `${v.brand || ""} ${v.model_name || ""}`.trim() : "Ausschreibung";
-      });
+      const tenderMap: Record<string, TenderInfo> = {};
+      (tendersResult.data || []).forEach((t: any) => { tenderMap[t.id] = t; });
 
-      // Group messages by contact for preview + unread
       const msgByContact: Record<string, { last: any; unread: number }> = {};
       (messagesResult.data || []).forEach((m: any) => {
         if (!msgByContact[m.contact_id]) {
@@ -155,27 +167,26 @@ export default function MessagesPage() {
 
       const enriched: ContactWithProfile[] = rawContacts.map((c: any) => {
         const partnerId = c.buyer_id === user.id ? c.dealer_id : c.buyer_id;
-        const p = profileMap[partnerId];
+        const partner = profileMap[partnerId] || null;
+        const tender = tenderMap[c.tender_id] || null;
+        const v = tender?.tender_vehicles?.[0];
+        const tenderLabel = v ? `${v.brand || ""} ${v.model_name || ""}`.trim() : "Ausschreibung";
         const msgInfo = msgByContact[c.id];
         return {
           ...c,
-          partnerName: p ? `${p.first_name || ""} ${p.last_name || ""}`.trim() : "Unbekannt",
-          partnerCompany: p?.company_name || "Unbekannt",
-          partnerPhone: p?.phone || null,
-          partnerCity: p?.city || null,
-          tenderLabel: tenderMap[c.tender_id] || "Ausschreibung",
+          partner,
+          tender,
+          tenderLabel,
           lastMessage: msgInfo?.last?.content || null,
           lastMessageAt: msgInfo?.last?.created_at || c.created_at,
           unreadCount: msgInfo?.unread || 0,
         };
       });
 
-      // Sort by last message time
       enriched.sort((a, b) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime());
 
       if (!cancelled) {
         setContactsList(enriched);
-        // Auto-select first contact if none selected
         if (!activeContactId && enriched.length > 0) {
           setActiveContactId(enriched[0].id);
         }
@@ -204,11 +215,9 @@ export default function MessagesPage() {
 
       if (!cancelled && data) {
         setMessages(data);
-        // Mark unread as read
         const unread = data.filter((m) => !m.read && m.sender_id !== user.id);
         if (unread.length > 0) {
           await supabase.from("messages").update({ read: true }).in("id", unread.map((m) => m.id));
-          // Update local contact unread count
           setContactsList((prev) =>
             prev.map((c) => c.id === activeContactId ? { ...c, unreadCount: 0 } : c)
           );
@@ -220,7 +229,6 @@ export default function MessagesPage() {
     return () => { cancelled = true; };
   }, [activeContactId, user?.id]);
 
-  // Scroll on messages change
   useEffect(() => {
     if (!messagesLoading) scrollToBottom();
   }, [messages.length, messagesLoading, scrollToBottom]);
@@ -237,19 +245,16 @@ export default function MessagesPage() {
         (payload) => {
           const msg = payload.new as Message;
 
-          // Update messages if this is the active chat
           if (msg.contact_id === activeContactId) {
             setMessages((prev) => {
               if (prev.some((m) => m.id === msg.id)) return prev;
               return [...prev, msg];
             });
-            // Auto-mark as read
             if (msg.sender_id !== user.id) {
               supabase.from("messages").update({ read: true }).eq("id", msg.id).then();
             }
           }
 
-          // Update contact list preview
           setContactsList((prev) => {
             const updated = prev.map((c) => {
               if (c.id !== msg.contact_id) return c;
@@ -260,7 +265,6 @@ export default function MessagesPage() {
                 unreadCount: msg.contact_id === activeContactId ? c.unreadCount : c.unreadCount + (msg.sender_id !== user.id ? 1 : 0),
               };
             });
-            // Re-sort by last message
             updated.sort((a, b) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime());
             return updated;
           });
@@ -272,13 +276,6 @@ export default function MessagesPage() {
   }, [user?.id, activeContactId]);
 
   // ── Send message ─────────────────────────────────────────────────────────
-  const canSend = (() => {
-    if (!activeContact) return false;
-    const isDealerInContact = user?.id === activeContact.dealer_id;
-    if (isDealerInContact) return true; // dealer can always send
-    return messages.length > 0; // buyer can only reply
-  })();
-
   const handleSend = async () => {
     if (!text.trim() || !user || sending || !activeContactId) return;
     setSending(true);
@@ -299,24 +296,30 @@ export default function MessagesPage() {
   // ── Filtered contacts ────────────────────────────────────────────────────
   const filteredContacts = searchQuery
     ? contactsList.filter((c) =>
-        c.partnerCompany.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.partnerName.toLowerCase().includes(searchQuery.toLowerCase())
+        (c.partner?.company_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        `${c.partner?.first_name || ""} ${c.partner?.last_name || ""}`.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : contactsList;
 
-  // ── Select contact handler ───────────────────────────────────────────────
   const selectContact = (id: string) => {
     setActiveContactId(id);
     setMobileShowChat(true);
-    setShowInfo(false);
+    setShowDetails(false);
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
   if (loading || authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-130px)] text-slate-400">
-        <Loader2 className="animate-spin mr-3" size={28} />
-        <span className="text-lg font-semibold">Nachrichten werden geladen…</span>
+      <div className="flex items-center justify-center min-h-[calc(100vh-130px)]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center">
+              <MessageCircle size={28} className="text-white" />
+            </div>
+            <Loader2 className="animate-spin text-blue-500 absolute -bottom-1 -right-1" size={20} />
+          </div>
+          <span className="text-sm font-medium text-slate-400">Nachrichten werden geladen...</span>
+        </div>
       </div>
     );
   }
@@ -324,78 +327,107 @@ export default function MessagesPage() {
   if (contactsList.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-130px)] text-center px-4">
-        <div className="w-20 h-20 bg-slate-100 rounded-3xl flex items-center justify-center mb-6 text-slate-300">
-          <MessageCircle size={36} />
+        <div className="w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-50 rounded-3xl flex items-center justify-center mb-6 shadow-inner">
+          <MessageCircle size={40} className="text-slate-300" />
         </div>
-        <h3 className="text-xl font-bold text-navy-950 mb-2">Keine Nachrichten</h3>
-        <p className="text-slate-500 max-w-sm">
+        <h3 className="text-2xl font-bold text-navy-950 mb-2">Keine Nachrichten</h3>
+        <p className="text-slate-500 max-w-sm leading-relaxed">
           {isDealer
-            ? "Sobald ein Nachfrager Sie kontaktiert, können Sie hier chatten."
-            : "Nehmen Sie über Ihre Ausschreibungen Kontakt mit Anbietern auf, um hier zu chatten."}
+            ? "Sobald ein Nachfrager Sie kontaktiert, erscheinen Ihre Nachrichten hier."
+            : "Nehmen Sie über Ihre Ausschreibungen Kontakt mit Händlern auf."}
         </p>
       </div>
     );
   }
 
+  const p = activeContact?.partner;
+  const t = activeContact?.tender;
+  const partnerInitials = p?.company_name
+    ? p.company_name.substring(0, 2).toUpperCase()
+    : p?.first_name
+    ? `${p.first_name[0]}${p.last_name?.[0] || ""}`.toUpperCase()
+    : "??";
+
   return (
-    <div className="flex h-[calc(100vh-130px)] bg-white border-t border-slate-200">
-      {/* ── Left: Contact List ──────────────────────────────────── */}
-      <div className={`w-full md:w-[350px] md:min-w-[350px] border-r border-slate-200 flex flex-col bg-white ${mobileShowChat ? "hidden md:flex" : "flex"}`}>
-        {/* Search */}
-        <div className="p-4 border-b border-slate-100">
+    <div className="flex h-[calc(100vh-130px)] bg-slate-50">
+      {/* ── Left: Conversation List ──────────────────────────────── */}
+      <div className={`w-full md:w-[360px] md:min-w-[360px] border-r border-slate-200/80 flex flex-col bg-white ${mobileShowChat ? "hidden md:flex" : "flex"}`}>
+        {/* Search header */}
+        <div className="p-4 pb-3">
+          <h2 className="text-lg font-bold text-navy-950 mb-3">Nachrichten</h2>
           <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <Input
-              placeholder="Suchen…"
+              placeholder="Suchen..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-10 bg-slate-50 border-slate-200 rounded-xl text-sm"
+              className="pl-10 h-10 bg-slate-50/80 border-slate-200/60 rounded-xl text-sm placeholder:text-slate-400 focus:bg-white"
             />
           </div>
         </div>
 
-        {/* Contact list */}
+        {/* Conversation list */}
         <div className="flex-1 overflow-y-auto">
           {filteredContacts.map((contact) => {
             const isActive = contact.id === activeContactId;
+            const partnerName = contact.partner ? `${contact.partner.first_name || ""} ${contact.partner.last_name || ""}`.trim() : "";
+            const companyName = contact.partner?.company_name || "Unbekannt";
+            const initials = companyName.substring(0, 2).toUpperCase();
+            const hasUnread = contact.unreadCount > 0;
+
             return (
               <button
                 key={contact.id}
                 onClick={() => selectContact(contact.id)}
-                className={`w-full text-left px-4 py-4 border-b border-slate-50 hover:bg-slate-50 transition-colors flex items-start gap-3 ${
-                  isActive ? "bg-blue-50 hover:bg-blue-50" : ""
+                className={`w-full text-left px-4 py-3.5 transition-all flex items-center gap-3 relative group ${
+                  isActive
+                    ? "bg-blue-50/70"
+                    : "hover:bg-slate-50/80"
                 }`}
               >
+                {/* Active indicator */}
+                {isActive && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-8 bg-blue-600 rounded-r-full" />
+                )}
+
                 {/* Avatar */}
-                <div className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${
-                  isActive ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-sm shrink-0 transition-colors ${
+                  isActive
+                    ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md shadow-blue-500/20"
+                    : hasUnread
+                    ? "bg-gradient-to-br from-blue-100 to-blue-50 text-blue-600"
+                    : "bg-slate-100 text-slate-500"
                 }`}>
-                  {contact.partnerCompany?.[0]?.toUpperCase() || "?"}
+                  {initials}
                 </div>
 
-                {/* Info */}
+                {/* Content */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-0.5">
-                    <span className={`text-sm font-bold truncate ${isActive ? "text-blue-700" : "text-navy-950"}`}>
-                      {contact.partnerCompany}
+                    <span className={`text-[13px] truncate flex items-center gap-1.5 ${
+                      hasUnread ? "font-bold text-navy-950" : "font-semibold text-navy-950"
+                    }`}>
+                      {companyName}
+                      {contact.partner?.role === "anbieter" && <SubscriptionBadge tier={contact.partner.subscription_tier} />}
                     </span>
-                    <span className="text-[10px] text-slate-400 shrink-0 ml-2">
+                    <span className={`text-[11px] shrink-0 ml-2 ${hasUnread ? "text-blue-600 font-semibold" : "text-slate-400"}`}>
                       {formatListTime(contact.lastMessageAt)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-xs text-slate-500 truncate">
-                      {contact.lastMessage || "Noch keine Nachrichten"}
+                    <p className={`text-xs truncate leading-relaxed ${hasUnread ? "text-slate-700 font-medium" : "text-slate-500"}`}>
+                      {contact.lastMessage || partnerName || "Neue Konversation"}
                     </p>
-                    {contact.unreadCount > 0 && (
-                      <span className="ml-2 bg-blue-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 shrink-0">
-                        {contact.unreadCount}
+                    {hasUnread && (
+                      <span className="ml-2 bg-blue-600 text-white text-[10px] font-bold rounded-full min-w-[20px] h-[20px] flex items-center justify-center px-1 shrink-0 shadow-sm shadow-blue-600/30">
+                        {contact.unreadCount > 99 ? "99+" : contact.unreadCount}
                       </span>
                     )}
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
-                    <FileText size={9} /> {contact.tenderLabel}
-                  </p>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Car size={10} className="text-slate-400 shrink-0" />
+                    <span className="text-[10px] text-slate-400 truncate">{contact.tenderLabel}</span>
+                  </div>
                 </div>
               </button>
             );
@@ -403,87 +435,120 @@ export default function MessagesPage() {
         </div>
       </div>
 
-      {/* ── Right: Chat Area ────────────────────────────────────── */}
+      {/* ── Center: Chat Area ────────────────────────────────────── */}
       <div className={`flex-1 flex flex-col min-w-0 ${!mobileShowChat ? "hidden md:flex" : "flex"}`}>
         {activeContact ? (
           <>
             {/* Chat header */}
-            <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
+            <div className="px-5 py-3 border-b border-slate-200/80 flex items-center justify-between bg-white shrink-0">
               <div className="flex items-center gap-3">
-                {/* Mobile back button */}
                 <button
                   onClick={() => setMobileShowChat(false)}
-                  className="md:hidden text-slate-500 hover:text-navy-950 mr-1"
+                  className="md:hidden text-slate-400 hover:text-navy-950 transition-colors"
                 >
                   <ArrowLeft size={20} />
                 </button>
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center font-bold text-sm text-blue-700">
-                  {activeContact.partnerCompany?.[0]?.toUpperCase() || "?"}
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center font-bold text-xs text-white shadow-sm shadow-blue-500/20">
+                  {partnerInitials}
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-navy-950">{activeContact.partnerCompany}</h3>
-                  <p className="text-xs text-slate-500">{activeContact.partnerName}</p>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-navy-950 flex items-center gap-1.5 truncate">
+                    {p?.company_name || "Unbekannt"}
+                    {p?.role === "anbieter" && <SubscriptionBadge tier={p.subscription_tier} />}
+                  </h3>
+                  <p className="text-xs text-slate-400 truncate">
+                    {[p?.first_name, p?.last_name].filter(Boolean).join(" ") || "—"}
+                    {activeContact.tenderLabel !== "Ausschreibung" && (
+                      <span className="text-slate-300 mx-1.5">|</span>
+                    )}
+                    {activeContact.tenderLabel !== "Ausschreibung" && activeContact.tenderLabel}
+                  </p>
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowInfo(!showInfo)}
-                className="rounded-full text-slate-400 hover:text-navy-950 hover:bg-slate-100"
+              <button
+                onClick={() => setShowDetails(!showDetails)}
+                className={`hidden lg:flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                  showDetails ? "bg-blue-50 text-blue-600" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                }`}
               >
-                {showInfo ? <X size={18} /> : <Info size={18} />}
-              </Button>
+                <Info size={14} />
+                Details
+              </button>
             </div>
 
             <div className="flex-1 flex overflow-hidden">
               {/* Messages area */}
               <div className="flex-1 flex flex-col min-w-0">
-                <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
+                <div
+                  ref={scrollRef}
+                  className="flex-1 overflow-y-auto px-4 md:px-6 py-5 space-y-1"
+                  style={{ background: "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)" }}
+                >
                   {messagesLoading ? (
-                    <div className="flex items-center justify-center py-16 text-slate-400">
-                      <Loader2 className="animate-spin mr-2" size={20} /> Nachrichten laden…
+                    <div className="flex items-center justify-center py-20 text-slate-400">
+                      <Loader2 className="animate-spin mr-2" size={18} />
+                      <span className="text-sm">Nachrichten laden...</span>
                     </div>
                   ) : messages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-center">
-                      <MessageCircle size={40} className="text-slate-200 mb-3" />
-                      <p className="text-sm text-slate-400 font-medium max-w-xs">
-                        {canSend
-                          ? "Noch keine Nachrichten. Starten Sie die Konversation!"
-                          : "Warten auf die erste Nachricht des Händlers…"}
-                      </p>
+                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                      <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center mb-4">
+                        <Smile size={28} className="text-slate-300" />
+                      </div>
+                      <p className="text-sm font-medium text-slate-500 mb-1">Noch keine Nachrichten</p>
+                      <p className="text-xs text-slate-400">Sagen Sie Hallo!</p>
                     </div>
                   ) : (
-                    messages.map((msg) => {
-                      const isOwn = msg.sender_id === user?.id;
-                      return (
-                        <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
-                          <div
-                            className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
-                              isOwn
-                                ? "bg-blue-600 text-white rounded-br-md"
-                                : "bg-white border border-slate-200 text-slate-800 rounded-bl-md shadow-sm"
-                            }`}
-                          >
-                            <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-                            <div className={`flex items-center gap-1 justify-end mt-1 ${isOwn ? "text-blue-200" : "text-slate-400"}`}>
-                              <span className="text-[10px]">{formatTime(msg.created_at)}</span>
-                              {isOwn && (
-                                msg.read
-                                  ? <CheckCheck size={12} className="text-blue-200" />
-                                  : <Check size={12} className="text-blue-300/50" />
-                              )}
+                    <>
+                      {messages.map((msg, i) => {
+                        const isOwn = msg.sender_id === user?.id;
+                        const prevMsg = i > 0 ? messages[i - 1] : null;
+                        const sameSender = prevMsg?.sender_id === msg.sender_id;
+                        const timeDiff = prevMsg
+                          ? new Date(msg.created_at).getTime() - new Date(prevMsg.created_at).getTime()
+                          : Infinity;
+                        const showGap = timeDiff > 300000; // 5 min gap
+
+                        return (
+                          <div key={msg.id}>
+                            {showGap && (
+                              <div className="flex justify-center my-4">
+                                <span className="text-[10px] text-slate-400 bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full border border-slate-100 shadow-sm">
+                                  {formatTime(msg.created_at)}
+                                </span>
+                              </div>
+                            )}
+                            <div className={`flex ${isOwn ? "justify-end" : "justify-start"} ${sameSender && !showGap ? "mt-0.5" : "mt-3"}`}>
+                              <div
+                                className={`max-w-[70%] px-4 py-2.5 ${
+                                  isOwn
+                                    ? "bg-gradient-to-br from-blue-600 to-blue-500 text-white rounded-2xl rounded-br-lg shadow-sm shadow-blue-500/10"
+                                    : "bg-white text-slate-800 rounded-2xl rounded-bl-lg shadow-sm border border-slate-100"
+                                }`}
+                              >
+                                <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
+                                <div className={`flex items-center gap-1 justify-end mt-1 ${isOwn ? "text-blue-200/80" : "text-slate-400"}`}>
+                                  <span className="text-[10px]">
+                                    {new Date(msg.created_at).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
+                                  </span>
+                                  {isOwn && (
+                                    msg.read
+                                      ? <CheckCheck size={13} className="text-blue-200" />
+                                      : <Check size={13} className="text-blue-300/40" />
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })
+                        );
+                      })}
+                    </>
                   )}
                 </div>
 
-                {/* Input */}
-                <div className="px-4 py-3 border-t border-slate-200 bg-white shrink-0">
-                  {canSend ? (
-                    <div className="flex items-end gap-2">
+                {/* Message input */}
+                <div className="px-4 md:px-6 py-3 bg-white border-t border-slate-200/60 shrink-0">
+                  <div className="flex items-end gap-2.5">
+                    <div className="flex-1 relative">
                       <textarea
                         ref={inputRef}
                         value={text}
@@ -494,75 +559,125 @@ export default function MessagesPage() {
                             handleSend();
                           }
                         }}
-                        placeholder="Nachricht schreiben…"
+                        placeholder="Nachricht schreiben..."
                         rows={1}
-                        className="flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent max-h-32"
+                        className="w-full resize-none rounded-2xl border border-slate-200/80 bg-slate-50/50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-300 focus:bg-white max-h-32 transition-all placeholder:text-slate-400"
                       />
-                      <Button
-                        onClick={handleSend}
-                        disabled={!text.trim() || sending}
-                        className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white h-11 w-11 p-0 shrink-0"
-                      >
-                        {sending ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
-                      </Button>
                     </div>
-                  ) : (
-                    <p className="text-center text-sm text-slate-400 py-2">
-                      Warten auf die erste Nachricht des Händlers…
-                    </p>
-                  )}
+                    <Button
+                      onClick={handleSend}
+                      disabled={!text.trim() || sending}
+                      className="rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white h-[46px] w-[46px] p-0 shrink-0 shadow-md shadow-blue-500/20 disabled:opacity-40 disabled:shadow-none transition-all"
+                    >
+                      {sending ? <Loader2 className="animate-spin" size={17} /> : <Send size={17} />}
+                    </Button>
+                  </div>
                 </div>
               </div>
 
-              {/* Info panel */}
-              {showInfo && (
-                <div className="w-72 border-l border-slate-200 bg-white overflow-y-auto shrink-0 hidden md:block">
-                  <div className="p-5 space-y-5">
-                    <div className="flex flex-col items-center text-center pt-2">
-                      <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center font-bold text-xl text-blue-700 mb-3">
-                        {activeContact.partnerCompany?.[0]?.toUpperCase() || "?"}
+              {/* ── Right: Contact Details Panel ──────────────────── */}
+              {showDetails && (
+                <div className="w-[340px] border-l border-slate-200/80 bg-white overflow-y-auto shrink-0 hidden lg:block animate-in slide-in-from-right-4 duration-200">
+                  <div className="p-6 space-y-6">
+                    {/* Partner profile */}
+                    <div className="flex flex-col items-center text-center">
+                      <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-2xl flex items-center justify-center font-bold text-xl text-white mb-4 shadow-lg shadow-blue-500/20">
+                        {partnerInitials}
                       </div>
-                      <h3 className="font-bold text-navy-950">{activeContact.partnerCompany}</h3>
-                      <p className="text-sm text-slate-500">{activeContact.partnerName}</p>
+                      <h3 className="font-bold text-navy-950 text-lg leading-tight">
+                        {p?.company_name || "Unbekannt"}
+                      </h3>
+                      <p className="text-sm text-slate-500 mt-0.5">{[p?.first_name, p?.last_name].filter(Boolean).join(" ") || "—"}</p>
+                      <div className="flex items-center gap-1.5 mt-2 flex-wrap justify-center">
+                        {p?.role === "anbieter" && <SubscriptionBadge tier={p.subscription_tier} />}
+                        {p?.dealer_type && (
+                          <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500 font-medium">{p.dealer_type}</Badge>
+                        )}
+                        {p?.industry && (
+                          <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500 font-medium">{p.industry}</Badge>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="space-y-3 text-sm">
-                      {activeContact.partnerPhone && (
-                        <div className="flex items-center gap-2 text-slate-600">
-                          <Phone size={14} className="text-slate-400" />
-                          {activeContact.partnerPhone}
-                        </div>
+                    {/* Contact info cards */}
+                    <div className="space-y-2">
+                      {p?.email_public && (
+                        <a
+                          href={`mailto:${p.email_public}`}
+                          className="flex items-center gap-3 p-3 rounded-xl bg-slate-50/80 hover:bg-blue-50 transition-colors group"
+                        >
+                          <div className="w-9 h-9 rounded-lg bg-blue-100/80 flex items-center justify-center shrink-0 group-hover:bg-blue-200/60 transition-colors">
+                            <Mail size={15} className="text-blue-600" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">E-Mail</p>
+                            <p className="text-sm font-medium text-navy-950 truncate">{p.email_public}</p>
+                          </div>
+                        </a>
                       )}
-                      {activeContact.partnerCity && (
-                        <div className="flex items-center gap-2 text-slate-600">
-                          <Building2 size={14} className="text-slate-400" />
-                          {activeContact.partnerCity}
+                      {p?.phone && (
+                        <a
+                          href={`tel:${p.phone}`}
+                          className="flex items-center gap-3 p-3 rounded-xl bg-slate-50/80 hover:bg-green-50 transition-colors group"
+                        >
+                          <div className="w-9 h-9 rounded-lg bg-green-100/80 flex items-center justify-center shrink-0 group-hover:bg-green-200/60 transition-colors">
+                            <Phone size={15} className="text-green-600" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Telefon</p>
+                            <p className="text-sm font-medium text-navy-950">{p.phone}</p>
+                          </div>
+                        </a>
+                      )}
+                      {(p?.street || p?.zip || p?.city) && (
+                        <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50/80">
+                          <div className="w-9 h-9 rounded-lg bg-amber-100/80 flex items-center justify-center shrink-0">
+                            <MapPin size={15} className="text-amber-600" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Adresse</p>
+                            <p className="text-sm font-medium text-navy-950">
+                              {p?.street && <>{p.street}<br /></>}
+                              {[p?.zip, p?.city].filter(Boolean).join(" ")}
+                            </p>
+                          </div>
                         </div>
                       )}
                     </div>
 
-                    <div className="pt-3 border-t border-slate-100">
-                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Ausschreibung</h4>
-                      <p className="text-sm font-semibold text-navy-950">{activeContact.tenderLabel}</p>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Kontakt seit {new Date(activeContact.created_at).toLocaleDateString("de-DE", { day: "2-digit", month: "short", year: "numeric" })}
+                    {/* Tender info */}
+                    {t && (
+                      <div className="pt-2">
+                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">Ausschreibung</h4>
+                        <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-4 border border-slate-100 space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-[10px] font-mono text-slate-500 bg-white">{t.id.split("-")[0].toUpperCase()}</Badge>
+                            <Badge className={`text-[10px] border-none ${t.status === "active" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}>
+                              {t.status === "active" ? "Aktiv" : t.status === "cancelled" ? "Zurückgezogen" : "Abgeschlossen"}
+                            </Badge>
+                          </div>
+                          {t.tender_vehicles.map((v, i) => (
+                            <div key={i} className="flex items-center gap-2 text-sm">
+                              <Car size={14} className="text-blue-500 shrink-0" />
+                              <span className="font-semibold text-navy-950">{v.quantity}x {v.brand || "—"} {v.model_name || ""}</span>
+                            </div>
+                          ))}
+                          <Link
+                            href={isDealer ? `/dashboard/eingang/${t.id}/angebot` : `/dashboard/ausschreibungen`}
+                            className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-semibold mt-1 transition-colors"
+                          >
+                            <ExternalLink size={11} />
+                            Zur Ausschreibung
+                          </Link>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Contact since */}
+                    <div className="text-center pt-2">
+                      <p className="text-[10px] text-slate-400 font-medium">
+                        Kontakt seit {new Date(activeContact.created_at).toLocaleDateString("de-DE", { day: "2-digit", month: "long", year: "numeric" })}
                       </p>
-                    </div>
-
-                    <div className="pt-3 border-t border-slate-100">
-                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Status</h4>
-                      <div className="space-y-2">
-                        <StatusStep done label="Kontakt aufgenommen" />
-                        <StatusStep done={activeContact.dealer_responded} label="Händler hat geantwortet" />
-                        <StatusStep
-                          done={activeContact.contract_concluded != null}
-                          label={
-                            activeContact.contract_concluded === true ? "Vertrag — Ja"
-                            : activeContact.contract_concluded === false ? "Vertrag — Nein"
-                            : "Vertrag abgeschlossen"
-                          }
-                        />
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -570,27 +685,17 @@ export default function MessagesPage() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-center px-4">
-            <div>
-              <MessageCircle size={48} className="text-slate-200 mx-auto mb-4" />
-              <h3 className="text-lg font-bold text-navy-950 mb-1">Wählen Sie einen Chat</h3>
-              <p className="text-sm text-slate-500">Klicken Sie links auf einen Kontakt, um den Chat zu öffnen.</p>
+          <div className="flex-1 flex items-center justify-center text-center px-4 bg-slate-50/50">
+            <div className="flex flex-col items-center">
+              <div className="w-20 h-20 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center mb-5">
+                <MessageCircle size={32} className="text-slate-300" />
+              </div>
+              <h3 className="text-lg font-bold text-navy-950 mb-1">Wählen Sie eine Konversation</h3>
+              <p className="text-sm text-slate-500 max-w-xs">Klicken Sie links auf eine Konversation, um den Chat zu öffnen.</p>
             </div>
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-// ── Tiny status step component ──────────────────────────────────────────────
-function StatusStep({ done, label }: { done: boolean; label: string }) {
-  return (
-    <div className="flex items-center gap-2 text-xs">
-      <div className={`w-4 h-4 rounded-full flex items-center justify-center ${done ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400"}`}>
-        <Check size={10} />
-      </div>
-      <span className={done ? "text-green-700 font-semibold" : "text-slate-400"}>{label}</span>
     </div>
   );
 }

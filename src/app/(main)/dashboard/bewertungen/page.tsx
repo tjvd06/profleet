@@ -3,13 +3,11 @@
 import { useAuth } from "@/components/providers/auth-provider";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   BarChart3, User, Building2, Star, TrendingUp, TrendingDown,
-  MessageSquare, FileText, Zap, ChevronRight, CheckCircle2, ShieldCheck,
+  MessageSquare, FileText, CheckCircle2, ShieldCheck,
   XOctagon, Clock, Handshake
 } from "lucide-react";
-import Link from "next/link";
 
 // -----------------
 // HELPERS
@@ -40,12 +38,6 @@ const emptyBuyerData = {
     unresolvedTenders: { total: 0, last6Months: 0 },
     withdrawnTenders: { total: 0, last6Months: 0 }
   },
-  quota: {
-    configsLimit: 3,
-    configsUsed: 0,
-    tendersLimit: 3,
-    tendersUsed: 0
-  }
 };
 
 const emptyDealerData = {
@@ -263,68 +255,6 @@ export default function AnalyticsPage() {
           </div>
         </section>
 
-        {/* FREE TIER USAGE CARD (BUYER ONLY) */}
-        {!isDealer && emptyBuyerData.quota && (
-          <section className="animate-in fade-in slide-in-from-bottom-6 duration-500">
-            <h2 className="text-2xl font-bold text-navy-950 mb-6">Konto-Kontingent (Free Tier)</h2>
-            <Card className="p-1 border-slate-200 shadow-sm rounded-3xl bg-white overflow-hidden flex flex-col md:flex-row">
-              
-              {/* Bars Left */}
-              <div className="flex-1 p-6 md:p-8 md:pr-12">
-                <div className="space-y-8">
-                  {/* Configs */}
-                  <div>
-                    <div className="flex justify-between items-end mb-3">
-                      <div>
-                        <h4 className="font-bold text-navy-950 text-base">Gespeicherte Konfigurationen</h4>
-                        <p className="text-xs text-slate-500 mt-0.5">Konfigurations-Vorlagen im Profil</p>
-                      </div>
-                      <span className="font-black text-lg text-slate-400">{emptyBuyerData.quota.configsUsed} / {emptyBuyerData.quota.configsLimit}</span>
-                    </div>
-                    <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex">
-                      {[...Array(emptyBuyerData.quota.configsLimit)].map((_, i) => (
-                        <div key={i} className={`h-full flex-1 border-r border-white last:border-0 transition-colors ${i < emptyBuyerData.quota.configsUsed ? 'bg-blue-500' : 'bg-transparent'}`} />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Tenders */}
-                  <div>
-                    <div className="flex justify-between items-end mb-3">
-                      <div>
-                        <h4 className="font-bold text-navy-950 text-base">Laufende Ausschreibungen</h4>
-                        <p className="text-xs text-slate-500 mt-0.5">Gleichzeitig aktive Inserate</p>
-                      </div>
-                      <span className="font-black text-lg text-slate-400">{emptyBuyerData.quota.tendersUsed} / {emptyBuyerData.quota.tendersLimit}</span>
-                    </div>
-                    <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex">
-                      {[...Array(emptyBuyerData.quota.tendersLimit)].map((_, i) => (
-                        <div key={i} className={`h-full flex-1 border-r border-white last:border-0 transition-colors ${i < emptyBuyerData.quota.tendersUsed ? 'bg-amber-500' : 'bg-transparent'}`} />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Upgrade CTA Right */}
-              <div className="w-full md:w-80 bg-gradient-to-br from-navy-900 to-navy-950 p-6 md:p-8 flex flex-col justify-center text-white shrink-0 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
-                  <Zap size={100} />
-                </div>
-                <Badge className="bg-blue-500/20 text-blue-300 border-none w-fit mb-4 text-xs tracking-widest uppercase">Limit aufheben</Badge>
-                <h4 className="text-xl font-bold mb-2">Upgrade auf Profi-Konto</h4>
-                <p className="text-slate-400 text-sm mb-6 leading-relaxed">Erstellen Sie unbegrenzt Ausschreibungen und speichern Sie hunderte Fahrzeug-Konfigurationen für Ihren Fuhrpark.</p>
-                
-                <Link href="#" className="mt-auto">
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-12 shadow-lg shadow-blue-500/20 rounded-xl group">
-                    Konto upgraden <ChevronRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                </Link>
-              </div>
-
-            </Card>
-          </section>
-        )}
 
       </div>
     </div>

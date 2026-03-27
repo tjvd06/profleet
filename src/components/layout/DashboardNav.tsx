@@ -30,8 +30,8 @@ const NACHFRAGER_TABS: Tab[] = [
   { label: "Übersicht", href: "/dashboard", icon: LayoutDashboard, exact: true },
   { label: "Neue Ausschreibung", href: "/dashboard/ausschreibung/neu", icon: Plus },
   { label: "Meine Ausschreibungen", href: "/dashboard/ausschreibungen", icon: FileText },
-  { label: "Nachrichten", href: "/dashboard/nachrichten", icon: MessageCircle, badgeKey: "messages" },
   { label: "Sofort-Angebote", href: "/dashboard/sofort-angebote", icon: Zap },
+  { label: "Nachrichten", href: "/dashboard/nachrichten", icon: MessageCircle, badgeKey: "messages" },
   { label: "Bewertungen", href: "/dashboard/bewertungen", icon: Star },
   { label: "Profil", href: "/dashboard/profil", icon: UserCircle },
 ];
@@ -40,10 +40,10 @@ const ANBIETER_TABS: Tab[] = [
   { label: "Übersicht", href: "/dashboard", icon: LayoutDashboard, exact: true },
   { label: "Eingang", href: "/dashboard/eingang", icon: Inbox },
   { label: "Meine Angebote", href: "/dashboard/angebote", icon: Handshake },
-  { label: "Nachrichten", href: "/dashboard/nachrichten", icon: MessageCircle, badgeKey: "messages" },
   { label: "Sofort-Angebote", href: "/dashboard/sofort-angebote", icon: Zap },
+  { label: "Nachrichten", href: "/dashboard/nachrichten", icon: MessageCircle, badgeKey: "messages" },
   { label: "Bewertungen", href: "/dashboard/bewertungen", icon: Star },
-  { label: "Rechnungen", href: "/dashboard/rechnungen", icon: ReceiptText },
+  { label: "Abo & Abrechnung", href: "/dashboard/abo", icon: ReceiptText },
   { label: "Profil", href: "/dashboard/profil", icon: UserCircle },
 ];
 

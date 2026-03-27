@@ -26,16 +26,28 @@ type NavSection = {
 
 const NACHFRAGER_NAV: NavSection[] = [
   {
+    // Überblick
     items: [
       { label: "Übersicht", href: "/dashboard", icon: LayoutDashboard, exact: true },
+    ],
+  },
+  {
+    // Fahrzeuge
+    items: [
       { label: "Neue Ausschreibung", href: "/dashboard/ausschreibung/neu", icon: Plus, gradient: true },
       { label: "Meine Ausschreibungen", href: "/dashboard/ausschreibungen", icon: FileText },
       { label: "Sofort-Angebote", href: "/dashboard/sofort-angebote", icon: Zap },
+    ],
+  },
+  {
+    // Kommunikation
+    items: [
       { label: "Nachrichten", href: "/dashboard/nachrichten", icon: MessageCircle, badge: true },
       { label: "Bewertungen", href: "/dashboard/bewertungen", icon: Star },
     ],
   },
   {
+    // Konto
     items: [
       { label: "Profil", href: "/dashboard/profil", icon: UserCircle },
       { label: "Einstellungen", href: "/dashboard/einstellungen", icon: Settings },
@@ -45,19 +57,36 @@ const NACHFRAGER_NAV: NavSection[] = [
 
 const ANBIETER_NAV: NavSection[] = [
   {
+    // Überblick
     items: [
       { label: "Übersicht", href: "/dashboard", icon: LayoutDashboard, exact: true },
-      { label: "Eingang", href: "/dashboard/eingang", icon: Inbox },
-      { label: "Meine Angebote", href: "/dashboard/angebote", icon: Handshake },
-      { label: "Neues Sofort-Angebot", href: "/dashboard/sofort-angebote/neu", icon: Plus, gradient: true },
-      { label: "Sofort-Angebote", href: "/dashboard/sofort-angebote", icon: Zap },
-      { label: "Nachrichten", href: "/dashboard/nachrichten", icon: MessageCircle, badge: true },
-      { label: "Bewertungen", href: "/dashboard/bewertungen", icon: Star },
-      { label: "Rechnungen", href: "/dashboard/rechnungen", icon: ReceiptText },
     ],
   },
   {
+    // Ausschreibungen
     items: [
+      { label: "Eingang", href: "/dashboard/eingang", icon: Inbox },
+      { label: "Meine Angebote", href: "/dashboard/angebote", icon: Handshake },
+    ],
+  },
+  {
+    // Sofort-Angebote
+    items: [
+      { label: "Sofort-Angebote", href: "/dashboard/sofort-angebote", icon: Zap },
+      { label: "Neues Sofort-Angebot", href: "/dashboard/sofort-angebote/neu", icon: Plus, gradient: true },
+    ],
+  },
+  {
+    // Kommunikation
+    items: [
+      { label: "Nachrichten", href: "/dashboard/nachrichten", icon: MessageCircle, badge: true },
+      { label: "Bewertungen", href: "/dashboard/bewertungen", icon: Star },
+    ],
+  },
+  {
+    // Konto
+    items: [
+      { label: "Abo & Abrechnung", href: "/dashboard/abo", icon: ReceiptText },
       { label: "Profil", href: "/dashboard/profil", icon: UserCircle },
       { label: "Einstellungen", href: "/dashboard/einstellungen", icon: Settings },
     ],
