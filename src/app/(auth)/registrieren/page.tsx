@@ -53,7 +53,7 @@ export default function RegisterPage() {
       // Optional: Formular leeren
       setPassword("");
     } else {
-      router.push("/dashboard");
+      router.push("/dashboard/profil?welcome=1");
       router.refresh();
     }
   };

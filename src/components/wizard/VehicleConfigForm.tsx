@@ -1,0 +1,617 @@
+"use client";
+
+import { useState } from "react";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
+import {
+  Settings2, UploadCloud, Check, X, Minus, Plus, ChevronDown,
+  Car, Cog, Gauge, Weight, Leaf, Paintbrush, Sparkles, Sofa, Star, Euro,
+} from "lucide-react";
+import { useVehicleModels, useVehicleModelsByBrand } from "@/hooks/useVehicleModels";
+import type { VehicleConfig } from "@/types/vehicle";
+import {
+  BODY_TYPE_OPTIONS, SEATS_OPTIONS, DOORS_OPTIONS, SLIDING_DOOR_OPTIONS,
+  FUEL_TYPE_OPTIONS, POWER_OPTIONS, DISPLACEMENT_OPTIONS, TANK_SIZE_OPTIONS,
+  CYLINDER_OPTIONS, TRANSMISSION_OPTIONS, DRIVE_TYPE_OPTIONS, FUEL_CONSUMPTION_OPTIONS,
+  WEIGHT_OPTIONS, TOW_BAR_OPTIONS, TOW_CAPACITY_BRAKED_OPTIONS, TOW_CAPACITY_UNBRAKED_OPTIONS,
+  NOSE_WEIGHT_OPTIONS, ENVIRONMENTAL_BADGE_OPTIONS, EMISSION_CLASS_OPTIONS,
+  EXTERIOR_COLOR_OPTIONS, PARKING_AID_OPTIONS, CRUISE_CONTROL_OPTIONS, EXTERIOR_EXTRAS,
+  INTERIOR_COLOR_OPTIONS, INTERIOR_MATERIAL_OPTIONS, AIRBAG_OPTIONS, CLIMATE_OPTIONS,
+  INTERIOR_EXTRAS,
+} from "@/lib/vehicle-options";
+
+/* ------------------------------------------------------------------ */
+/* Types & helpers                                                     */
+/* ------------------------------------------------------------------ */
+
+interface VehicleConfigFormProps {
+  vehicle: VehicleConfig;
+  onChange: (updated: VehicleConfig) => void;
+  onSave: () => void;
+  onCancel?: () => void;
+  showCancel?: boolean;
+}
+
+type SectionDef = {
+  title: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  required?: boolean;
+};
+
+const SECTIONS: SectionDef[] = [
+  { title: "Fahrzeug", icon: Car, required: true },
+  { title: "Karosserie & Aufbau", icon: Cog },
+  { title: "Motor & Antrieb", icon: Gauge },
+  { title: "Gewicht & Anhänger", icon: Weight },
+  { title: "Umwelt & Emissionen", icon: Leaf },
+  { title: "Exterieur", icon: Paintbrush },
+  { title: "Exterieur-Extras", icon: Sparkles },
+  { title: "Interieur", icon: Sofa },
+  { title: "Interieur-Extras", icon: Star },
+  { title: "Preis", icon: Euro },
+];
+
+const selectCls =
+  "h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-base outline-none transition-all focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed";
+
+/* ------------------------------------------------------------------ */
+/* Component                                                           */
+/* ------------------------------------------------------------------ */
+
+export function VehicleConfigForm({
+  vehicle,
+  onChange,
+  onSave,
+  onCancel,
+  showCancel = false,
+}: VehicleConfigFormProps) {
+  const [openSections, setOpenSections] = useState<Set<number>>(new Set([0]));
+
+  const { brands, loadingBrands } = useVehicleModels(vehicle.vehicleType);
+  const { models, loadingModels } = useVehicleModelsByBrand(vehicle.vehicleType, vehicle.brand);
+
+  const toggle = (i: number) =>
+    setOpenSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+
+  const update = (partial: Partial<VehicleConfig>) => onChange({ ...vehicle, ...partial });
+
+  const isValid = vehicle.brand !== null && vehicle.model !== null;
+
+  /* ---------- small reusable renderers ---------- */
+
+  const sel = (
+    label: string,
+    value: string | number | null,
+    options: (string | number)[],
+    onCh: (v: string) => void,
+    opts?: { disabled?: boolean; loading?: boolean; placeholder?: string; fmt?: (o: string | number) => string },
+  ) => (
+    <div className="space-y-1.5">
+      <Label className="text-sm text-slate-600 font-semibold">{label}</Label>
+      <select
+        value={value ?? ""}
+        onChange={(e) => onCh(e.target.value)}
+        disabled={opts?.disabled || opts?.loading}
+        className={selectCls}
+      >
+        <option value="" disabled>
+          {opts?.placeholder || `${label.replace(" *", "")} wählen...`}
+        </option>
+        {options.map((o) => (
+          <option key={String(o)} value={o}>
+            {opts?.fmt ? opts.fmt(o) : String(o)}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
+  const rangeSel = (
+    label: string,
+    from: number | null,
+    to: number | null,
+    options: number[],
+    onFrom: (v: number | null) => void,
+    onTo: (v: number | null) => void,
+    opts?: { unit?: string; fmt?: (n: number) => string },
+  ) => (
+    <div className="space-y-1.5">
+      <Label className="text-sm text-slate-600 font-semibold">{label}</Label>
+      <div className="grid grid-cols-2 gap-2">
+        <select value={from ?? ""} onChange={(e) => onFrom(e.target.value ? Number(e.target.value) : null)} className={selectCls}>
+          <option value="">von</option>
+          {options.map((o) => (
+            <option key={o} value={o}>
+              {opts?.fmt ? opts.fmt(o) : `${o.toLocaleString("de-DE")}${opts?.unit ? ` ${opts.unit}` : ""}`}
+            </option>
+          ))}
+        </select>
+        <select value={to ?? ""} onChange={(e) => onTo(e.target.value ? Number(e.target.value) : null)} className={selectCls}>
+          <option value="">bis</option>
+          {options.map((o) => (
+            <option key={o} value={o}>
+              {opts?.fmt ? opts.fmt(o) : `${o.toLocaleString("de-DE")}${opts?.unit ? ` ${opts.unit}` : ""}`}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+
+  const checkGrid = (items: string[], selected: string[], field: keyof VehicleConfig) => (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      {items.map((item) => (
+        <label
+          key={item}
+          className="flex items-center gap-2 p-2.5 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 cursor-pointer transition-colors"
+        >
+          <Checkbox
+            checked={selected.includes(item)}
+            onCheckedChange={(c) => {
+              const arr = selected as string[];
+              update({ [field]: c ? [...arr, item] : arr.filter((e) => e !== item) } as Partial<VehicleConfig>);
+            }}
+          />
+          <span className="text-slate-700 text-xs leading-tight">{item}</span>
+        </label>
+      ))}
+    </div>
+  );
+
+  /* ---------- section header ---------- */
+
+  const sectionHeader = (idx: number) => {
+    const s = SECTIONS[idx];
+    const Icon = s.icon;
+    const isOpen = openSections.has(idx);
+    return (
+      <button onClick={() => toggle(idx)} className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center">
+            <Icon size={16} className="text-slate-500" />
+          </div>
+          <span className="font-bold text-navy-950 text-base">{s.title}</span>
+          {s.required ? (
+            <span className="text-[10px] text-red-500 font-bold uppercase tracking-wide">Pflicht</span>
+          ) : (
+            <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Optional</span>
+          )}
+        </div>
+        <ChevronDown size={18} className={`text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+      </button>
+    );
+  };
+
+  /* ================================================================ */
+  /* RENDER                                                            */
+  /* ================================================================ */
+
+  return (
+    <div className="space-y-6">
+      {/* ---- Method Selection ---- */}
+      <div>
+        <h2 className="text-2xl font-bold text-navy-950 mb-6">Konfigurationsmethode wählen</h2>
+        <RadioGroup
+          value={vehicle.method}
+          onValueChange={(v) => update({ method: v as VehicleConfig["method"] })}
+          className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8"
+        >
+          {[
+            { id: "configurator", icon: Settings2, title: "Konfigurator", desc: "Schritt für Schritt konfigurieren" },
+            { id: "upload", icon: UploadCloud, title: "Datei hochladen", desc: "PDF, DOC, TXT hochladen" },
+          ].map((opt) => (
+            <div key={opt.id} className="relative">
+              <RadioGroupItem value={opt.id} id={`method-${vehicle.id}-${opt.id}`} className="peer sr-only" />
+              <Label
+                htmlFor={`method-${vehicle.id}-${opt.id}`}
+                className="flex flex-col items-center justify-center p-6 bg-white border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 hover:border-blue-300 peer-data-[state=checked]:border-2 peer-data-[state=checked]:border-blue-500 peer-data-[state=checked]:bg-blue-50 peer-data-[state=checked]:shadow-md transition-all text-center h-full group"
+              >
+                <div className="h-12 w-12 mb-3 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                  <opt.icon size={22} className="text-slate-500 group-hover:text-blue-500 transition-colors" />
+                </div>
+                <span className="font-bold text-navy-950 text-base block mb-1">{opt.title}</span>
+                <span className="text-xs font-normal text-slate-500">{opt.desc}</span>
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+      </div>
+
+      {/* ================================================================ */}
+      {/* CONFIGURATOR MODE                                                */}
+      {/* ================================================================ */}
+      {vehicle.method === "configurator" && (
+        <div className="space-y-3">
+          {/* ---- Section 0: Fahrzeug (Pflicht) ---- */}
+          <div className="border border-slate-200 rounded-2xl overflow-hidden">
+            {sectionHeader(0)}
+            {openSections.has(0) && (
+              <div className="p-6 border-t border-slate-100 space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="text-sm text-slate-600 font-semibold">Fahrzeugart</Label>
+                  <div className="flex gap-2">
+                    {(["PKW", "NFZ"] as const).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => update({ vehicleType: t, brand: null, model: null })}
+                        className={`flex-1 h-11 rounded-xl border text-base font-semibold transition-all ${
+                          vehicle.vehicleType === t
+                            ? "bg-blue-500 text-white border-blue-500 shadow-sm"
+                            : "bg-slate-50 text-slate-600 border-slate-200 hover:border-blue-300"
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sel("Marke *", vehicle.brand, brands, (v) => update({ brand: v, model: null }), { loading: loadingBrands })}
+                  {sel("Modell *", vehicle.model, models, (v) => update({ model: v }), { disabled: !vehicle.brand, loading: loadingModels })}
+                </div>
+                {/* Quantity Stepper */}
+                <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                  <div>
+                    <Label className="text-sm font-bold text-navy-950 block">Stückzahl</Label>
+                    <p className="text-xs text-slate-500">Wie viele Fahrzeuge dieser Konfiguration?</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => update({ quantity: Math.max(1, vehicle.quantity - 1) })} disabled={vehicle.quantity <= 1} className="h-9 w-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 transition-colors disabled:opacity-40">
+                      <Minus size={14} />
+                    </button>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="99"
+                      value={vehicle.quantity}
+                      onChange={(e) => update({ quantity: Math.max(1, Math.min(99, parseInt(e.target.value) || 1)) })}
+                      className="w-14 text-center font-bold text-base rounded-lg h-9 bg-white border-slate-200 focus-visible:ring-blue-500"
+                    />
+                    <button onClick={() => update({ quantity: Math.min(99, vehicle.quantity + 1) })} className="h-9 w-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 transition-colors">
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ---- Section 1: Karosserie & Aufbau ---- */}
+          <div className="border border-slate-200 rounded-2xl overflow-hidden">
+            {sectionHeader(1)}
+            {openSections.has(1) && (
+              <div className="p-6 border-t border-slate-100 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sel("Fahrzeugtyp", vehicle.bodyType, BODY_TYPE_OPTIONS, (v) => update({ bodyType: v }))}
+                  {sel("Anzahl Türen", vehicle.doors, DOORS_OPTIONS, (v) => update({ doors: parseInt(v) }))}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {rangeSel(
+                    "Anzahl Sitzplätze",
+                    vehicle.seatsFrom,
+                    vehicle.seatsTo,
+                    SEATS_OPTIONS,
+                    (v) => update({ seatsFrom: v }),
+                    (v) => update({ seatsTo: v }),
+                    { fmt: (n) => (n === 9 ? "9+" : String(n)) },
+                  )}
+                  {sel("Schiebetür", vehicle.slidingDoor, SLIDING_DOOR_OPTIONS, (v) => update({ slidingDoor: v }))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ---- Section 2: Motor & Antrieb ---- */}
+          <div className="border border-slate-200 rounded-2xl overflow-hidden">
+            {sectionHeader(2)}
+            {openSections.has(2) && (
+              <div className="p-6 border-t border-slate-100 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sel("Kraftstoffart", vehicle.fuelType, FUEL_TYPE_OPTIONS, (v) => update({ fuelType: v }))}
+                  {sel("Getriebe", vehicle.transmission, TRANSMISSION_OPTIONS, (v) => update({ transmission: v }))}
+                </div>
+                {rangeSel(
+                  "Leistung",
+                  vehicle.powerFrom,
+                  vehicle.powerTo,
+                  POWER_OPTIONS.map((p) => p.kw),
+                  (v) => update({ powerFrom: v }),
+                  (v) => update({ powerTo: v }),
+                  {
+                    fmt: (kw) => {
+                      const p = POWER_OPTIONS.find((po) => po.kw === kw);
+                      return p ? `${p.kw} kW (${p.ps} PS)` : `${kw} kW`;
+                    },
+                  },
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {rangeSel("Hubraum", vehicle.displacementFrom, vehicle.displacementTo, DISPLACEMENT_OPTIONS, (v) => update({ displacementFrom: v }), (v) => update({ displacementTo: v }), { unit: "cm³" })}
+                  {rangeSel("Tankgröße", vehicle.tankSizeFrom, vehicle.tankSizeTo, TANK_SIZE_OPTIONS, (v) => update({ tankSizeFrom: v }), (v) => update({ tankSizeTo: v }), { unit: "l" })}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {sel("Zylinder", vehicle.cylinders, CYLINDER_OPTIONS, (v) => update({ cylinders: parseInt(v) }))}
+                  {sel("Antriebsart", vehicle.driveType, DRIVE_TYPE_OPTIONS, (v) => update({ driveType: v }))}
+                  {sel("Verbrauch (komb.) bis", vehicle.fuelConsumption, FUEL_CONSUMPTION_OPTIONS, (v) => update({ fuelConsumption: parseInt(v) }), { fmt: (o) => `${o} l/100km` })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ---- Section 3: Gewicht & Anhänger ---- */}
+          <div className="border border-slate-200 rounded-2xl overflow-hidden">
+            {sectionHeader(3)}
+            {openSections.has(3) && (
+              <div className="p-6 border-t border-slate-100 space-y-4">
+                {rangeSel("Gewicht", vehicle.weightFrom, vehicle.weightTo, WEIGHT_OPTIONS, (v) => update({ weightFrom: v }), (v) => update({ weightTo: v }), { unit: "kg" })}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sel("Anhängerkupplung", vehicle.towBar, TOW_BAR_OPTIONS, (v) => update({ towBar: v }))}
+                  {sel("Anhängelast gebremst ab", vehicle.towCapacityBraked, TOW_CAPACITY_BRAKED_OPTIONS, (v) => update({ towCapacityBraked: parseInt(v) }), { fmt: (o) => `${Number(o).toLocaleString("de-DE")} kg` })}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sel("Anhängelast ungebremst ab", vehicle.towCapacityUnbraked, TOW_CAPACITY_UNBRAKED_OPTIONS, (v) => update({ towCapacityUnbraked: parseInt(v) }), { fmt: (o) => `${o} kg` })}
+                  {sel("Stützlast ab", vehicle.noseWeight, NOSE_WEIGHT_OPTIONS, (v) => update({ noseWeight: parseInt(v) }), { fmt: (o) => `${o} kg` })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ---- Section 4: Umwelt & Emissionen ---- */}
+          <div className="border border-slate-200 rounded-2xl overflow-hidden">
+            {sectionHeader(4)}
+            {openSections.has(4) && (
+              <div className="p-6 border-t border-slate-100 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sel("Umweltplakette", vehicle.environmentalBadge, ENVIRONMENTAL_BADGE_OPTIONS, (v) => update({ environmentalBadge: v }))}
+                  {sel("Schadstoffklasse", vehicle.emissionClass, EMISSION_CLASS_OPTIONS, (v) => update({ emissionClass: v }))}
+                </div>
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                  <Label className="text-sm font-semibold text-slate-700">Partikelfilter</Label>
+                  <Switch checked={vehicle.particleFilter} onCheckedChange={(c) => update({ particleFilter: c })} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ---- Section 5: Exterieur ---- */}
+          <div className="border border-slate-200 rounded-2xl overflow-hidden">
+            {sectionHeader(5)}
+            {openSections.has(5) && (
+              <div className="p-6 border-t border-slate-100 space-y-5">
+                {/* Color Picker */}
+                <div className="space-y-2">
+                  <Label className="text-sm text-slate-600 font-semibold">Außenfarbe</Label>
+                  <div className="flex flex-wrap gap-3">
+                    {EXTERIOR_COLOR_OPTIONS.map((c) => (
+                      <button
+                        key={c.name}
+                        onClick={() => update({ exteriorColor: vehicle.exteriorColor === c.name ? null : c.name })}
+                        className="group flex flex-col items-center gap-1 transition-transform"
+                        title={c.name}
+                      >
+                        <div
+                          className={`h-10 w-10 rounded-full border-2 transition-all ${
+                            vehicle.exteriorColor === c.name
+                              ? "border-blue-500 ring-2 ring-blue-200 scale-110"
+                              : "border-slate-200 group-hover:border-slate-400"
+                          } ${c.name === "Weiß" ? "shadow-inner" : ""}`}
+                          style={{ backgroundColor: c.hex }}
+                        />
+                        <span className={`text-[10px] ${vehicle.exteriorColor === c.name ? "text-blue-600 font-bold" : "text-slate-500"}`}>
+                          {c.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Matt / Metallic Toggles */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                    <Label className="text-sm font-semibold text-slate-700">Matt</Label>
+                    <Switch checked={vehicle.matt} onCheckedChange={(c) => update({ matt: c })} />
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                    <Label className="text-sm font-semibold text-slate-700">Metallic</Label>
+                    <Switch checked={vehicle.metallic} onCheckedChange={(c) => update({ metallic: c })} />
+                  </div>
+                </div>
+
+                {/* Parking Aid */}
+                <div className="space-y-2">
+                  <Label className="text-sm text-slate-600 font-semibold">Einparkhilfe</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {PARKING_AID_OPTIONS.map((item) => (
+                      <label key={item} className="flex items-center gap-2 p-2.5 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 cursor-pointer transition-colors">
+                        <Checkbox
+                          checked={vehicle.parkingAid.includes(item)}
+                          onCheckedChange={(c) => {
+                            update({ parkingAid: c ? [...vehicle.parkingAid, item] : vehicle.parkingAid.filter((e) => e !== item) });
+                          }}
+                        />
+                        <span className="text-xs text-slate-700">{item}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cruise Control */}
+                {sel("Tempomat", vehicle.cruiseControl, CRUISE_CONTROL_OPTIONS, (v) => update({ cruiseControl: v }))}
+              </div>
+            )}
+          </div>
+
+          {/* ---- Section 6: Exterieur-Extras ---- */}
+          <div className="border border-slate-200 rounded-2xl overflow-hidden">
+            {sectionHeader(6)}
+            {openSections.has(6) && (
+              <div className="p-6 border-t border-slate-100">
+                {checkGrid(EXTERIOR_EXTRAS, vehicle.exteriorExtras, "exteriorExtras")}
+              </div>
+            )}
+          </div>
+
+          {/* ---- Section 7: Interieur ---- */}
+          <div className="border border-slate-200 rounded-2xl overflow-hidden">
+            {sectionHeader(7)}
+            {openSections.has(7) && (
+              <div className="p-6 border-t border-slate-100 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sel("Farbe Innenausstattung", vehicle.interiorColor, INTERIOR_COLOR_OPTIONS, (v) => update({ interiorColor: v }))}
+                  {sel("Material Innenausstattung", vehicle.interiorMaterial, INTERIOR_MATERIAL_OPTIONS, (v) => update({ interiorMaterial: v }))}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sel("Airbags", vehicle.airbags, AIRBAG_OPTIONS, (v) => update({ airbags: v }))}
+                  {sel("Klimatisierung", vehicle.climate, CLIMATE_OPTIONS, (v) => update({ climate: v }))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ---- Section 8: Interieur-Extras ---- */}
+          <div className="border border-slate-200 rounded-2xl overflow-hidden">
+            {sectionHeader(8)}
+            {openSections.has(8) && (
+              <div className="p-6 border-t border-slate-100">
+                {checkGrid(INTERIOR_EXTRAS, vehicle.interiorExtras, "interiorExtras")}
+              </div>
+            )}
+          </div>
+
+          {/* ---- Section 9: Preis ---- */}
+          <div className="border border-slate-200 rounded-2xl overflow-hidden">
+            {sectionHeader(9)}
+            {openSections.has(9) && (
+              <div className="p-6 border-t border-slate-100 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-sm text-slate-600 font-semibold">Listenpreis netto (€)</Label>
+                    <Input
+                      type="number"
+                      placeholder="z.B. 35000"
+                      value={vehicle.listPriceNet ?? ""}
+                      onChange={(e) => {
+                        const net = parseFloat(e.target.value) || null;
+                        update({
+                          listPriceNet: net,
+                          listPriceGross: net ? Math.round(net * 1.19 * 100) / 100 : null,
+                        });
+                      }}
+                      className="rounded-xl h-11 bg-slate-50 border-slate-200 text-base focus-visible:ring-blue-500"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-sm text-slate-600 font-semibold">Listenpreis brutto (€)</Label>
+                    <Input
+                      type="number"
+                      readOnly
+                      value={vehicle.listPriceGross ? vehicle.listPriceGross.toFixed(2) : ""}
+                      className="rounded-xl h-11 bg-slate-100 border-transparent text-base text-slate-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================ */}
+      {/* UPLOAD MODE                                                      */}
+      {/* ================================================================ */}
+      {vehicle.method === "upload" && (
+        <div className="space-y-6">
+          {/* Section 1 fields for upload */}
+          <div className="border border-slate-200 rounded-2xl p-6 space-y-4">
+            <h3 className="font-bold text-navy-950 text-base flex items-center gap-2">
+              <Car size={16} className="text-slate-500" /> Fahrzeug-Grunddaten
+            </h3>
+            <div className="space-y-1.5">
+              <Label className="text-sm text-slate-600 font-semibold">Fahrzeugart</Label>
+              <div className="flex gap-2">
+                {(["PKW", "NFZ"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => update({ vehicleType: t, brand: null, model: null })}
+                    className={`flex-1 h-11 rounded-xl border text-base font-semibold transition-all ${
+                      vehicle.vehicleType === t
+                        ? "bg-blue-500 text-white border-blue-500 shadow-sm"
+                        : "bg-slate-50 text-slate-600 border-slate-200 hover:border-blue-300"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {sel("Marke *", vehicle.brand, brands, (v) => update({ brand: v, model: null }), { loading: loadingBrands })}
+              {sel("Modell *", vehicle.model, models, (v) => update({ model: v }), { disabled: !vehicle.brand, loading: loadingModels })}
+            </div>
+            {/* Quantity */}
+            <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-xl">
+              <div>
+                <Label className="text-sm font-bold text-navy-950 block">Stückzahl</Label>
+                <p className="text-xs text-slate-500">Wie viele Fahrzeuge dieser Konfiguration?</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => update({ quantity: Math.max(1, vehicle.quantity - 1) })} disabled={vehicle.quantity <= 1} className="h-9 w-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 transition-colors disabled:opacity-40">
+                  <Minus size={14} />
+                </button>
+                <Input
+                  type="number"
+                  min="1"
+                  max="99"
+                  value={vehicle.quantity}
+                  onChange={(e) => update({ quantity: Math.max(1, Math.min(99, parseInt(e.target.value) || 1)) })}
+                  className="w-14 text-center font-bold text-base rounded-lg h-9 bg-white border-slate-200 focus-visible:ring-blue-500"
+                />
+                <button onClick={() => update({ quantity: Math.min(99, vehicle.quantity + 1) })} className="h-9 w-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 transition-colors">
+                  <Plus size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Upload Zone */}
+          <div className="border-2 border-dashed border-slate-300 bg-slate-50/50 rounded-2xl p-10 flex flex-col items-center justify-center text-slate-500 hover:bg-slate-50 hover:border-blue-300 transition-colors cursor-pointer group">
+            <div className="h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center mb-4 group-hover:bg-blue-100 transition-colors">
+              <UploadCloud size={28} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
+            </div>
+            <h4 className="text-base font-bold text-navy-900 mb-1">Konfiguration hochladen</h4>
+            <p className="text-slate-500 text-sm mb-4 max-w-xs text-center">
+              Ziehen Sie Ihre PDF, DOC oder TXT Datei in diesen Bereich oder klicken Sie hier.
+            </p>
+            <Button variant="outline" className="rounded-full border-blue-200 text-blue-600 hover:bg-blue-50">
+              Datei auswählen
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Save / Cancel ---- */}
+      <div className="flex justify-end gap-3 pt-2">
+        {showCancel && onCancel && (
+          <Button variant="ghost" onClick={onCancel} className="rounded-xl text-slate-500 h-11 px-6">
+            <X size={16} className="mr-2" /> Abbrechen
+          </Button>
+        )}
+        <Button
+          onClick={onSave}
+          disabled={!isValid}
+          className="rounded-xl bg-blue-500 hover:bg-blue-600 text-white h-11 px-8 font-semibold shadow-sm disabled:opacity-40"
+        >
+          <Check size={16} className="mr-2" /> Fahrzeug übernehmen
+        </Button>
+      </div>
+    </div>
+  );
+}

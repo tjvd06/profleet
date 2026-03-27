@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useRef } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
 type Profile = {
@@ -17,8 +18,6 @@ type AuthContextType = {
   profile: Profile | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
-  devModeRole: "nachfrager" | "anbieter" | null;
-  setDevModeRole: (role: "nachfrager" | "anbieter" | null) => void;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -26,17 +25,14 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   isLoading: true,
   signOut: async () => {},
-  devModeRole: null,
-  setDevModeRole: () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [devModeRole, setDevModeRole] = useState<"nachfrager" | "anbieter" | null>(null);
   const [supabase] = useState(() => createClient());
-  const initialized = useRef(false);
+  const router = useRouter();
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -45,56 +41,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .select("*")
         .eq("id", userId)
         .single();
-
-      if (!error && data) {
+      if (error) {
+        console.error("[AuthProvider] fetchProfile Supabase error:", error.message);
+      } else if (data) {
         setProfile(data as Profile);
-      } else {
-        console.warn("[AuthProvider] Profile fetch error:", error?.message);
+        console.log("[AuthProvider] Profile loaded:", data.role, data.company_name ?? data.first_name);
       }
     } catch (e) {
-      console.error("[AuthProvider] Profile exception:", e);
+      console.error("[AuthProvider] fetchProfile exception:", e);
     }
   };
 
   useEffect(() => {
-    // Prevent double-init in React StrictMode
-    if (initialized.current) return;
-    initialized.current = true;
+    console.log("[AuthProvider] Mounting, subscribing to onAuthStateChange");
 
-    console.log("[AuthProvider] Initializing...");
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("[AuthProvider] Auth event:", event, "| user:", session?.user?.id ?? "null");
 
-    // 1. Get initial session
-    supabase.auth.getUser().then(async ({ data: { user: currentUser } }) => {
-      console.log("[AuthProvider] getUser result:", currentUser?.id ?? "no user");
-      if (currentUser) {
-        setUser(currentUser);
-        await fetchProfile(currentUser.id);
-      }
-      setIsLoading(false);
-      console.log("[AuthProvider] isLoading = false");
-    }).catch((err) => {
-      console.error("[AuthProvider] getUser error:", err);
-      setIsLoading(false);
-    });
-
-    // 2. Listen for changes (login, logout, token refresh)
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log("[AuthProvider] onAuthStateChange:", event);
+      try {
         if (session?.user) {
           setUser(session.user);
-          // Don't block on profile fetch for auth state changes
-          fetchProfile(session.user.id);
+          if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "USER_UPDATED") {
+            // Race fetchProfile against a 5-second timeout so isLoading never hangs forever
+            await Promise.race([
+              fetchProfile(session.user.id),
+              new Promise<void>(resolve => setTimeout(resolve, 5000)),
+            ]);
+          }
         } else {
           setUser(null);
           setProfile(null);
         }
+      } catch (e) {
+        console.error("[AuthProvider] onAuthStateChange handler error:", e);
+      } finally {
+        // Always release isLoading — no matter what happens above
+        console.log("[AuthProvider] Setting isLoading = false");
+        setIsLoading(false);
       }
-    );
+
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+        router.refresh();
+      }
+    });
 
     return () => {
-      authListener.subscription.unsubscribe();
+      console.log("[AuthProvider] Unmounting, unsubscribing");
+      subscription.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const signOut = async () => {
@@ -102,7 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, isLoading, signOut, devModeRole, setDevModeRole }}>
+    <AuthContext.Provider value={{ user, profile, isLoading, signOut }}>
       {children}
     </AuthContext.Provider>
   );

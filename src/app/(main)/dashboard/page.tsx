@@ -2,33 +2,80 @@
 
 import { useAuth } from "@/components/providers/auth-provider";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { 
-  Sparkles, Inbox, PiggyBank, Star, Handshake, 
-  CarFront, FileText, ChevronRight, Activity, Bell, AlertTriangle, 
-  MessageCircle, TrendingUp, Trophy, ArrowRight
+import {
+  Sparkles, Inbox, PiggyBank, Star, Handshake,
+  CarFront, FileText, ChevronRight, Activity, Bell, AlertTriangle,
+  MessageCircle, TrendingUp, Trophy, ArrowRight, Loader2, InboxIcon
 } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase";
 
 export default function DashboardOverviewPage() {
-  const { profile, devModeRole, setDevModeRole } = useAuth();
-  
-  // Dev mode toggle logic
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const actualRole = profile?.role || "nachfrager";
-  const activeRole = isDevelopment && devModeRole ? devModeRole : actualRole;
-  const isDealer = activeRole === "anbieter";
-  
-  const handleRoleToggle = (checked: boolean) => {
-    if (isDevelopment) {
-      setDevModeRole(checked ? "anbieter" : "nachfrager");
-    }
-  };
+  const { user, profile, isLoading: authLoading } = useAuth();
 
-  const userName = isDealer ? (profile?.company_name || "Autohaus Müller") : (profile?.first_name || "Michael");
+  const isDealer = profile?.role === "anbieter";
+  const userName = isDealer ? (profile?.company_name || "Händler") : (profile?.first_name || "User");
+
+  // ─── Real Supabase Stats ──────────────────────────────────────────────
+  const [supabase] = useState(() => createClient());
+  const [buyerStats, setBuyerStats] = useState({ activeTenders: 0, totalOffers: 0, avgSavings: 0, openRatings: 0 });
+  const [dealerStats, setDealerStats] = useState({ newRequests: 0, openOffers: 0, contactRequests: 0, dealerRating: 0 });
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) { setStatsLoading(false); return; }
+
+    let cancelled = false;
+
+    const timeout = <T,>(p: Promise<T>) =>
+      Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), 10000))]);
+
+    (async () => {
+      try {
+        if (!isDealer) {
+          const { data: tenders } = await timeout(
+            supabase
+              .from("tenders")
+              .select("id, status, tender_vehicles(list_price_gross), offers(total_price)")
+              .eq("buyer_id", user.id) as any
+          ) as any;
+
+          if (cancelled) return;
+          const activeTenders = tenders?.filter((t: any) => t.status === "active").length ?? 0;
+          const totalOffers = tenders?.reduce((acc: number, t: any) => acc + ((t.offers as any[])?.length ?? 0), 0) ?? 0;
+
+          let savingsSum = 0, savingsCount = 0;
+          tenders?.forEach((t: any) => {
+            const listPrice = (t.tender_vehicles as any[])?.[0]?.list_price_gross;
+            const offers = (t.offers as any[]) ?? [];
+            if (listPrice && offers.length > 0) {
+              const bestPrice = Math.min(...offers.filter((o: any) => o.total_price).map((o: any) => o.total_price));
+              if (bestPrice < listPrice) { savingsSum += (1 - bestPrice / listPrice) * 100; savingsCount++; }
+            }
+          });
+
+          setBuyerStats({ activeTenders, totalOffers, avgSavings: savingsCount > 0 ? Math.round(savingsSum / savingsCount * 10) / 10 : 0, openRatings: 0 });
+        } else {
+          const [offersRes, requestsRes] = await Promise.all([
+            timeout(supabase.from("offers").select("*", { count: "exact", head: true }).eq("dealer_id", user.id) as any),
+            timeout(supabase.from("tenders").select("*", { count: "exact", head: true }).eq("status", "active") as any),
+          ]) as any[];
+
+          if (cancelled) return;
+          setDealerStats({ newRequests: requestsRes?.count ?? 0, openOffers: offersRes?.count ?? 0, contactRequests: 0, dealerRating: 0 });
+        }
+      } catch (e) {
+        if (!cancelled) console.error("[Dashboard] Stats load error:", e);
+      } finally {
+        if (!cancelled) setStatsLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [authLoading, user?.id, isDealer]);
 
   return (
     <div className="bg-slate-50 min-h-[calc(100vh-80px)] pb-32">
@@ -39,16 +86,6 @@ export default function DashboardOverviewPage() {
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
         
         <div className="container mx-auto max-w-7xl px-4 md:px-8 relative z-10 flex flex-col gap-8">
-          {/* Dev Toggle Top */}
-          <div className="flex justify-end items-center">
-            <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/20 text-sm shadow-sm">
-              <Badge variant="outline" className="bg-amber-500/20 text-amber-300 border-none uppercase tracking-widest font-black text-[10px] shadow-none hidden sm:inline-flex rounded-md px-2 py-0.5">DEV MODE</Badge>
-              <Label className={`cursor-pointer font-bold ${!isDealer ? 'text-white' : 'text-blue-200/50'}`}>Nachfrager</Label>
-              <Switch checked={isDealer} onCheckedChange={handleRoleToggle} disabled={!isDevelopment} className="data-[state=checked]:bg-blue-500" />
-              <Label className={`cursor-pointer font-bold ${isDealer ? 'text-white' : 'text-blue-200/50'}`}>Anbieter</Label>
-            </div>
-          </div>
-
           {/* Welcome Text */}
           <div>
             <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-3">
@@ -80,7 +117,9 @@ export default function DashboardOverviewPage() {
                   </div>
                   <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">Aktive Inserate</div>
                 </div>
-                <div className="text-4xl font-black text-navy-950">2</div>
+                <div className="text-4xl font-black text-navy-950">
+                  {statsLoading ? <Loader2 size={24} className="animate-spin text-slate-300" /> : buyerStats.activeTenders}
+                </div>
               </Card>
 
               <Card className="p-6 rounded-3xl border-slate-200 shadow-sm bg-white hover:border-blue-300 transition-colors group">
@@ -90,8 +129,8 @@ export default function DashboardOverviewPage() {
                   </div>
                   <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">Neue Angebote</div>
                 </div>
-                <div className="text-4xl font-black text-navy-950 flex items-center gap-3">
-                  14 <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-none font-bold">+3 heute</Badge>
+                <div className="text-4xl font-black text-navy-950">
+                  {statsLoading ? <Loader2 size={24} className="animate-spin text-slate-300" /> : buyerStats.totalOffers}
                 </div>
               </Card>
 
@@ -102,18 +141,20 @@ export default function DashboardOverviewPage() {
                   </div>
                   <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">Ø Ersparnis</div>
                 </div>
-                <div className="text-4xl font-black text-navy-950">18.5%</div>
+                <div className="text-4xl font-black text-navy-950">
+                  {statsLoading ? <Loader2 size={24} className="animate-spin text-slate-300" /> : `${buyerStats.avgSavings}%`}
+                </div>
               </Card>
 
-              <Card className="p-6 rounded-3xl border-amber-200 shadow-sm bg-amber-50/30 hover:bg-amber-50/50 transition-colors group border-l-4 border-l-amber-500">
+              <Card className="p-6 rounded-3xl border-slate-200 shadow-sm bg-white hover:border-blue-300 transition-colors group">
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 rounded-2xl bg-white text-amber-500 shadow-sm flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center">
                     <Star size={24} />
                   </div>
-                  <div className="text-sm font-bold text-slate-500 uppercase tracking-widest">Offene Ratings</div>
+                  <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">Offene Ratings</div>
                 </div>
-                <div className="text-4xl font-black text-navy-950 flex items-center gap-3">
-                  1 <Badge className="bg-amber-500 text-white border-none font-bold animate-pulse">Aktion nötig</Badge>
+                <div className="text-4xl font-black text-navy-950">
+                  {statsLoading ? <Loader2 size={24} className="animate-spin text-slate-300" /> : buyerStats.openRatings}
                 </div>
               </Card>
             </div>
@@ -166,34 +207,13 @@ export default function DashboardOverviewPage() {
               <div className="lg:col-span-5 space-y-6">
                 <h2 className="text-2xl font-bold text-navy-950">Letzte Aktivitäten</h2>
                 <Card className="p-6 md:p-8 rounded-3xl border-slate-200 shadow-sm bg-white">
-                  <div className="relative border-l-2 border-slate-100 ml-4 space-y-8 pb-4">
-                    
-                    {/* Event 1 */}
-                    <div className="relative pl-8">
-                      <div className="absolute -left-[11px] bg-emerald-500 w-5 h-5 rounded-full border-4 border-white shadow-sm" />
-                      <div className="text-xs font-bold text-slate-400 mb-1">Heute, 09:14 Uhr</div>
-                      <div className="font-bold text-navy-950">Neues Spitzenangebot erhalten!</div>
-                      <p className="text-sm text-slate-500 mt-1">Ein Händler hat für "VW Tiguan R-Line" ein Angebot über 42.720 € abgegeben. Dies ist der neue Bestpreis.</p>
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 text-slate-300">
+                      <InboxIcon size={32} />
                     </div>
-
-                    {/* Event 2 */}
-                    <div className="relative pl-8">
-                      <div className="absolute -left-[11px] bg-amber-500 w-5 h-5 rounded-full border-4 border-white shadow-sm" />
-                      <div className="text-xs font-bold text-slate-400 mb-1">Gestern, 16:30 Uhr</div>
-                      <div className="font-bold text-navy-950 flex items-center gap-2">Bewertung ausstehend <AlertTriangle size={14} className="text-amber-500"/></div>
-                      <p className="text-sm text-slate-500 mt-1">Bitte bewerten Sie die Transaktion für den "Audi A4 Avant" mit dem Fleet Partner München GmbH.</p>
-                    </div>
-
-                    {/* Event 3 */}
-                    <div className="relative pl-8">
-                      <div className="absolute -left-[11px] bg-blue-500 w-5 h-5 rounded-full border-4 border-white shadow-sm" />
-                      <div className="text-xs font-bold text-slate-400 mb-1">Vor 2 Tagen</div>
-                      <div className="font-bold text-navy-950">System-Benachrichtigung</div>
-                      <p className="text-sm text-slate-500 mt-1">Ihre Ausschreibung "5x VW Golf" wurde verifiziert und an 1.400 Flottenpartner ausgesendet.</p>
-                    </div>
-
+                    <h4 className="text-lg font-bold text-navy-950 mb-2">Noch keine Aktivitäten</h4>
+                    <p className="text-sm text-slate-500 max-w-xs">Sobald Sie Ausschreibungen erstellen oder Angebote erhalten, erscheinen Ihre Aktivitäten hier.</p>
                   </div>
-                  <Button variant="ghost" className="w-full mt-4 text-blue-600 font-bold">Alle Aktivitäten ansehen</Button>
                 </Card>
               </div>
 
@@ -216,8 +236,8 @@ export default function DashboardOverviewPage() {
                   </div>
                   <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">Neue Anfragen</div>
                 </div>
-                <div className="text-4xl font-black text-navy-950 flex items-center gap-3">
-                  12 <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-none font-bold">Neu</Badge>
+                <div className="text-4xl font-black text-navy-950">
+                  {statsLoading ? <Loader2 size={24} className="animate-spin text-slate-300" /> : dealerStats.newRequests}
                 </div>
               </Card>
 
@@ -228,7 +248,9 @@ export default function DashboardOverviewPage() {
                   </div>
                   <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">Offene Angebote</div>
                 </div>
-                <div className="text-4xl font-black text-navy-950">14</div>
+                <div className="text-4xl font-black text-navy-950">
+                  {statsLoading ? <Loader2 size={24} className="animate-spin text-slate-300" /> : dealerStats.openOffers}
+                </div>
               </Card>
 
               <Card className="p-6 rounded-3xl border-slate-200 shadow-sm bg-white hover:border-blue-300 transition-colors group">
@@ -238,7 +260,9 @@ export default function DashboardOverviewPage() {
                   </div>
                   <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">Kontaktwünsche</div>
                 </div>
-                <div className="text-4xl font-black text-navy-950">5</div>
+                <div className="text-4xl font-black text-navy-950">
+                  {statsLoading ? <Loader2 size={24} className="animate-spin text-slate-300" /> : dealerStats.contactRequests}
+                </div>
               </Card>
 
               <Card className="p-6 rounded-3xl border-slate-200 shadow-sm bg-white hover:border-blue-300 transition-colors group">
@@ -248,7 +272,9 @@ export default function DashboardOverviewPage() {
                   </div>
                   <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">Dealer Rating</div>
                 </div>
-                <div className="text-4xl font-black text-navy-950 text-green-600">84%</div>
+                <div className="text-4xl font-black text-navy-950">
+                  {statsLoading ? <Loader2 size={24} className="animate-spin text-slate-300" /> : `${dealerStats.dealerRating}%`}
+                </div>
               </Card>
             </div>
 
@@ -300,34 +326,13 @@ export default function DashboardOverviewPage() {
               <div className="lg:col-span-5 space-y-6">
                 <h2 className="text-2xl font-bold text-navy-950">Updates & Events</h2>
                 <Card className="p-6 md:p-8 rounded-3xl border-slate-200 shadow-sm bg-white">
-                  <div className="relative border-l-2 border-slate-100 ml-4 space-y-8 pb-4">
-                    
-                    {/* Event 1 */}
-                    <div className="relative pl-8">
-                      <div className="absolute -left-[11px] bg-emerald-500 w-5 h-5 rounded-full border-4 border-white shadow-sm" />
-                      <div className="text-xs font-bold text-slate-400 mb-1">Vor 2 Stunden</div>
-                      <div className="font-bold text-navy-950 flex items-center gap-2">Sie haben den Zuschlag! <Trophy size={14} className="text-amber-500"/></div>
-                      <p className="text-sm text-slate-500 mt-1">Ein Interessent aus München hat Ihr Leasing-Angebot für den "Audi A4 Avant" akzeptiert. Kontaktdaten freigeschaltet.</p>
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 text-slate-300">
+                      <InboxIcon size={32} />
                     </div>
-
-                    {/* Event 2 */}
-                    <div className="relative pl-8">
-                      <div className="absolute -left-[11px] bg-red-500 w-5 h-5 rounded-full border-4 border-white shadow-sm" />
-                      <div className="text-xs font-bold text-slate-400 mb-1">Gestern, 08:15 Uhr</div>
-                      <div className="font-bold text-navy-950 text-red-600">Ranking-Verlust</div>
-                      <p className="text-sm text-slate-500 mt-1">Ihr Angebot für "5x VW Golf" ist auf Platz #3 abgerutscht. Überarbeiten Sie den Preis, um die Gold-Position zurückzuholen.</p>
-                    </div>
-
-                    {/* Event 3 */}
-                    <div className="relative pl-8">
-                      <div className="absolute -left-[11px] bg-slate-300 w-5 h-5 rounded-full border-4 border-white shadow-sm" />
-                      <div className="text-xs font-bold text-slate-400 mb-1">Vor 2 Tagen</div>
-                      <div className="font-bold text-navy-950">Neuer Suchagent-Treffer</div>
-                      <p className="text-sm text-slate-500 mt-1">Es wurden 3 neue Ausschreibungen für Ihr präferiertes Modell "Skoda Octavia" in Süddeutschland veröffentlicht.</p>
-                    </div>
-
+                    <h4 className="text-lg font-bold text-navy-950 mb-2">Noch keine Aktivitäten</h4>
+                    <p className="text-sm text-slate-500 max-w-xs">Sobald es Neuigkeiten zu Ihren Angeboten oder Ausschreibungen gibt, erscheinen sie hier.</p>
                   </div>
-                  <Button variant="ghost" className="w-full mt-4 text-blue-600 font-bold">Historie öffnen</Button>
                 </Card>
               </div>
 

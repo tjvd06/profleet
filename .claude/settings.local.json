@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Projekte/profleet -type f -name *ausschreibung*)",
+      "Bash(find \"c:\\\\Projekte\\\\profleet\\\\src\\\\app\\\\\\(main\\)\\\\dashboard\\\\ausschreibung\\\\[id\\\\]\" -type f -name \"*.tsx\" -o -name \"*.ts\" -o -name \"*.jsx\" -o -name \"*.js\")",
+      "Bash(xargs grep:*)",
+      "Bash(ls -la \"c:/Projekte/profleet/src/app/\\(main\\)/dashboard/\")",
+      "Bash(find /c/Projekte/profleet -name *.sql -o -name *.sql.ts -o -name *migration* -o -name *database*)",
+      "Bash(ls -la \"c:/Projekte/profleet/src/app/\\(main\\)/dashboard/ausschreibung/\")",
+      "Bash(find /c/Projekte/profleet -type f \\\\\\(-name schema* -o -name *types* -o -name *interface* \\\\\\))",
+      "Bash(find \"c:/Projekte/profleet/src/app/\\(main\\)/dashboard/ausschreibung/[id]\" -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" -o -name \"*.jsx\" -o -name \"*.js\" \\\\\\))",
+      "Bash(xargs ls:*)",
+      "Bash(find c:/Projekte/profleet/src/components/ui-custom -type f -name *.tsx)",
+      "Bash(ls -la /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/ausschreibung/)",
+      "Bash(ls -la /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/ausschreibung/[id\\\\\\)/)",
+      "Bash(ls -la \"/c/Projekte/profleet/src/app/\\(main\\)/dashboard/ausschreibung/[id]/\")",
+      "Bash(ls c:/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/ausschreibung/)"
+    ]
+  }
+}

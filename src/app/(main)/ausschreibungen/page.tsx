@@ -1,6 +1,7 @@
 import { FilterBar } from "@/components/ui-custom/FilterBar";
 import { TenderCard } from "@/components/tenders/TenderCard";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 const mockTenders = [
   { id: 'AU-23435', brand: 'Audi', model: 'A4 Avant RS4', location: 'München · 100km', timeLeft: '3 Tage 14 Std.', listPrice: 89138, currentBid: 75411, savings: 15.4, offersCount: 7, buyerRating: 100 },
@@ -17,7 +18,7 @@ export default function AusschreibungenPage() {
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
         <div className="container mx-auto max-w-7xl px-4 md:px-8 relative z-10">
-          <h1 className="text-4xl font-black tracking-tight mb-2">Laufende Ausschreibungen</h1>
+          <h1 className="text-4xl font-black tracking-tight mb-2">Laufende Ausschreibungen <Badge className="bg-amber-400/20 text-amber-300 hover:bg-amber-400/30 border-none text-xs ml-2 align-middle">Demo-Daten</Badge></h1>
           <p className="text-lg text-blue-100/80">Aktuell 43 aktive Ausschreibungen von Geschäftskunden aus ganz Deutschland.</p>
         </div>
       </div>

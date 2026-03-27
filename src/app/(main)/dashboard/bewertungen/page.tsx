@@ -3,53 +3,13 @@
 import { useAuth } from "@/components/providers/auth-provider";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { 
-  BarChart3, User, Building2, Star, TrendingUp, TrendingDown, 
-  MessageSquare, FileText, Zap, ChevronRight, CheckCircle2, ShieldCheck, 
-  XOctagon, Clock, Handshake 
+import {
+  BarChart3, User, Building2, Star, TrendingUp, TrendingDown,
+  MessageSquare, FileText, Zap, ChevronRight, CheckCircle2, ShieldCheck,
+  XOctagon, Clock, Handshake
 } from "lucide-react";
 import Link from "next/link";
-
-// -----------------
-// MOCK DATA
-// -----------------
-
-const buyerData = {
-  ratingOverall: 91,
-  ratingBreakdown: { positive: 45, neutral: 4, negative: 1 },
-  ratingsTotal: 50,
-  ratings6Months: 12,
-  activities: {
-    contacts: { total: 24, last6Months: 8 },
-    concludedPercent: { total: 85, last6Months: 90 },
-    ratingsGivenPercent: { total: 60, last6Months: 75 },
-    unresolvedTenders: { total: 3, last6Months: 1 },
-    withdrawnTenders: { total: 2, last6Months: 0 }
-  },
-  quota: {
-    configsLimit: 3,
-    configsUsed: 2,
-    tendersLimit: 3,
-    tendersUsed: 1
-  }
-};
-
-const dealerData = {
-  ratingOverall: 84,
-  ratingBreakdown: { positive: 180, neutral: 25, negative: 10 },
-  ratingsTotal: 215,
-  ratings6Months: 85,
-  activities: {
-    contactsRecv: { total: 450, last6Months: 120 },
-    concludedPercent: { total: 42, last6Months: 35 },
-    ratingsGivenPercent: { total: 80, last6Months: 85 },
-    unresolvedOffers: { total: 15, last6Months: 12 },
-    withdrawnOffers: { total: 8, last6Months: 3 }
-  }
-};
 
 // -----------------
 // HELPERS
@@ -67,34 +27,59 @@ function getRatingStrokeColor(score: number) {
   return "stroke-red-500";
 }
 
+// Default zero data — will be populated once ratings system exists
+const emptyBuyerData = {
+  ratingOverall: 0,
+  ratingBreakdown: { positive: 0, neutral: 0, negative: 0 },
+  ratingsTotal: 0,
+  ratings6Months: 0,
+  activities: {
+    contacts: { total: 0, last6Months: 0 },
+    concludedPercent: { total: 0, last6Months: 0 },
+    ratingsGivenPercent: { total: 0, last6Months: 0 },
+    unresolvedTenders: { total: 0, last6Months: 0 },
+    withdrawnTenders: { total: 0, last6Months: 0 }
+  },
+  quota: {
+    configsLimit: 3,
+    configsUsed: 0,
+    tendersLimit: 3,
+    tendersUsed: 0
+  }
+};
+
+const emptyDealerData = {
+  ratingOverall: 0,
+  ratingBreakdown: { positive: 0, neutral: 0, negative: 0 },
+  ratingsTotal: 0,
+  ratings6Months: 0,
+  activities: {
+    contactsRecv: { total: 0, last6Months: 0 },
+    concludedPercent: { total: 0, last6Months: 0 },
+    ratingsGivenPercent: { total: 0, last6Months: 0 },
+    unresolvedOffers: { total: 0, last6Months: 0 },
+    withdrawnOffers: { total: 0, last6Months: 0 }
+  }
+};
+
 // -----------------
 // MAIN COMPONENT
 // -----------------
 
 export default function AnalyticsPage() {
-  const { profile, devModeRole, setDevModeRole } = useAuth();
-  
-  // Dev mode toggle logic
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const actualRole = profile?.role || "nachfrager";
-  const activeRole = isDevelopment && devModeRole ? devModeRole : actualRole;
-  const isDealer = activeRole === "anbieter";
-  
-  const handleRoleToggle = (checked: boolean) => {
-    if (isDevelopment) {
-      setDevModeRole(checked ? "anbieter" : "nachfrager");
-    }
-  };
+  const { profile } = useAuth();
 
-  const data: any = isDealer ? dealerData : buyerData;
+  const isDealer = profile?.role === "anbieter";
+
+  const data: any = isDealer ? emptyDealerData : emptyBuyerData;
   const ratingColorClass = getRatingColor(data.ratingOverall);
   const ratingStrokeClass = getRatingStrokeColor(data.ratingOverall);
 
-  // Math for breakdown rendering
+  // Math for breakdown rendering — handle division by zero
   const totalBreakdown = data.ratingBreakdown.positive + data.ratingBreakdown.neutral + data.ratingBreakdown.negative;
-  const posPct = Math.round((data.ratingBreakdown.positive / totalBreakdown) * 100);
-  const neuPct = Math.round((data.ratingBreakdown.neutral / totalBreakdown) * 100);
-  const negPct = Math.round((data.ratingBreakdown.negative / totalBreakdown) * 100);
+  const posPct = totalBreakdown > 0 ? Math.round((data.ratingBreakdown.positive / totalBreakdown) * 100) : 0;
+  const neuPct = totalBreakdown > 0 ? Math.round((data.ratingBreakdown.neutral / totalBreakdown) * 100) : 0;
+  const negPct = totalBreakdown > 0 ? Math.round((data.ratingBreakdown.negative / totalBreakdown) * 100) : 0;
 
   // SVG Circle math
   const radius = 50;
@@ -108,21 +93,12 @@ export default function AnalyticsPage() {
       <div className="relative bg-gradient-to-br from-navy-950 via-navy-900 to-blue-900 text-white py-8 sticky top-0 z-30 shadow-md overflow-hidden">
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
-        <div className="container mx-auto max-w-6xl px-4 md:px-8 flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">
-          <div>
-            <h1 className="text-3xl font-black flex items-center gap-3">
-              <BarChart3 size={28} className="text-blue-400" />
-              Bewertungen & Statistik
-            </h1>
-            <p className="text-sm text-blue-100/80 font-medium mt-1">Ihr Profil-Stand und Plattform-Aktivitäten auf einen Blick.</p>
-          </div>
-          
-          <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/20">
-            <Badge variant="outline" className="bg-amber-500/20 text-amber-300 border-none uppercase tracking-widest font-black text-[10px] shadow-none hidden sm:inline-flex rounded-md px-2 py-0.5">DEV MODE</Badge>
-            <Label className={`cursor-pointer font-bold ${!isDealer ? 'text-white' : 'text-blue-200/50'}`}>Nachfrager (Kunde)</Label>
-            <Switch checked={isDealer} onCheckedChange={handleRoleToggle} disabled={!isDevelopment} className="data-[state=checked]:bg-blue-500" />
-            <Label className={`cursor-pointer font-bold ${isDealer ? 'text-white' : 'text-blue-200/50'}`}>Anbieter (Händler)</Label>
-          </div>
+        <div className="container mx-auto max-w-6xl px-4 md:px-8 relative z-10">
+          <h1 className="text-3xl font-black flex items-center gap-3">
+            <BarChart3 size={28} className="text-blue-400" />
+            Bewertungen & Statistik
+          </h1>
+          <p className="text-sm text-blue-100/80 font-medium mt-1">Ihr Profil-Stand und Plattform-Aktivitäten auf einen Blick.</p>
         </div>
       </div>
 
@@ -161,9 +137,11 @@ export default function AnalyticsPage() {
               </div>
 
               <p className="mt-6 text-sm font-medium text-slate-500 max-w-[250px]">
-                {data.ratingOverall >= 80 
-                  ? "Ausgezeichnet! Sie zählen zu den Top-Akteuren auf der Plattform."
-                  : (data.ratingOverall >= 50 ? "Gut. Aber es gibt noch Raum für Verbesserungen." : "Ihr Score ist kritisch. Bitte reagieren Sie auf Kundenfeedback.")}
+                {totalBreakdown === 0 
+                  ? "Noch keine Bewertungen erhalten. Ihr Score wird berechnet, sobald Bewertungen eingehen."
+                  : (data.ratingOverall >= 80 
+                    ? "Ausgezeichnet! Sie zählen zu den Top-Akteuren auf der Plattform."
+                    : (data.ratingOverall >= 50 ? "Gut. Aber es gibt noch Raum für Verbesserungen." : "Ihr Score ist kritisch. Bitte reagieren Sie auf Kundenfeedback."))}
               </p>
             </Card>
 
@@ -278,7 +256,7 @@ export default function AnalyticsPage() {
               </div>
               <div className="font-black text-3xl text-navy-950 mb-1">{isDealer ? data.activities.withdrawnOffers?.total : data.activities.withdrawnTenders?.total}</div>
               <div className="text-sm font-semibold text-red-500/80 flex items-center gap-1.5 mt-1 text-[11px] leading-tight font-bold">
-                {isDealer ? data.activities.withdrawnOffers?.last6Months : data.activities.withdrawnTenders?.last6Months} Abbrüche in letzten 6 Minaten.
+                {isDealer ? data.activities.withdrawnOffers?.last6Months : data.activities.withdrawnTenders?.last6Months} Abbrüche in letzten 6 Monaten.
               </div>
             </Card>
             
@@ -286,7 +264,7 @@ export default function AnalyticsPage() {
         </section>
 
         {/* FREE TIER USAGE CARD (BUYER ONLY) */}
-        {!isDealer && buyerData.quota && (
+        {!isDealer && emptyBuyerData.quota && (
           <section className="animate-in fade-in slide-in-from-bottom-6 duration-500">
             <h2 className="text-2xl font-bold text-navy-950 mb-6">Konto-Kontingent (Free Tier)</h2>
             <Card className="p-1 border-slate-200 shadow-sm rounded-3xl bg-white overflow-hidden flex flex-col md:flex-row">
@@ -301,11 +279,11 @@ export default function AnalyticsPage() {
                         <h4 className="font-bold text-navy-950 text-base">Gespeicherte Konfigurationen</h4>
                         <p className="text-xs text-slate-500 mt-0.5">Konfigurations-Vorlagen im Profil</p>
                       </div>
-                      <span className="font-black text-lg text-slate-400">{buyerData.quota.configsUsed} / {buyerData.quota.configsLimit}</span>
+                      <span className="font-black text-lg text-slate-400">{emptyBuyerData.quota.configsUsed} / {emptyBuyerData.quota.configsLimit}</span>
                     </div>
                     <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex">
-                      {[...Array(buyerData.quota.configsLimit)].map((_, i) => (
-                        <div key={i} className={`h-full flex-1 border-r border-white last:border-0 transition-colors ${i < buyerData.quota.configsUsed ? 'bg-blue-500' : 'bg-transparent'}`} />
+                      {[...Array(emptyBuyerData.quota.configsLimit)].map((_, i) => (
+                        <div key={i} className={`h-full flex-1 border-r border-white last:border-0 transition-colors ${i < emptyBuyerData.quota.configsUsed ? 'bg-blue-500' : 'bg-transparent'}`} />
                       ))}
                     </div>
                   </div>
@@ -317,11 +295,11 @@ export default function AnalyticsPage() {
                         <h4 className="font-bold text-navy-950 text-base">Laufende Ausschreibungen</h4>
                         <p className="text-xs text-slate-500 mt-0.5">Gleichzeitig aktive Inserate</p>
                       </div>
-                      <span className="font-black text-lg text-slate-400">{buyerData.quota.tendersUsed} / {buyerData.quota.tendersLimit}</span>
+                      <span className="font-black text-lg text-slate-400">{emptyBuyerData.quota.tendersUsed} / {emptyBuyerData.quota.tendersLimit}</span>
                     </div>
                     <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex">
-                      {[...Array(buyerData.quota.tendersLimit)].map((_, i) => (
-                        <div key={i} className={`h-full flex-1 border-r border-white last:border-0 transition-colors ${i < buyerData.quota.tendersUsed ? 'bg-amber-500' : 'bg-transparent'}`} />
+                      {[...Array(emptyBuyerData.quota.tendersLimit)].map((_, i) => (
+                        <div key={i} className={`h-full flex-1 border-r border-white last:border-0 transition-colors ${i < emptyBuyerData.quota.tendersUsed ? 'bg-amber-500' : 'bg-transparent'}`} />
                       ))}
                     </div>
                   </div>

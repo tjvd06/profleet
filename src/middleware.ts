@@ -2,11 +2,14 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  // Inject the current pathname as a request header so server layouts can read it
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-next-pathname', request.nextUrl.pathname)
+
   let supabaseResponse = NextResponse.next({
-    request,
+    request: { headers: requestHeaders },
   })
 
-  // Create a server client capable of reading and writing cookies
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -17,8 +20,9 @@ export async function middleware(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          // Preserve the pathname header when recreating the response during token refresh
           supabaseResponse = NextResponse.next({
-            request,
+            request: { headers: requestHeaders },
           })
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
@@ -28,18 +32,19 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Validate user authentication status
+  // Validate auth status (must use getUser(), not getSession(), for security)
   const { data: { user } } = await supabase.auth.getUser()
+  const pathname = request.nextUrl.pathname
 
-  // Protect internal dashboard routes
-  if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
+  // Not logged in → redirect all /dashboard/* to /anmelden
+  if (!user && pathname.startsWith('/dashboard')) {
     const url = request.nextUrl.clone()
     url.pathname = '/anmelden'
     return NextResponse.redirect(url)
   }
 
-  // Optional: Prevent authenticated users from going to /anmelden and /registrieren
-  if (user && (request.nextUrl.pathname.startsWith('/anmelden') || request.nextUrl.pathname.startsWith('/registrieren'))) {
+  // Logged in → redirect auth pages to /dashboard
+  if (user && (pathname.startsWith('/anmelden') || pathname.startsWith('/registrieren'))) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)

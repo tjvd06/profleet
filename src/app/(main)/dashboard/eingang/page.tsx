@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { DealerTenderCard } from "@/components/tenders/DealerTenderCard";
 import { Button } from "@/components/ui/button";
 import { Loader2, Inbox } from "lucide-react";
@@ -14,12 +15,17 @@ type TenderVehicle = {
   model_series: string | null;
   trim_level: string | null;
   list_price_gross: number | null;
+  list_price_net: number | null;
   quantity: number;
   config_method: string | null;
   fleet_discount: number | null;
   leasing: any;
   financing: any;
   alt_preferences: any;
+  fuel_type: string | null;
+  body_type: string | null;
+  color: string | null;
+  equipment: any;
 };
 
 type Tender = {
@@ -46,22 +52,31 @@ function timeLeft(endAt: string | null): string {
   return `${hours} Std. ${mins} Min.`;
 }
 
-function mapTenderToCardProps(tender: Tender) {
+function mapTenderToCardProps(
+  tender: Tender,
+  answeredTenderIds: Set<string>,
+  offerStats: Record<string, { count: number; bestPriceNet: number | null; bestTotalGross: number | null }>,
+  myOffers: Record<string, { purchasePriceNet: number; totalPrice: number }>,
+) {
   const vehicles = tender.tender_vehicles.map(v => ({
     quantity: v.quantity,
     brand: v.brand || "—",
     model: [v.model_name, v.trim_level].filter(Boolean).join(" ") || "—",
-    specs: [v.model_series, v.config_method].filter(Boolean).join(" · ") || "",
+    specs: [v.fuel_type, v.body_type, v.color].filter(Boolean).join(" · ") || "",
     price: v.list_price_gross || 0,
   }));
+
+  const totalVehicles = tender.tender_vehicles.reduce((sum, v) => sum + v.quantity, 0);
+  const totalPrice = tender.tender_vehicles.reduce((sum, v) => sum + ((v.list_price_gross || 0) * v.quantity), 0);
 
   const hasFleetDiscount = tender.tender_vehicles.some(v => v.fleet_discount && v.fleet_discount > 0);
   const fleetDiscountPercent = tender.tender_vehicles.find(v => v.fleet_discount)?.fleet_discount || 0;
 
   const requestedTypes: string[] = ["Kauf"];
+  const seen = new Set<string>();
   tender.tender_vehicles.forEach(v => {
-    if (v.leasing?.requested) requestedTypes.push("Leasing");
-    if (v.financing?.requested) requestedTypes.push("Finanzierung");
+    if (v.leasing?.requested && !seen.has("Leasing")) { requestedTypes.push("Leasing"); seen.add("Leasing"); }
+    if (v.financing?.requested && !seen.has("Finanzierung")) { requestedTypes.push("Finanzierung"); seen.add("Finanzierung"); }
   });
 
   return {
@@ -77,44 +92,125 @@ function mapTenderToCardProps(tender: Tender) {
     requestedTypes,
     fleetDiscount: hasFleetDiscount,
     fleetDiscountPercent: fleetDiscountPercent,
-    currentOffers: 0,
+    currentOffers: offerStats[tender.id]?.count ?? 0,
+    bestPriceNet: offerStats[tender.id]?.bestPriceNet ?? null,
+    bestTotalGross: offerStats[tender.id]?.bestTotalGross ?? null,
+    myPriceNet: myOffers[tender.id]?.purchasePriceNet ?? null,
+    myTotalPrice: myOffers[tender.id]?.totalPrice ?? null,
     vehicles,
+    totalVehicles,
+    totalPrice,
+    hasAnswered: answeredTenderIds.has(tender.id),
+    rawVehicles: tender.tender_vehicles,
   };
 }
 
 export default function InboxPage() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, profile, isLoading: authLoading } = useAuth();
+  const router = useRouter();
   const [supabase] = useState(() => createClient());
+
+  useEffect(() => {
+    if (!authLoading && profile && profile.role !== "anbieter") {
+      router.replace("/dashboard");
+    }
+  }, [authLoading, profile]);
+
   const [tenders, setTenders] = useState<Tender[]>([]);
+  const [answeredTenderIds, setAnsweredTenderIds] = useState<Set<string>>(new Set());
+  const [offerStats, setOfferStats] = useState<Record<string, { count: number; bestPriceNet: number | null; bestTotalGross: number | null }>>({});
+  const [myOffers, setMyOffers] = useState<Record<string, { purchasePriceNet: number; totalPrice: number }>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
+    if (!user) { setLoading(false); return; }
 
-    (async () => {
-      setLoading(true);
+    let cancelled = false;
+    setLoading(true);
+
+    const run = async () => {
       try {
-        const { data, error: err } = await supabase
-          .from("tenders")
-          .select("*, tender_vehicles(*)")
-          .eq("status", "active")
-          .order("created_at", { ascending: false });
+        const [tendersResult, offersResult] = await Promise.all([
+          Promise.race([
+            supabase
+              .from("tenders")
+              .select("*, tender_vehicles(*)")
+              .eq("status", "active")
+              .order("created_at", { ascending: false }),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error("TIMEOUT")), 10000)
+            ),
+          ]),
+          supabase
+            .from("offers")
+            .select("tender_id, purchase_price, total_price")
+            .eq("dealer_id", user.id),
+        ]);
+
+        if (cancelled) return;
+        const { data, error: err } = tendersResult as any;
+        const { data: offersData } = offersResult as any;
 
         if (err) {
           console.error("[Eingang] Supabase error:", err.message);
           setError(err.message);
         } else if (data) {
           setTenders(data as Tender[]);
+          const answered = new Set<string>();
+          const myOfferMap: Record<string, { purchasePriceNet: number; totalPrice: number }> = {};
+          if (offersData) {
+            (offersData as { tender_id: string; purchase_price: number | null; total_price: number | null }[]).forEach((o) => {
+              answered.add(o.tender_id);
+              if (!myOfferMap[o.tender_id]) {
+                myOfferMap[o.tender_id] = { purchasePriceNet: 0, totalPrice: 0 };
+              }
+              myOfferMap[o.tender_id].purchasePriceNet += o.purchase_price || 0;
+              myOfferMap[o.tender_id].totalPrice += o.total_price || 0;
+            });
+          }
+          setAnsweredTenderIds(answered);
+          setMyOffers(myOfferMap);
+
+          // Fetch aggregated competitor offer stats via RPC (excludes own offers)
+          const tenderIds = (data as Tender[]).map((t) => t.id);
+          const stats: Record<string, { count: number; bestPriceNet: number | null; bestTotalGross: number | null }> = {};
+          if (tenderIds.length > 0) {
+            const { data: statsData } = await supabase.rpc("get_tender_offer_stats", {
+              tender_ids: tenderIds,
+            });
+            if (statsData) {
+              (statsData as { tender_id: string; offer_count: number; best_price_net: number | null; best_total_gross: number | null }[]).forEach((s) => {
+                stats[s.tender_id] = { count: s.offer_count, bestPriceNet: s.best_price_net, bestTotalGross: s.best_total_gross };
+              });
+            }
+          }
+          setOfferStats(stats);
         }
       } catch (e: any) {
-        console.error("[Eingang] Exception:", e);
-        setError(e?.message || "Unbekannter Fehler");
+        if (cancelled) return;
+        const isTimeout = e?.message === "TIMEOUT";
+        console.error("[Eingang] Error:", e?.message);
+        setError(
+          isTimeout
+            ? "Daten konnten nicht geladen werden. Bitte Seite neu laden."
+            : e?.message || "Unbekannter Fehler"
+        );
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    })();
+    };
+
+    run();
+    return () => { cancelled = true; };
   }, [authLoading, user?.id]);
+
+  const totalActive = tenders.length;
+  const totalVehiclesAll = tenders.reduce(
+    (sum, t) => sum + t.tender_vehicles.reduce((s, v) => s + v.quantity, 0),
+    0
+  );
 
   return (
     <div className="bg-slate-50 min-h-[calc(100vh-80px)] pb-24">
@@ -129,15 +225,19 @@ export default function InboxPage() {
               <p className="text-lg text-blue-100/80 max-w-2xl leading-relaxed">
                 {loading
                   ? "Ausschreibungen werden geladen…"
-                  : `Aktuell ${tenders.length} aktive Ausschreibung${tenders.length !== 1 ? "en" : ""} verfügbar.`
+                  : `Aktuell ${totalActive} aktive Ausschreibung${totalActive !== 1 ? "en" : ""} mit ${totalVehiclesAll} Fahrzeug${totalVehiclesAll !== 1 ? "en" : ""} verfügbar.`
                 }
               </p>
             </div>
             {!loading && tenders.length > 0 && (
-              <div className="bg-white/10 border border-white/20 backdrop-blur-md rounded-2xl p-4 flex gap-4 mt-auto">
+              <div className="bg-white/10 border border-white/20 backdrop-blur-md rounded-2xl p-4 flex gap-6 mt-auto">
                 <div className="text-center px-4">
-                  <div className="text-2xl font-black text-cyan-300">{tenders.length}</div>
+                  <div className="text-2xl font-black text-cyan-300">{totalActive}</div>
                   <div className="text-sm font-semibold text-blue-200/80 uppercase tracking-wider">Aktiv</div>
+                </div>
+                <div className="text-center px-4 border-l border-white/20">
+                  <div className="text-2xl font-black text-cyan-300">{totalVehiclesAll}</div>
+                  <div className="text-sm font-semibold text-blue-200/80 uppercase tracking-wider">Fahrzeuge</div>
                 </div>
               </div>
             )}
@@ -172,7 +272,7 @@ export default function InboxPage() {
         ) : (
           <div className="flex flex-col gap-6 md:gap-8">
             {tenders.map((tender) => (
-              <DealerTenderCard key={tender.id} tender={mapTenderToCardProps(tender)} />
+              <DealerTenderCard key={tender.id} tender={mapTenderToCardProps(tender, answeredTenderIds, offerStats, myOffers)} />
             ))}
           </div>
         )}

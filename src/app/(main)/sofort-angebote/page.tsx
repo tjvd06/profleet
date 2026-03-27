@@ -111,7 +111,7 @@ export default function SofortAngebotePage() {
             <Zap size={16} className="text-amber-400" /> 148 sofort verfügbare Flottenfahrzeuge
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tight mb-6">
-            Sofort-Angebote Marktplatz
+            Sofort-Angebote Marktplatz <Badge className="bg-amber-400/20 text-amber-300 hover:bg-amber-400/30 border-none text-sm ml-2 align-middle">Demo-Daten</Badge>
           </h1>
           <p className="text-lg md:text-xl text-blue-100/70 max-w-2xl mx-auto mb-12">
             Entdecken Sie exklusive Lagerfahrzeuge und Tageszulassungen deutscher Markenvertrags-Händler. Direkt kauf- und leasbar zu Großkundenkonditionen.

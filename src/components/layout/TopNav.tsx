@@ -1,9 +1,11 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, User, LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/components/providers/auth-provider";
+import { createClient } from "@/lib/supabase";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +19,30 @@ import {
 export function TopNav() {
   const { user, profile, signOut } = useAuth();
   const router = useRouter();
+  const [supabase] = useState(() => createClient());
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchUnread = async () => {
+      const { data } = await supabase.rpc("get_unread_message_count");
+      if (typeof data === "number") setUnreadCount(data);
+    };
+
+    fetchUnread();
+
+    const channel = supabase
+      .channel("topnav-messages")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        () => { fetchUnread(); }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id]);
 
   const handleSignOut = async () => {
     try {
@@ -61,14 +87,20 @@ export function TopNav() {
             </>
           ) : (
             <>
-              <button className="text-slate-500 hover:text-navy-950 relative">
+              <Link href="/dashboard/nachrichten" className="text-slate-500 hover:text-navy-950 relative">
                 <Bell size={20} />
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">3</span>
-              </button>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </Link>
               
               <DropdownMenu>
-                <DropdownMenuTrigger className="flex h-8 w-8 items-center justify-center rounded-full bg-navy-100 text-navy-800 hover:bg-navy-200 transition-colors outline-none focus:ring-2 focus:ring-offset-1 focus:ring-navy-500">
-                  <User size={16} />
+                <DropdownMenuTrigger className="flex h-8 w-8 items-center justify-center rounded-full bg-navy-100 text-navy-800 hover:bg-navy-200 transition-colors outline-none focus:ring-2 focus:ring-offset-1 focus:ring-navy-500 text-xs font-bold">
+                  {profile?.first_name && profile?.last_name
+                    ? `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase()
+                    : <User size={16} />}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 mt-2 rounded-2xl p-2 bg-white border-slate-200">
                   <DropdownMenuGroup>

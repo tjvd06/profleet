@@ -90,7 +90,7 @@ export default function HomePage() {
         <div className="container mx-auto max-w-7xl px-4">
           <div className="flex flex-col md:flex-row justify-between items-end mb-12">
             <div>
-              <h2 className="text-3xl md:text-4xl font-bold text-navy-950 mb-4">Aktuelle Ersparnisse auf proFleet</h2>
+              <h2 className="text-3xl md:text-4xl font-bold text-navy-950 mb-4">Aktuelle Ersparnisse auf proFleet <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-none text-xs ml-2 align-middle">Demo-Daten</Badge></h2>
               <p className="text-lg text-slate-500">Das haben andere Unternehmen in den letzten 48 Stunden gespart.</p>
             </div>
             <Link href="/ausschreibungen" className="hidden md:flex items-center text-blue-600 font-semibold hover:text-blue-700 transition-colors">
@@ -147,7 +147,7 @@ export default function HomePage() {
       {/* 6. Erfahrungsberichte */}
       <section className="bg-slate-50 py-24">
         <div className="container mx-auto max-w-7xl px-4 text-center">
-          <h2 className="text-3xl md:text-5xl font-bold text-navy-950 mb-16">Erfahrungsberichte</h2>
+          <h2 className="text-3xl md:text-5xl font-bold text-navy-950 mb-16">Erfahrungsberichte <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-none text-xs ml-2 align-middle">Demo-Daten</Badge></h2>
           <div className="grid md:grid-cols-2 gap-8">
             <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 text-left">
               <div className="flex gap-1 mb-6 text-amber-500">
