@@ -39,7 +39,16 @@
       "Bash(find /c/Projekte/profleet -type f -name *.md)",
       "Bash(ls -la /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/)",
       "Bash(ls -la /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/nachrichten/)",
-      "Bash(ls -la /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/eingang/)"
+      "Bash(ls -la /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/eingang/)",
+      "Bash(grep -r \"CREATE TABLE\\\\|table.*tenders\\\\|table.*offers\\\\|table.*profiles\\\\|table.*instant_offers\" /c/Projekte/profleet --include=*.sql)",
+      "Bash(find /c/Projekte/profleet -name *.sql -type f)",
+      "Bash(find /c/Projekte/profleet -type f -path */supabase/* -name *.sql)",
+      "Bash(find /c/Projekte/profleet -type f \\\\\\(-name *.sql -o -name *schema* \\\\\\))",
+      "Bash(find /c/Projekte/profleet/src/app/api -type f -name *.ts)",
+      "Bash(grep -n \"supabase.from.*offers\" /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/eingang/[id]/angebot/page.tsx)",
+      "Bash(grep -A 5 \"status: draft\" /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/eingang/[id]/angebot/page.tsx)",
+      "Bash(npx tsc:*)",
+      "Bash(grep -r phone.*city.*zip /c/Projekte/profleet --include=*.sql --include=*.ts --include=*.tsx)"
     ]
   }
 }

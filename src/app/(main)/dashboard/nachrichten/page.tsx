@@ -12,7 +12,6 @@ import {
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useSearchParams } from "next/navigation";
-import { SubscriptionBadge } from "@/components/ui-custom/SubscriptionBadge";
 import Link from "next/link";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -142,7 +141,7 @@ export default function MessagesPage() {
       const uniquePartnerIds = Array.from(new Set(partnerIds));
 
       const [profilesResult, messagesResult, tendersResult] = await Promise.all([
-        supabase.from("profiles").select("id, company_name, first_name, last_name, phone, email_public, city, zip, street, role, subscription_tier, industry, dealer_type").in("id", uniquePartnerIds),
+        supabase.from("profiles").select("id, company_name, first_name, last_name, phone, email_public, city, zip, street, role, industry, dealer_type").in("id", uniquePartnerIds),
         supabase.from("messages").select("contact_id, content, sender_id, read, created_at").in("contact_id", rawContacts.map((c: any) => c.id)).order("created_at", { ascending: false }),
         supabase.from("tenders").select("id, status, tender_vehicles(brand, model_name, quantity)").in("id", rawContacts.map((c: any) => c.tender_id)),
       ]);
@@ -297,7 +296,7 @@ export default function MessagesPage() {
   const filteredContacts = searchQuery
     ? contactsList.filter((c) =>
         (c.partner?.company_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        `${c.partner?.first_name || ""} ${c.partner?.last_name || ""}`.toLowerCase().includes(searchQuery.toLowerCase())
+        (c.partner?.company_name || "").toLowerCase().includes(searchQuery.toLowerCase())
       )
     : contactsList;
 
@@ -344,8 +343,6 @@ export default function MessagesPage() {
   const t = activeContact?.tender;
   const partnerInitials = p?.company_name
     ? p.company_name.substring(0, 2).toUpperCase()
-    : p?.first_name
-    ? `${p.first_name[0]}${p.last_name?.[0] || ""}`.toUpperCase()
     : "??";
 
   return (
@@ -370,7 +367,7 @@ export default function MessagesPage() {
         <div className="flex-1 overflow-y-auto">
           {filteredContacts.map((contact) => {
             const isActive = contact.id === activeContactId;
-            const partnerName = contact.partner ? `${contact.partner.first_name || ""} ${contact.partner.last_name || ""}`.trim() : "";
+            const partnerName = contact.partner?.company_name || "";
             const companyName = contact.partner?.company_name || "Unbekannt";
             const initials = companyName.substring(0, 2).toUpperCase();
             const hasUnread = contact.unreadCount > 0;
@@ -408,8 +405,7 @@ export default function MessagesPage() {
                       hasUnread ? "font-bold text-navy-950" : "font-semibold text-navy-950"
                     }`}>
                       {companyName}
-                      {contact.partner?.role === "anbieter" && <SubscriptionBadge tier={contact.partner.subscription_tier} />}
-                    </span>
+                                          </span>
                     <span className={`text-[11px] shrink-0 ml-2 ${hasUnread ? "text-blue-600 font-semibold" : "text-slate-400"}`}>
                       {formatListTime(contact.lastMessageAt)}
                     </span>
@@ -454,10 +450,9 @@ export default function MessagesPage() {
                 <div className="min-w-0">
                   <h3 className="text-sm font-bold text-navy-950 flex items-center gap-1.5 truncate">
                     {p?.company_name || "Unbekannt"}
-                    {p?.role === "anbieter" && <SubscriptionBadge tier={p.subscription_tier} />}
-                  </h3>
+                                      </h3>
                   <p className="text-xs text-slate-400 truncate">
-                    {[p?.first_name, p?.last_name].filter(Boolean).join(" ") || "—"}
+                    {p?.company_name || "—"}
                     {activeContact.tenderLabel !== "Ausschreibung" && (
                       <span className="text-slate-300 mx-1.5">|</span>
                     )}
@@ -587,10 +582,9 @@ export default function MessagesPage() {
                       <h3 className="font-bold text-navy-950 text-lg leading-tight">
                         {p?.company_name || "Unbekannt"}
                       </h3>
-                      <p className="text-sm text-slate-500 mt-0.5">{[p?.first_name, p?.last_name].filter(Boolean).join(" ") || "—"}</p>
+                      {p?.city && <p className="text-sm text-slate-500 mt-0.5">{p.zip || ""} {p.city}</p>}
                       <div className="flex items-center gap-1.5 mt-2 flex-wrap justify-center">
-                        {p?.role === "anbieter" && <SubscriptionBadge tier={p.subscription_tier} />}
-                        {p?.dealer_type && (
+                                                {p?.dealer_type && (
                           <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500 font-medium">{p.dealer_type}</Badge>
                         )}
                         {p?.industry && (

@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
 import { ChevronRight, ChevronLeft, CheckCircle2, PartyPopper, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase";
@@ -18,7 +17,7 @@ import { VehicleSummaryList } from "@/components/wizard/VehicleSummaryList";
 import type { VehicleConfig } from "@/types/vehicle";
 import { createEmptyVehicleConfig, buildEquipmentJson } from "@/types/vehicle";
 
-const STEPS = ["Fahrzeug", "Details", "Leasing & Finanzen", "Lieferung", "Starten"];
+const STEPS = ["Fahrzeug", "Details", "Lieferung", "Starten"];
 const DURATION_DAYS: Record<string, number> = { "7": 7, "14": 14, "30": 30 };
 
 export default function NewTenderWizard() {
@@ -43,7 +42,6 @@ export default function NewTenderWizard() {
     acceptOtherColor: false,
     acceptHigherTrim: true,
     acceptDayRegistration: false,
-    types: { purchase: true, leasing: false, financing: false },
     zipCode: "",
     radius: "nationwide",
   });
@@ -85,9 +83,7 @@ export default function NewTenderWizard() {
     setVehicles((prev) => prev.map((v, i) => (i === editingIndex ? updated : v)));
   };
 
-  // Totals for summary
   const totalQuantity = vehicles.reduce((sum, v) => sum + v.quantity, 0);
-  const totalPriceGross = vehicles.reduce((sum, v) => sum + (v.listPriceGross || 0) * v.quantity, 0);
 
   const handlePublish = async () => {
     if (!user) return;
@@ -144,8 +140,8 @@ export default function NewTenderWizard() {
           accept_higher_trim: sharedData.acceptHigherTrim,
           accept_day_registration: sharedData.acceptDayRegistration,
         },
-        leasing: sharedData.types.leasing ? { requested: true } : null,
-        financing: sharedData.types.financing ? { requested: true } : null,
+        leasing: v.leasingRequested ? { requested: true, duration: v.leasingDuration, km_year: v.leasingKmYear } : null,
+        financing: v.financingRequested ? { requested: true, duration: v.financingDuration, down_payment: v.financingDownPayment || null } : null,
       }));
 
       const { data: insertedVehicles, error: vehicleError } = await supabase
@@ -300,75 +296,8 @@ export default function NewTenderWizard() {
           </div>
         )}
 
-        {/* Step 2: Leasing & Finanzen */}
+        {/* Step 2: Lieferung */}
         {step === 2 && (
-          <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-            <h2 className="text-2xl font-bold text-navy-950 mb-4">Leasing & Finanzierung</h2>
-            <p className="text-lg text-slate-500 mb-10 leading-relaxed">Für welche Angebotsarten interessieren Sie sich? Händler können Ihnen individuelle Berechnungen für Ihre Auswahl erstellen.</p>
-
-            <div className="space-y-6">
-              <div className="flex items-start gap-4 p-6 border-2 border-blue-100 bg-blue-50/40 rounded-3xl">
-                <Checkbox id="purchase" checked={sharedData.types.purchase} disabled className="mt-1 scale-125 border-slate-300" />
-                <div>
-                  <Label htmlFor="purchase" className="font-bold text-navy-950 text-xl block mb-2 cursor-pointer">Barkauf (Immer aktiv)</Label>
-                  <p className="text-base text-slate-600">Zur Vergleichbarkeit der Angebote wird der Barkaufpreis (Abholpreis) standardmäßig immer angefragt.</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-4 p-6 border-2 border-slate-200 rounded-3xl data-[active=true]:border-blue-400 data-[active=true]:bg-blue-50/30 transition-all duration-300 shadow-sm" data-active={sharedData.types.leasing}>
-                <Checkbox id="leasing" checked={sharedData.types.leasing} onCheckedChange={(c) => setSharedData({ ...sharedData, types: { ...sharedData.types, leasing: c === true } })} className="mt-1 scale-125 border-slate-300 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500" />
-                <div className="w-full">
-                  <Label htmlFor="leasing" className="font-bold text-navy-950 text-xl block cursor-pointer transition-colors">Leasing-Angebote einholen</Label>
-                  {sharedData.types.leasing && (
-                    <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in zoom-in-95 duration-200">
-                      <div className="space-y-3">
-                        <Label className="text-slate-600 font-semibold text-base">Laufzeit</Label>
-                        <select className="h-12 w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow">
-                          <option>36 Monate</option>
-                          <option>48 Monate</option>
-                          <option>24 Monate</option>
-                        </select>
-                      </div>
-                      <div className="space-y-3">
-                        <Label className="text-slate-600 font-semibold text-base">Laufleistung pro Jahr</Label>
-                        <select className="h-12 w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow">
-                          <option>10.000 km</option>
-                          <option>15.000 km</option>
-                          <option>20.000 km</option>
-                        </select>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-start gap-4 p-6 border-2 border-slate-200 rounded-3xl data-[active=true]:border-blue-400 data-[active=true]:bg-blue-50/30 transition-all duration-300 shadow-sm" data-active={sharedData.types.financing}>
-                <Checkbox id="financing" checked={sharedData.types.financing} onCheckedChange={(c) => setSharedData({ ...sharedData, types: { ...sharedData.types, financing: c === true } })} className="mt-1 scale-125 border-slate-300 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500" />
-                <div className="w-full">
-                  <Label htmlFor="financing" className="font-bold text-navy-950 text-xl block cursor-pointer transition-colors">Finanzierungs-Angebote einholen</Label>
-                  {sharedData.types.financing && (
-                    <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in zoom-in-95 duration-200">
-                      <div className="space-y-3">
-                        <Label className="text-slate-600 font-semibold text-base">Laufzeit</Label>
-                        <select className="h-12 w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow">
-                          <option>48 Monate</option>
-                          <option>60 Monate</option>
-                        </select>
-                      </div>
-                      <div className="space-y-3">
-                        <Label className="text-slate-600 font-semibold text-base">Gewerbliche Anzahlung (€)</Label>
-                        <Input type="number" placeholder="z.B. 5000" className="rounded-xl h-12 bg-white border-slate-300 focus-visible:ring-blue-500 text-base" />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: Lieferung */}
-        {step === 3 && (
           <div className="animate-in fade-in slide-in-from-right-4 duration-300">
             <h2 className="text-2xl font-bold text-navy-950 mb-8">Auslieferung & Region</h2>
 
@@ -428,8 +357,8 @@ export default function NewTenderWizard() {
           </div>
         )}
 
-        {/* Step 4: Zusammenfassung */}
-        {step === 4 && (
+        {/* Step 3: Zusammenfassung */}
+        {step === 3 && (
           <div className="animate-in fade-in slide-in-from-right-4 duration-300">
             <h2 className="text-3xl font-bold text-navy-950 mb-8 border-b border-slate-100 pb-6">Zusammenfassung prüfen & Veröffentlichen</h2>
 
@@ -439,47 +368,36 @@ export default function NewTenderWizard() {
               <h3 className="text-xl font-bold text-navy-950 mb-6">Fahrzeuge</h3>
               <div className="space-y-3 mb-6">
                 {vehicles.map((v) => (
-                  <div key={v.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
-                    <div>
-                      <span className="font-bold text-navy-950">
-                        {[v.brand, v.model].filter(Boolean).join(" ")}
-                      </span>
-                      {v.fuelType && <span className="text-slate-500 text-sm ml-2">· {v.fuelType}</span>}
-                      {v.exteriorColor && <span className="text-slate-400 text-sm ml-2">· {v.exteriorColor}</span>}
+                  <div key={v.id} className="p-4 bg-slate-50 rounded-2xl">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-bold text-navy-950">
+                          {[v.brand, v.model].filter(Boolean).join(" ")}
+                        </span>
+                        {v.fuelType && <span className="text-slate-500 text-sm ml-2">· {v.fuelType}</span>}
+                        {v.exteriorColor && <span className="text-slate-400 text-sm ml-2">· {v.exteriorColor}</span>}
+                      </div>
+                      <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-bold rounded-lg shrink-0">{v.quantity}x</span>
                     </div>
-                    <div className="flex items-center gap-4 shrink-0">
-                      <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-bold rounded-lg">{v.quantity}x</span>
-                      <span className="font-semibold text-navy-900 text-sm">
-                        {v.listPriceGross ? `${Math.round(v.listPriceGross).toLocaleString("de-DE")} € brutto` : "N/A"}
-                      </span>
+                    <div className="flex gap-2 mt-2 flex-wrap">
+                      <span className="px-2 py-0.5 bg-slate-200 text-slate-700 text-xs font-semibold rounded-md">Barkauf</span>
+                      {v.leasingRequested && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-md">Leasing ({v.leasingDuration} Mon.)</span>}
+                      {v.financingRequested && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-md">Finanzierung ({v.financingDuration} Mon.)</span>}
                     </div>
                   </div>
                 ))}
               </div>
               <div className="flex items-center justify-between pt-4 border-t border-slate-200">
                 <span className="font-bold text-navy-950 text-lg">Gesamt</span>
-                <div className="flex items-center gap-4">
-                  <span className="px-3 py-1 bg-navy-900 text-white text-sm font-bold rounded-lg">
-                    {totalQuantity} Fahrzeug{totalQuantity !== 1 ? "e" : ""}
-                  </span>
-                  <span className="font-bold text-navy-950 text-lg">
-                    {totalPriceGross > 0 ? `${Math.round(totalPriceGross).toLocaleString("de-DE")} €` : "N/A"}
-                  </span>
-                </div>
+                <span className="px-3 py-1 bg-navy-900 text-white text-sm font-bold rounded-lg">
+                  {totalQuantity} Fahrzeug{totalQuantity !== 1 ? "e" : ""}
+                </span>
               </div>
             </div>
 
             {/* Shared data summary */}
             <div className="bg-white border-2 border-slate-100 shadow-sm rounded-3xl p-8 mb-8">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                <div>
-                  <dt className="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-2">Angebotsarten</dt>
-                  <dd className="font-bold text-navy-950 text-lg flex gap-2 flex-wrap">
-                    <span className="px-3 py-1 bg-slate-100 rounded-lg whitespace-nowrap">Kauf</span>
-                    {sharedData.types.leasing && <span className="px-3 py-1 bg-slate-100 rounded-lg whitespace-nowrap">Leasing</span>}
-                    {sharedData.types.financing && <span className="px-3 py-1 bg-slate-100 rounded-lg whitespace-nowrap">Finanz.</span>}
-                  </dd>
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
                 <div>
                   <dt className="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-2">Lieferort</dt>
                   <dd className="font-bold text-navy-950 text-lg">{sharedData.zipCode || "Nicht angegeben"}</dd>

@@ -6,9 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowRight, CheckCircle2, Star, Zap } from "lucide-react";
 
 const mockSavings = [
-  { brand: 'Audi', model: 'A4 Avant RS4', specs: '420 PS · shadowgrey metallic', listPrice: 89138, finalPrice: 75411, savings: 15.4, dealerRating: 95, location: 'München · 100 km' },
-  { brand: 'BMW', model: '530d xDrive', specs: '286 PS · saphirschwarz', listPrice: 75200, finalPrice: 63920, savings: 15.0, leasing: 499, dealerRating: 88, location: 'Berlin · 50 km' },
-  { brand: 'Mercedes-Benz', model: 'C 300 e T-Modell', specs: '313 PS · hightechsilber', listPrice: 62500, finalPrice: 53125, savings: 15.0, dealerRating: 98, location: 'Hamburg · 20 km' },
+  { brand: 'Audi', model: 'A4 Avant RS4', specs: '420 PS · shadowgrey metallic', listPrice: 89138, finalPrice: 75411, savings: 15.4, dealerRating: 0, location: 'München · 100 km' },
+  { brand: 'BMW', model: '530d xDrive', specs: '286 PS · saphirschwarz', listPrice: 75200, finalPrice: 63920, savings: 15.0, leasing: 499, dealerRating: 0, location: 'Berlin · 50 km' },
+  { brand: 'Mercedes-Benz', model: 'C 300 e T-Modell', specs: '313 PS · hightechsilber', listPrice: 62500, finalPrice: 53125, savings: 15.0, dealerRating: 0, location: 'Hamburg · 20 km' },
 ];
 
 export default function HomePage() {

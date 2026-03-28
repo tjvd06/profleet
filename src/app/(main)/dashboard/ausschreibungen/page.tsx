@@ -11,7 +11,7 @@ import {
 import {
   Clock, ChevronDown, ChevronUp, CheckCircle2, FileEdit, Loader2, Plus,
   MoreHorizontal, Pencil, Trash2, AlertTriangle, Globe, XCircle, Building2,
-  MessageCircle, ShieldAlert, Phone, Mail, MapPin, Send,
+  MessageCircle, ShieldAlert, Phone, Mail, MapPin, Send, StopCircle, Star,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
@@ -21,7 +21,18 @@ import { ConfigFileDownload } from "@/components/tenders/ConfigFileDownload";
 import { dbRowToVehicleConfig } from "@/types/vehicle";
 import { toast } from "sonner";
 import Link from "next/link";
-import { SubscriptionBadge } from "@/components/ui-custom/SubscriptionBadge";
+import { ReviewStepper } from "@/components/ui-custom/ReviewStepper";
+import { EndTenderWizard } from "@/components/ui-custom/EndTenderWizard";
+
+type ReviewRow = {
+  id: string;
+  contact_id: string;
+  from_user_id: string;
+  to_user_id: string;
+  type: "positive" | "neutral" | "negative";
+  contract_concluded: boolean;
+  comment: string | null;
+};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 // Broad type – Supabase returns all tender_vehicles columns including equipment JSONB
@@ -84,11 +95,8 @@ type DealerProfile = {
   dealer_type: string | null;
   zip: string | null;
   city: string | null;
-  street: string | null;
   phone: string | null;
   email_public: string | null;
-  subscription_tier: string | null;
-  created_at: string | null;
 };
 
 type Tender = {
@@ -116,6 +124,11 @@ function timeLeft(endAt: string | null): string {
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "—";
   return new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(dateStr));
+}
+
+/** Count unique dealers who submitted offers on a tender */
+function uniqueDealerCount(offers: Offer[]): number {
+  return new Set(offers.map((o) => o.dealer_id)).size;
 }
 
 function createdAgo(dateStr: string): string {
@@ -193,9 +206,12 @@ export default function MyTendersPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [expandedTender, setExpandedTender] = useState<string | null>(null);
 
+  const [reviews, setReviews] = useState<ReviewRow[]>([]);
+
   // Action states
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmWithdrawId, setConfirmWithdrawId] = useState<string | null>(null);
+  const [endTenderWizard, setEndTenderWizard] = useState<Tender | null>(null);
   const [contactConfirmOffer, setContactConfirmOffer] = useState<{ tenderId: string; offer: Offer } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -211,7 +227,7 @@ export default function MyTendersPage() {
 
     const run = async () => {
       try {
-        const [tendersResult, contactsResult] = await Promise.all([
+        const [tendersResult, contactsResult, reviewsResult] = await Promise.all([
           Promise.race([
             supabase
               .from("tenders")
@@ -223,11 +239,13 @@ export default function MyTendersPage() {
             ),
           ]),
           supabase.from("contacts").select("*").eq("buyer_id", user.id),
+          supabase.from("reviews").select("*").eq("from_user_id", user.id),
         ]);
 
         if (cancelled) return;
         const { data, error } = tendersResult as any;
         const { data: contactsData } = contactsResult as any;
+        const { data: reviewsData } = reviewsResult as any;
 
         if (error) {
           setFetchError(error.message);
@@ -237,6 +255,7 @@ export default function MyTendersPage() {
 
           const loadedContacts = (contactsData || []) as Contact[];
           setContacts(loadedContacts);
+          setReviews((reviewsData || []) as ReviewRow[]);
 
           // Load dealer profiles for ALL dealers who submitted offers (full transparency)
           const allDealerIds = Array.from(new Set([
@@ -246,7 +265,7 @@ export default function MyTendersPage() {
           if (allDealerIds.length > 0) {
             const { data: profiles } = await supabase
               .from("profiles")
-              .select("id, company_name, first_name, last_name, dealer_type, zip, city, street, phone, email_public, subscription_tier, created_at")
+              .select("id, company_name, first_name, last_name, dealer_type, zip, city, phone, email_public")
               .in("id", allDealerIds);
             if (profiles) {
               const map: Record<string, DealerProfile> = {};
@@ -296,14 +315,15 @@ export default function MyTendersPage() {
       // Load dealer profile
       const { data: prof } = await supabase
         .from("profiles")
-        .select("id, company_name, first_name, last_name, dealer_type, zip, city, street, phone, email_public, subscription_tier, created_at")
+        .select("id, company_name, first_name, last_name, dealer_type, zip, city, phone, email_public")
         .eq("id", offer.dealer_id)
         .single();
       if (prof) {
         setDealerProfiles((prev) => ({ ...prev, [prof.id]: prof as DealerProfile }));
       }
 
-      toast.success("Kontakt erfolgreich aufgenommen!");
+      router.push(`/dashboard/nachrichten?contact=${newContact.id}`);
+      return;
     }
     setActionLoading(false);
     setContactConfirmOffer(null);
@@ -332,11 +352,54 @@ export default function MyTendersPage() {
     }
   };
 
+  const handleEndTender = async (id: string) => {
+    await supabase.from("tenders").update({ status: "completed" }).eq("id", id);
+    setTenders(prev => prev.map(t => t.id === id ? { ...t, status: "completed" } : t));
+  };
+
+  const handleContractAnswer = async (contactId: string, concluded: boolean) => {
+    await supabase.from("contacts").update({ contract_concluded_buyer: concluded }).eq("id", contactId);
+    setContacts(prev => prev.map(c => c.id === contactId ? { ...c, contract_concluded_buyer: concluded } : c));
+  };
+
+  const handleSubmitReview = async (contactId: string, type: "positive" | "neutral" | "negative", comment: string) => {
+    const contact = contacts.find(c => c.id === contactId);
+    if (!contact || !user) return;
+    const { data, error } = await supabase.from("reviews").insert({
+      tender_id: contact.tender_id,
+      contact_id: contactId,
+      from_user_id: user.id,
+      to_user_id: contact.dealer_id,
+      type,
+      contract_concluded: (contact as any).contract_concluded_buyer ?? false,
+      comment: comment || null,
+    }).select().single();
+    if (error) {
+      toast.error("Fehler: " + error.message);
+    } else if (data) {
+      setReviews(prev => [...prev, data as ReviewRow]);
+      toast.success("Bewertung abgegeben!");
+    }
+  };
+
+  const handleUpdateReview = async (reviewId: string, type: "positive" | "neutral" | "negative", comment: string) => {
+    const { error } = await supabase.from("reviews").update({ type, comment: comment || null }).eq("id", reviewId);
+    if (error) {
+      toast.error("Fehler: " + error.message);
+    } else {
+      setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, type, comment: comment || null } : r));
+      toast.success("Bewertung aktualisiert!");
+    }
+  };
+
   const activeTenders = tenders.filter(t => t.status === "active");
   const completedTenders = tenders.filter(t => t.status === "completed" || t.status === "cancelled");
   const draftTenders = tenders.filter(t => t.status === "draft");
 
-  // Helper: get contact for an offer
+  // Helper: get contact for a dealer on a tender (contact is per-dealer, not per-vehicle-offer)
+  const getContactForDealer = (tenderId: string, dealerId: string) =>
+    contacts.find((c) => c.tender_id === tenderId && c.dealer_id === dealerId);
+  // Kept for backward compat with single-vehicle contacts linked by offer_id
   const getContactForOffer = (offerId: string) => contacts.find((c) => c.offer_id === offerId);
 
   // Render three-dot menu for a tender
@@ -345,8 +408,9 @@ export default function MyTendersPage() {
     const canEdit = (tender.status === "draft" || tender.status === "active") && !hasOffers;
     const canDelete = !hasOffers;
     const canWithdraw = hasOffers && tender.status === "active";
+    const canEnd = tender.status === "active";
 
-    if (!canEdit && !canDelete && !canWithdraw) return null;
+    if (!canEdit && !canDelete && !canWithdraw && !canEnd) return null;
 
     return (
       <DropdownMenu>
@@ -363,6 +427,14 @@ export default function MyTendersPage() {
               onClick={e => { e.stopPropagation(); router.push(`/dashboard/ausschreibung/${tender.id}/bearbeiten`); }}
             >
               <Pencil size={16} className="mr-2 text-blue-500" /> Bearbeiten
+            </DropdownMenuItem>
+          )}
+          {canEnd && (
+            <DropdownMenuItem
+              className="rounded-xl px-4 py-3 font-semibold text-green-700 cursor-pointer"
+              onClick={e => { e.stopPropagation(); setEndTenderWizard(tender); }}
+            >
+              <StopCircle size={16} className="mr-2 text-green-500" /> Ausschreibung beenden
             </DropdownMenuItem>
           )}
           {canWithdraw && (
@@ -386,7 +458,7 @@ export default function MyTendersPage() {
     );
   };
 
-  // Render offer rows with contact functionality
+  // Render offer rows grouped by dealer
   const renderOffersTable = (tender: Tender) => {
     if (tender.offers.length === 0) {
       return (
@@ -399,228 +471,136 @@ export default function MyTendersPage() {
       );
     }
 
-    // Display sorted by purchase_price ascending (best first)
-    const sorted = [...tender.offers].sort((a, b) => (a.purchase_price ?? Infinity) - (b.purchase_price ?? Infinity));
+    // Group offers by dealer_id
+    const dealerGroups: Record<string, Offer[]> = {};
+    tender.offers.forEach((offer) => {
+      if (!dealerGroups[offer.dealer_id]) dealerGroups[offer.dealer_id] = [];
+      dealerGroups[offer.dealer_id].push(offer);
+    });
 
-    const tenderContacts = contacts.filter(c => c.tender_id === tender.id);
+    // Sort dealer groups by their total price (sum of all vehicle offers) ascending
+    const sortedDealerIds = Object.keys(dealerGroups).sort((a, b) => {
+      const totalA = dealerGroups[a].reduce((s, o) => s + (o.total_price ?? 0), 0);
+      const totalB = dealerGroups[b].reduce((s, o) => s + (o.total_price ?? 0), 0);
+      return totalA - totalB;
+    });
+
+    const isMultiVehicle = tender.tender_vehicles.length > 1;
 
     return (
       <div className="space-y-4">
-        {sorted.map((offer, i) => {
-          const contact = getContactForOffer(offer.id);
-          const dealerProfile = dealerProfiles[offer.dealer_id] || null;
+        {sortedDealerIds.map((dealerId, groupIndex) => {
+          const dealerOffers = dealerGroups[dealerId];
+          const dealerProfile = dealerProfiles[dealerId] || null;
+          const contact = getContactForDealer(tender.id, dealerId) || dealerOffers.map(o => getContactForOffer(o.id)).find(Boolean);
           const hasContact = !!contact;
-          const d = offer.offer_details;
+          const grandTotal = dealerOffers.reduce((s, o) => s + (o.total_price ?? 0), 0);
+          const firstOffer = dealerOffers[0];
+          const getVehicleForOffer = (offer: Offer) =>
+            tender.tender_vehicles.find((v: TenderVehicle) => v.id === offer.tender_vehicle_id);
 
           return (
-            <div key={offer.id} className={`border rounded-2xl overflow-hidden ${i === 0 ? "border-green-200 bg-green-50/30" : "border-slate-200 bg-white"}`}>
-              {/* Offer header row */}
-              <div className="px-6 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 bg-blue-100 text-blue-700">
+            <div key={dealerId} className={`border rounded-2xl overflow-hidden ${groupIndex === 0 ? "border-green-200 bg-green-50/20" : "border-slate-200 bg-white"}`}>
+              {/* Dealer header — compact, only company name + location */}
+              <div className="px-5 py-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 bg-blue-100 text-blue-700">
                     {(dealerProfile?.company_name?.[0] || "H")}
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-navy-950">
-                        {dealerProfile?.company_name || "Händler"}
-                      </span>
-                      {dealerProfile && <SubscriptionBadge tier={dealerProfile.subscription_tier} />}
-                      {dealerProfile?.dealer_type && (
-                        <Badge variant="outline" className="text-xs border-slate-200 text-slate-500">{dealerProfile.dealer_type}</Badge>
-                      )}
-                      {i === 0 && <Badge className="bg-green-100 text-green-700 border-none text-xs">Bester Preis</Badge>}
-                      {hasContact && (
-                        <Badge className="bg-blue-50 text-blue-600 border border-blue-200 text-xs">Anfrage gesendet</Badge>
-                      )}
+                      <span className="font-bold text-navy-950 text-sm">{dealerProfile?.company_name || "Händler"}</span>
+                      {dealerProfile?.dealer_type && <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-400">{dealerProfile.dealer_type}</Badge>}
+                      {groupIndex === 0 && <Badge className="bg-green-100 text-green-700 border-none text-[10px]">Bester Preis</Badge>}
                     </div>
-                    {dealerProfile && (
-                      <div className="flex items-center gap-4 mt-1 text-xs text-slate-500 flex-wrap">
-                        {dealerProfile.first_name && (
-                          <span>{dealerProfile.first_name} {dealerProfile.last_name}</span>
-                        )}
-                        {(dealerProfile.zip || dealerProfile.city) && (
-                          <span className="flex items-center gap-1"><MapPin size={10} /> {dealerProfile.zip || ""} {dealerProfile.city || ""}</span>
-                        )}
-                        {dealerProfile.email_public && (
-                          <a href={`mailto:${dealerProfile.email_public}`} className="flex items-center gap-1 text-blue-600 hover:text-blue-700"><Mail size={10} /> {dealerProfile.email_public}</a>
-                        )}
-                        {dealerProfile.phone && (
-                          <a href={`tel:${dealerProfile.phone}`} className="flex items-center gap-1 text-blue-600 hover:text-blue-700"><Phone size={10} /> {dealerProfile.phone}</a>
-                        )}
+                    {dealerProfile?.city && (
+                      <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-400">
+                        <MapPin size={10} /> {dealerProfile.zip || ""} {dealerProfile.city}
                       </div>
                     )}
                   </div>
                 </div>
-
-                <div className="text-right shrink-0">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Eingegangen</div>
-                  <div className="text-slate-500 text-xs">{formatDate(offer.created_at)}</div>
+                <div className="flex items-center gap-4 shrink-0">
+                  {/* Show grand total prominently */}
+                  <div className="text-right">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase">{isMultiVehicle ? "Gesamt netto" : "Abholpreis netto"}</div>
+                    <div className="font-black text-blue-700">{grandTotal.toLocaleString("de-DE")} €</div>
+                  </div>
                 </div>
               </div>
 
-              {/* Full offer details */}
-              <div className="px-6 py-5 border-t border-slate-100">
-                {/* Price grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-                  <div>
-                    <div className="text-[10px] font-bold text-slate-400 uppercase">Kaufpreis netto</div>
-                    <div className="font-bold text-navy-950 text-lg">
-                      {offer.purchase_price ? `${offer.purchase_price.toLocaleString("de-DE")} €` : "—"}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-bold text-slate-400 uppercase">Überführung netto</div>
-                    <div className="font-semibold text-navy-950">
-                      {offer.transfer_cost ? `${offer.transfer_cost.toLocaleString("de-DE")} €` : "—"}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-bold text-slate-400 uppercase">Zulassung netto</div>
-                    <div className="font-semibold text-navy-950">
-                      {offer.registration_cost ? `${offer.registration_cost.toLocaleString("de-DE")} €` : "—"}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-bold text-slate-400 uppercase">Gesamtpreis netto</div>
-                    <div className="font-black text-blue-700 text-lg">
-                      {offer.total_price ? `${offer.total_price.toLocaleString("de-DE")} €` : "—"}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Quantity + delivery */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-                  {offer.offered_quantity != null && (
-                    <div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase">Angebotene Stückzahl</div>
-                      <div className="font-semibold text-navy-950">{offer.offered_quantity}</div>
-                    </div>
-                  )}
-                  {(offer.delivery_plz || offer.delivery_city) && (
-                    <div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase">Lieferort</div>
-                      <div className="font-semibold text-navy-950">{offer.delivery_plz || ""} {offer.delivery_city || ""}</div>
-                    </div>
-                  )}
-                  {offer.delivery_date && (
-                    <div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase">Frühester Liefertermin</div>
-                      <div className="font-semibold text-navy-950">{formatDate(offer.delivery_date)}</div>
-                    </div>
-                  )}
-                  {d?.listPriceNetConfirm != null && (
-                    <div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase">Listenpreis netto bestätigt</div>
-                      <div className="font-semibold text-navy-950">{d.listPriceNetConfirm.toLocaleString("de-DE")} €</div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Leasing / Financing */}
-                {(offer.lease_rate || d?.financingRate) && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                    {offer.lease_rate && (
-                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase mb-2">Leasing</div>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div><span className="text-slate-500">Rate netto:</span> <span className="font-bold text-navy-950">{offer.lease_rate.toLocaleString("de-DE")} €</span></div>
-                          {d?.leasingDuration && <div><span className="text-slate-500">Laufzeit:</span> <span className="font-semibold">{d.leasingDuration} Mon.</span></div>}
-                          {d?.leasingKmYear && <div><span className="text-slate-500">KM/Jahr:</span> <span className="font-semibold">{parseInt(d.leasingKmYear).toLocaleString("de-DE")}</span></div>}
-                          {d?.leasingDownPayment && d.leasingDownPayment !== "0" && <div><span className="text-slate-500">Anzahlung:</span> <span className="font-semibold">{d.leasingDownPayment} €</span></div>}
-                        </div>
-                      </div>
-                    )}
-                    {d?.financingRate && (
-                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase mb-2">Finanzierung</div>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div><span className="text-slate-500">Rate netto:</span> <span className="font-bold text-navy-950">{d.financingRate.toLocaleString("de-DE")} €</span></div>
-                          {d.financingDuration && <div><span className="text-slate-500">Laufzeit:</span> <span className="font-semibold">{d.financingDuration} Mon.</span></div>}
-                          {d.financingDownPayment && d.financingDownPayment !== "0" && <div><span className="text-slate-500">Anzahlung:</span> <span className="font-semibold">{d.financingDownPayment} €</span></div>}
-                          {d.financingResidual && <div><span className="text-slate-500">Restzahlung:</span> <span className="font-semibold">{d.financingResidual} €</span></div>}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Contract details */}
-                {(d?.hasFleetContract || d?.hasSpecialAgreement) && (
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {d?.hasFleetContract && (
-                      <Badge className="bg-purple-50 text-purple-700 border border-purple-200 text-xs">
-                        Großkundenvertrag{d.fleetContractDiscount ? ` (${d.fleetContractDiscount}%)` : ""}
-                      </Badge>
-                    )}
-                    {d?.hasSpecialAgreement && (
-                      <Badge className="bg-purple-50 text-purple-700 border border-purple-200 text-xs">
-                        Sondervereinbarung{d.specialAgreementDiscount ? ` (${d.specialAgreementDiscount}%)` : ""}
-                      </Badge>
-                    )}
-                  </div>
-                )}
-
-                {/* Configuration match + deviation */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {d?.exactMatch ? (
-                    <Badge className="bg-green-50 text-green-700 border border-green-200 text-xs flex items-center gap-1">
-                      <CheckCircle2 size={12} /> Exakte Konfiguration
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-xs">
-                      Alternative Konfiguration
-                    </Badge>
-                  )}
-                  {d?.dayRegistration && (
-                    <Badge className="bg-slate-100 text-slate-600 border-none text-xs">
-                      Tageszulassung{d.dayRegistrationDate ? ` (${formatDate(d.dayRegistrationDate)})` : ""}{d.dayRegistrationKm ? `, ${d.dayRegistrationKm} km` : ""}
-                    </Badge>
-                  )}
-                </div>
-
-                {/* Deviation description */}
-                {offer.deviation_type && offer.deviation_details?.description && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
-                    <div className="text-[10px] font-bold text-amber-600 uppercase mb-1">Abweichung</div>
-                    <p className="text-sm text-amber-900">{offer.deviation_details.description}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Contact/Chat actions */}
-              <div className="px-6 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-3">
-                {!hasContact ? (
-                  <Button
-                    size="sm"
-                    onClick={() => setContactConfirmOffer({ tenderId: tender.id, offer })}
-                    className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold h-9 px-4"
-                  >
-                    <Send size={14} className="mr-1.5" /> Anfrage senden
-                  </Button>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <Link href={`/dashboard/nachrichten?contact=${contact!.id}`}>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="rounded-xl border-blue-200 text-blue-600 hover:bg-blue-50 text-xs font-bold h-9 px-4"
-                      >
-                        <MessageCircle size={14} className="mr-1.5" /> Chat öffnen
-                      </Button>
-                    </Link>
-                  </div>
-                )}
-                <span className="text-[10px] text-slate-400">{hasContact ? `Anfrage gesendet am ${formatDate(contact!.created_at)}` : ""}</span>
-              </div>
-
-              {/* Contact status */}
-              {hasContact && contact && (
-                <div className="px-6 py-3 border-t border-slate-100 flex items-center gap-2 text-xs text-green-700 bg-green-50/50">
-                  <CheckCircle2 size={14} className="text-green-500" />
-                  <span className="font-semibold">Sie haben Kontakt zum Händler aufgenommen</span>
+              {/* Contact info — only shown after contact is established */}
+              {hasContact && dealerProfile && (dealerProfile.email_public || dealerProfile.phone) && (
+                <div className="px-5 py-2 border-t border-slate-100 bg-blue-50/30 flex items-center gap-4 text-xs">
+                  {dealerProfile.email_public && <a href={`mailto:${dealerProfile.email_public}`} className="flex items-center gap-1 text-blue-600"><Mail size={10} /> {dealerProfile.email_public}</a>}
+                  {dealerProfile.phone && <a href={`tel:${dealerProfile.phone}`} className="flex items-center gap-1 text-blue-600"><Phone size={10} /> {dealerProfile.phone}</a>}
                 </div>
               )}
+
+              {/* Compact per-vehicle price rows */}
+              {dealerOffers.map((offer, offerIdx) => {
+                const vehicle = getVehicleForOffer(offer);
+                const d = offer.offer_details;
+                const vehicleLabel = vehicle ? `${(vehicle as any).brand || ""} ${(vehicle as any).model_name || ""}`.trim() : "";
+
+                return (
+                  <div key={offer.id} className="px-5 py-3 border-t border-slate-100">
+                    {/* Vehicle label + key price in one row */}
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {isMultiVehicle && <div className="w-5 h-5 rounded bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold shrink-0">{offerIdx + 1}</div>}
+                        <span className="font-bold text-navy-950 text-sm truncate">{vehicleLabel || `Fahrzeug ${offerIdx + 1}`}</span>
+                        {vehicle && <span className="text-[10px] text-slate-400 shrink-0">{(vehicle as any).quantity || 1}x</span>}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="font-bold text-navy-950">{offer.purchase_price ? `${offer.purchase_price.toLocaleString("de-DE")} €` : "—"}</span>
+                        <span className="text-[10px] text-slate-400 ml-1">Kaufpreis</span>
+                      </div>
+                    </div>
+
+                    {/* Compact detail chips */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {offer.total_price && offer.total_price !== offer.purchase_price && (
+                        <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500">Abholpreis: {offer.total_price.toLocaleString("de-DE")} €</Badge>
+                      )}
+                      {offer.lease_rate && <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500">Leasing: {offer.lease_rate.toLocaleString("de-DE")} €/Mon.</Badge>}
+                      {d?.financingRate && <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500">Finanz.: {d.financingRate.toLocaleString("de-DE")} €/Mon.</Badge>}
+                      {d?.exactMatch ? (
+                        <Badge className="bg-green-50 text-green-700 border border-green-100 text-[10px]"><CheckCircle2 size={10} className="mr-0.5" /> Exakt</Badge>
+                      ) : (
+                        <Badge className="bg-amber-50 text-amber-700 border border-amber-100 text-[10px]">Alternativ</Badge>
+                      )}
+                      {d?.dayRegistration && <Badge className="bg-slate-100 text-slate-500 border-none text-[10px]">Tageszulassung</Badge>}
+                      {offer.delivery_date && <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500">Lieferung: {formatDate(offer.delivery_date)}</Badge>}
+                      {(offer as any).config_file_path && <ConfigFileDownload filePath={(offer as any).config_file_path} label="Konfig-PDF" />}
+                    </div>
+
+                    {/* Deviation — only if present */}
+                    {offer.deviation_type && offer.deviation_details?.description && (
+                      <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-2 border border-amber-100">{offer.deviation_details.description}</p>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Action bar */}
+              <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-3">
+                {!hasContact ? (
+                  <Button size="sm" onClick={() => setContactConfirmOffer({ tenderId: tender.id, offer: firstOffer })}
+                    className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold h-8 px-4">
+                    <Send size={12} className="mr-1.5" /> Kontakt aufnehmen
+                  </Button>
+                ) : (
+                  <Link href={`/dashboard/nachrichten?contact=${contact!.id}`}>
+                    <Button size="sm" variant="outline" className="rounded-xl border-blue-200 text-blue-600 hover:bg-blue-50 text-xs font-bold h-8 px-4">
+                      <MessageCircle size={12} className="mr-1.5" /> Nachrichten öffnen
+                    </Button>
+                  </Link>
+                )}
+                <span className="text-[10px] text-slate-400">
+                  {hasContact ? `Kontakt seit ${formatDate(contact!.created_at)}` : formatDate(firstOffer.created_at)}
+                </span>
+              </div>
             </div>
           );
         })}
@@ -634,10 +614,22 @@ export default function MyTendersPage() {
     const vehicleConfigs = vehicles.map((v: Record<string, unknown>) => dbRowToVehicleConfig(v));
     const totalQty = vehicles.reduce((s: number, v: TenderVehicle) => s + (v.quantity || 1), 0);
     const isMulti = vehicleConfigs.length > 1;
-    const bestPrice = tender.offers.length > 0
-      ? Math.min(...tender.offers.filter(o => o.purchase_price).map(o => o.purchase_price!))
-      : null;
-    const savings = bestPrice && vehicle?.list_price_gross
+    // Best price: for multi-vehicle, use the lowest total per dealer; for single, use lowest purchase_price
+    const bestPrice = (() => {
+      if (tender.offers.length === 0) return null;
+      if (isMulti) {
+        // Group by dealer, sum total_price per dealer, take the min
+        const dealerTotals: Record<string, number> = {};
+        tender.offers.forEach(o => {
+          dealerTotals[o.dealer_id] = (dealerTotals[o.dealer_id] || 0) + (o.total_price ?? 0);
+        });
+        const totals = Object.values(dealerTotals).filter(t => t > 0);
+        return totals.length > 0 ? Math.min(...totals) : null;
+      }
+      const prices = tender.offers.filter(o => o.purchase_price).map(o => o.purchase_price!);
+      return prices.length > 0 ? Math.min(...prices) : null;
+    })();
+    const savings = !isMulti && bestPrice && vehicle?.list_price_gross
       ? ((1 - bestPrice / vehicle.list_price_gross) * 100).toFixed(1)
       : null;
 
@@ -656,9 +648,9 @@ export default function MyTendersPage() {
                 <div className="flex items-center gap-3 mb-1 flex-wrap">
                   <Badge variant="outline" className="text-slate-500 bg-white font-mono text-xs">{tender.id.split("-")[0].toUpperCase()}</Badge>
                   <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-none px-3">Aktiv</Badge>
-                  {tender.offers.length > 0 ? (
+                  {uniqueDealerCount(tender.offers) > 0 ? (
                     <Badge className="bg-green-100 text-green-700 hover:bg-green-200 border-none px-3 font-bold">
-                      {tender.offers.length} Angebot{tender.offers.length > 1 ? "e" : ""}
+                      {uniqueDealerCount(tender.offers)} Angebot{uniqueDealerCount(tender.offers) > 1 ? "e" : ""}
                     </Badge>
                   ) : (
                     <Badge className="bg-slate-100 text-slate-500 hover:bg-slate-200 border-none px-3">Warten auf Angebote</Badge>
@@ -678,7 +670,7 @@ export default function MyTendersPage() {
                   Erstellt: {createdAgo(tender.created_at)}
                   {!isMulti && <> · Menge: <span className="text-navy-900 font-bold">{vehicle?.quantity ?? 1}x</span></>}
                   {!isMulti && vehicle?.list_price_gross && <> · Listenpreis: <span className="text-navy-900 font-bold">{vehicle.list_price_gross.toLocaleString("de-DE")} €</span></>}
-                  {bestPrice && <> · Bester Preis: <span className="text-green-600 font-bold">{bestPrice.toLocaleString("de-DE")} €</span>{savings && <span className="text-green-600 font-bold"> (-{savings}%)</span>}</>}
+                  {bestPrice && <> · {isMulti ? "Bestes Gesamtangebot" : "Bester Preis"}: <span className="text-green-600 font-bold">{bestPrice.toLocaleString("de-DE")} €</span>{savings && <span className="text-green-600 font-bold"> (-{savings}%)</span>}</>}
                 </p>
                 {isMulti && (
                   <p className="text-xs text-slate-400 mt-1">
@@ -723,7 +715,7 @@ export default function MyTendersPage() {
                         )}
                         {config.listPriceGross != null && (
                           <span className="text-sm font-bold text-navy-900 bg-white px-3 py-1 rounded-lg border border-slate-200">
-                            ca. {config.listPriceGross.toLocaleString("de-DE")} € brutto
+                            {config.listPriceNet ? `${config.listPriceNet.toLocaleString("de-DE")} € netto` : "—"}
                           </span>
                         )}
                       </div>
@@ -739,7 +731,7 @@ export default function MyTendersPage() {
               <div className="flex items-center justify-between bg-navy-950 text-white px-5 py-3 rounded-xl mb-8 text-sm">
                 <span className="font-bold">Gesamt: {totalQty} Fahrzeug{totalQty !== 1 ? "e" : ""}</span>
                 <span className="font-bold text-amber-400">
-                  ca. {vehicles.reduce((s: number, v: TenderVehicle) => s + ((v.list_price_gross || 0) * (v.quantity || 1)), 0).toLocaleString("de-DE")} € brutto
+                  Gesamt: {vehicles.reduce((s: number, v: TenderVehicle) => s + (v.quantity || 1), 0)} Fahrzeuge
                 </span>
               </div>
             )}
@@ -776,11 +768,34 @@ export default function MyTendersPage() {
           onCancel={() => setConfirmWithdrawId(null)}
         />
       )}
+      {endTenderWizard && (() => {
+        const t = endTenderWizard;
+        const tenderContacts = contacts.filter(c => c.tender_id === t.id);
+        const wizardDealers = tenderContacts.map(c => {
+          const dp = dealerProfiles[c.dealer_id];
+          return {
+            contactId: c.id,
+            dealerId: c.dealer_id,
+            companyName: dp?.company_name || "Händler",
+            city: dp?.city,
+          };
+        });
+        return (
+          <EndTenderWizard
+            tenderIdShort={t.id.split("-")[0].toUpperCase()}
+            dealers={wizardDealers}
+            onConfirmEnd={() => handleEndTender(t.id)}
+            onContractAnswer={handleContractAnswer}
+            onSubmitReview={handleSubmitReview}
+            onClose={() => setEndTenderWizard(null)}
+          />
+        );
+      })()}
       {contactConfirmOffer && (
         <ConfirmDialog
-          title="Anfrage senden?"
-          description="Sie senden eine Anfrage an diesen Händler. Die Ausschreibung läuft weiter."
-          confirmLabel="Ja, Anfrage senden"
+          title="Kontakt aufnehmen?"
+          description="Sie nehmen Kontakt mit diesem Händler auf. Die Ausschreibung läuft weiter."
+          confirmLabel="Ja, Kontakt aufnehmen"
           confirmClass="bg-blue-600 hover:bg-blue-700"
           icon={
             <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center shrink-0">
@@ -933,7 +948,7 @@ export default function MyTendersPage() {
                       </div>
                       {expandedTender === tender.id && (
                         <div className="bg-white p-6 md:p-8 animate-in slide-in-from-top-4 duration-300">
-                          <div className="space-y-4">
+                          <div className="space-y-4 mb-6">
                             {vehicleConfigs.map((config: any, i: number) => {
                               const raw = vehicles[i];
                               return (
@@ -946,7 +961,7 @@ export default function MyTendersPage() {
                                     </h3>
                                     {config.listPriceGross != null && (
                                       <span className="text-sm font-bold text-navy-900 bg-white px-3 py-1 rounded-lg border border-slate-200 shrink-0">
-                                        ca. {config.listPriceGross.toLocaleString("de-DE")} € brutto
+                                        {config.listPriceNet ? `${config.listPriceNet.toLocaleString("de-DE")} € netto` : "—"}
                                       </span>
                                     )}
                                   </div>
@@ -956,13 +971,57 @@ export default function MyTendersPage() {
                             })}
                           </div>
                           {isMulti && (
-                            <div className="flex items-center justify-between bg-navy-950 text-white px-5 py-3 rounded-xl mt-4 text-sm">
+                            <div className="flex items-center justify-between bg-navy-950 text-white px-5 py-3 rounded-xl mb-6 text-sm">
                               <span className="font-bold">Gesamt: {totalQty} Fahrzeug{totalQty !== 1 ? "e" : ""}</span>
                               <span className="font-bold text-amber-400">
-                                ca. {vehicles.reduce((s: number, v: TenderVehicle) => s + ((v.list_price_gross || 0) * (v.quantity || 1)), 0).toLocaleString("de-DE")} € brutto
+                                Gesamt: {vehicles.reduce((s: number, v: TenderVehicle) => s + (v.quantity || 1), 0)} Fahrzeuge
                               </span>
                             </div>
                           )}
+
+                          {/* Review Steppers for each contact */}
+                          {(() => {
+                            const tenderContacts = contacts.filter(c => c.tender_id === tender.id);
+                            if (tenderContacts.length === 0) return null;
+                            return (
+                              <div className="space-y-6">
+                                <h4 className="text-lg font-bold text-navy-950 flex items-center gap-2">
+                                  <Star size={18} className="text-amber-500" /> Bewertungen abgeben
+                                </h4>
+                                {tenderContacts.map((contact) => {
+                                  const dealer = dealerProfiles[contact.dealer_id];
+                                  const existingReview = reviews.find(r => r.contact_id === contact.id);
+                                  return (
+                                    <div key={contact.id} className="border border-slate-200 rounded-2xl p-5 bg-slate-50/30">
+                                      <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm shrink-0">
+                                          {(dealer?.company_name?.[0] || "H")}
+                                        </div>
+                                        <div>
+                                          <span className="font-bold text-navy-950">{dealer?.company_name || "Händler"}</span>
+                                          {dealer && (
+                                            <div className="text-xs text-slate-500">
+                                              {dealer.city ? `${dealer.zip} ${dealer.city}` : ""}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <ReviewStepper
+                                        contactId={contact.id}
+                                        counterpartName={dealer?.company_name || "Händler"}
+                                        existingReview={existingReview ? { id: existingReview.id, type: existingReview.type, contract_concluded: existingReview.contract_concluded, comment: existingReview.comment } : null}
+                                        counterpartContractConfirmed={(contact as any).contract_concluded_dealer ?? null}
+                                        myContractConfirmed={(contact as any).contract_concluded_buyer ?? null}
+                                        onContractAnswer={handleContractAnswer}
+                                        onSubmitReview={handleSubmitReview}
+                                        onUpdateReview={handleUpdateReview}
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                     </Card>
@@ -1041,7 +1100,7 @@ export default function MyTendersPage() {
                                         </h3>
                                         {config.listPriceGross != null && (
                                           <span className="text-sm font-bold text-navy-900 bg-white px-3 py-1 rounded-lg border border-slate-200 shrink-0">
-                                            ca. {config.listPriceGross.toLocaleString("de-DE")} € brutto
+                                            {config.listPriceNet ? `${config.listPriceNet.toLocaleString("de-DE")} € netto` : "—"}
                                           </span>
                                         )}
                                       </div>
@@ -1054,7 +1113,7 @@ export default function MyTendersPage() {
                                 <div className="flex items-center justify-between bg-navy-950 text-white px-5 py-3 rounded-xl mt-4 text-sm">
                                   <span className="font-bold">Gesamt: {totalQty} Fahrzeug{totalQty !== 1 ? "e" : ""}</span>
                                   <span className="font-bold text-amber-400">
-                                    ca. {vehicles.reduce((s: number, v: TenderVehicle) => s + ((v.list_price_gross || 0) * (v.quantity || 1)), 0).toLocaleString("de-DE")} € brutto
+                                    Gesamt: {vehicles.reduce((s: number, v: TenderVehicle) => s + (v.quantity || 1), 0)} Fahrzeuge
                                   </span>
                                 </div>
                               )}

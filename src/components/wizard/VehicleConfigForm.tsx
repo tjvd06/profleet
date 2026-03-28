@@ -9,8 +9,8 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import {
   Settings2, UploadCloud, Check, X, Minus, Plus, ChevronDown,
-  Car, Cog, Gauge, Weight, Leaf, Paintbrush, Sparkles, Sofa, Star, Euro,
-  FileText, Trash2,
+  Car, Cog, Gauge, Weight, Leaf, Paintbrush, Sparkles, Sofa, Star,
+  FileText, Trash2, Banknote,
 } from "lucide-react";
 import { useVehicleModels, useVehicleModelsByBrand } from "@/hooks/useVehicleModels";
 import type { VehicleConfig } from "@/types/vehicle";
@@ -56,7 +56,7 @@ const SECTIONS: SectionDef[] = [
   { title: "Exterieur-Extras", icon: Sparkles },
   { title: "Interieur", icon: Sofa },
   { title: "Interieur-Extras", icon: Star },
-  { title: "Preis", icon: Euro },
+  { title: "Leasing & Finanzierung", icon: Banknote },
 ];
 
 const selectCls =
@@ -496,37 +496,77 @@ export function VehicleConfigForm({
             )}
           </div>
 
-          {/* ---- Section 9: Preis ---- */}
+          {/* ---- Section 9: Leasing & Finanzierung ---- */}
           <div className="border border-slate-200 rounded-2xl overflow-hidden">
             {sectionHeader(9)}
             {openSections.has(9) && (
-              <div className="p-6 border-t border-slate-100 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-sm text-slate-600 font-semibold">Listenpreis netto (€)</Label>
-                    <Input
-                      type="number"
-                      placeholder="z.B. 35000"
-                      value={vehicle.listPriceNet ?? ""}
-                      onChange={(e) => {
-                        const net = parseFloat(e.target.value) || null;
-                        update({
-                          listPriceNet: net,
-                          listPriceGross: net ? Math.round(net * 1.19 * 100) / 100 : null,
-                        });
-                      }}
-                      className="rounded-xl h-11 bg-slate-50 border-slate-200 text-base focus-visible:ring-blue-500"
+              <div className="p-6 border-t border-slate-100 space-y-5">
+                <p className="text-sm text-slate-500">Neben dem Barkauf-Angebot (Standard): Welche weiteren Angebotsarten sollen Händler für dieses Fahrzeug abgeben?</p>
+
+                {/* Leasing */}
+                <div className={`p-4 rounded-xl border-2 transition-all ${vehicle.leasingRequested ? "border-blue-300 bg-blue-50/30" : "border-slate-200"}`}>
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id={`leasing-${vehicle.id}`}
+                      checked={vehicle.leasingRequested}
+                      onCheckedChange={(c) => update({ leasingRequested: c === true })}
+                      className="scale-110"
                     />
+                    <Label htmlFor={`leasing-${vehicle.id}`} className="font-bold text-navy-950 cursor-pointer">Leasing-Angebot einholen</Label>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-sm text-slate-600 font-semibold">Listenpreis brutto (€)</Label>
-                    <Input
-                      type="number"
-                      readOnly
-                      value={vehicle.listPriceGross ? vehicle.listPriceGross.toFixed(2) : ""}
-                      className="rounded-xl h-11 bg-slate-100 border-transparent text-base text-slate-500"
+                  {vehicle.leasingRequested && (
+                    <div className="mt-4 ml-7 grid grid-cols-2 gap-4 animate-in fade-in">
+                      <div className="space-y-1.5">
+                        <Label className="text-sm text-slate-600 font-semibold">Laufzeit</Label>
+                        <select value={vehicle.leasingDuration} onChange={(e) => update({ leasingDuration: e.target.value })} className={selectCls}>
+                          <option value="24">24 Monate</option>
+                          <option value="36">36 Monate</option>
+                          <option value="48">48 Monate</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-sm text-slate-600 font-semibold">Laufleistung / Jahr</Label>
+                        <select value={vehicle.leasingKmYear} onChange={(e) => update({ leasingKmYear: e.target.value })} className={selectCls}>
+                          <option value="10000">10.000 km</option>
+                          <option value="15000">15.000 km</option>
+                          <option value="20000">20.000 km</option>
+                          <option value="25000">25.000 km</option>
+                          <option value="30000">30.000 km</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Financing */}
+                <div className={`p-4 rounded-xl border-2 transition-all ${vehicle.financingRequested ? "border-blue-300 bg-blue-50/30" : "border-slate-200"}`}>
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id={`financing-${vehicle.id}`}
+                      checked={vehicle.financingRequested}
+                      onCheckedChange={(c) => update({ financingRequested: c === true })}
+                      className="scale-110"
                     />
+                    <Label htmlFor={`financing-${vehicle.id}`} className="font-bold text-navy-950 cursor-pointer">Finanzierungs-Angebot einholen</Label>
                   </div>
+                  {vehicle.financingRequested && (
+                    <div className="mt-4 ml-7 grid grid-cols-2 gap-4 animate-in fade-in">
+                      <div className="space-y-1.5">
+                        <Label className="text-sm text-slate-600 font-semibold">Laufzeit</Label>
+                        <select value={vehicle.financingDuration} onChange={(e) => update({ financingDuration: e.target.value })} className={selectCls}>
+                          <option value="36">36 Monate</option>
+                          <option value="48">48 Monate</option>
+                          <option value="60">60 Monate</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-sm text-slate-600 font-semibold">Anzahlung (€)</Label>
+                        <Input type="number" placeholder="z.B. 5000" value={vehicle.financingDownPayment}
+                          onChange={(e) => update({ financingDownPayment: e.target.value })}
+                          className="rounded-xl h-11 bg-slate-50 border-slate-200 text-base focus-visible:ring-blue-500" />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

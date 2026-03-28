@@ -74,6 +74,7 @@ function mapTenderToCardProps(
   answeredTenderIds: Set<string>,
   offerStats: Record<string, { count: number; bestPriceNet: number | null; bestTotalGross: number | null }>,
   myOffers: Record<string, { purchasePriceNet: number; totalPrice: number }>,
+  buyerRatings: Record<string, { score: number; total: number }>,
 ) {
   const vehicles = tender.tender_vehicles.map(v => ({
     quantity: v.quantity,
@@ -97,28 +98,26 @@ function mapTenderToCardProps(
   });
 
   const buyer = tender.buyer;
-  const buyerName = buyer
-    ? ([buyer.first_name, buyer.last_name].filter(Boolean).join(" ") || "—")
-    : "—";
   const buyerCompany = buyer?.company_name || "Unternehmen";
 
   return {
     id: tender.id,
     timeLeft: timeLeft(tender.end_at),
     buyerType: buyerCompany,
-    buyerName,
+    buyerName: null,
     buyerProfession: buyer?.industry || null,
     buyerCity: buyer?.city || null,
     buyerPlz: buyer?.zip || null,
-    buyerStreet: buyer?.street || null,
-    buyerEmail: buyer?.email_public || null,
-    buyerPhone: buyer?.phone || null,
+    buyerStreet: null,
+    buyerEmail: null,
+    buyerPhone: null,
     buyerMemberSince: buyer?.created_at || null,
     location: tender.delivery_plz
       ? `${tender.delivery_city || "Unbekannt"} (${tender.delivery_plz})`
       : tender.tender_scope === "bundesweit" ? "Bundesweit" : "Lokal",
-    buyerRating: 95,
-    successRate: 80,
+    buyerRating: buyerRatings[tender.buyer_id]?.score ?? 0,
+    buyerRatingTotal: buyerRatings[tender.buyer_id]?.total ?? 0,
+    successRate: 0,
     isPreferredDealer: false,
     requestedTypes,
     fleetDiscount: hasFleetDiscount,
@@ -151,6 +150,7 @@ export default function InboxPage() {
   const [answeredTenderIds, setAnsweredTenderIds] = useState<Set<string>>(new Set());
   const [offerStats, setOfferStats] = useState<Record<string, { count: number; bestPriceNet: number | null; bestTotalGross: number | null }>>({});
   const [myOffers, setMyOffers] = useState<Record<string, { purchasePriceNet: number; totalPrice: number }>>({});
+  const [buyerRatings, setBuyerRatings] = useState<Record<string, { score: number; total: number }>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -194,12 +194,33 @@ export default function InboxPage() {
           if (buyerIds.length > 0) {
             const { data: profiles } = await supabase
               .from("profiles")
-              .select("id, company_name, first_name, last_name, industry, zip, city, street, phone, email_public, subscription_tier, created_at")
+              .select("id, company_name, industry, zip, city, created_at")
               .in("id", buyerIds);
             if (profiles) {
               profiles.forEach((p: any) => { buyerMap[p.id] = p; });
             }
           }
+          // Load buyer ratings from reviews table
+          const ratingMap: Record<string, { score: number; total: number }> = {};
+          if (buyerIds.length > 0) {
+            const { data: reviewsData } = await supabase
+              .from("reviews")
+              .select("to_user_id, type")
+              .in("to_user_id", buyerIds);
+            if (reviewsData) {
+              const grouped: Record<string, { positive: number; total: number }> = {};
+              (reviewsData as { to_user_id: string; type: string }[]).forEach((r) => {
+                if (!grouped[r.to_user_id]) grouped[r.to_user_id] = { positive: 0, total: 0 };
+                grouped[r.to_user_id].total++;
+                if (r.type === "positive") grouped[r.to_user_id].positive++;
+              });
+              Object.entries(grouped).forEach(([uid, { positive, total }]) => {
+                ratingMap[uid] = { score: total > 0 ? Math.round((positive / total) * 100) : 0, total };
+              });
+            }
+          }
+          setBuyerRatings(ratingMap);
+
           const tendersWithBuyer = (data as Tender[]).map((t) => ({
             ...t,
             buyer: buyerMap[t.buyer_id] || null,
@@ -319,7 +340,7 @@ export default function InboxPage() {
         ) : (
           <div className="flex flex-col gap-6 md:gap-8">
             {tenders.map((tender) => (
-              <DealerTenderCard key={tender.id} tender={mapTenderToCardProps(tender, answeredTenderIds, offerStats, myOffers)} />
+              <DealerTenderCard key={tender.id} tender={mapTenderToCardProps(tender, answeredTenderIds, offerStats, myOffers, buyerRatings)} />
             ))}
           </div>
         )}

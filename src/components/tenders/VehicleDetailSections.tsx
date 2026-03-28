@@ -106,7 +106,6 @@ function buildSections(v: VehicleConfig): Section[] {
   // 8. Preis
   const preis: Field[] = [];
   if (v.listPriceNet != null) preis.push({ label: "Listenpreis netto", value: `${v.listPriceNet.toLocaleString("de-DE")} €` });
-  if (v.listPriceGross != null) preis.push({ label: "Listenpreis brutto", value: `${v.listPriceGross.toLocaleString("de-DE")} €` });
   if (preis.length > 0) sections.push({ key: "preis", title: "Preis", icon: Euro, fields: preis });
 
   return sections;

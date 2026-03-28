@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 const mockTenders = [
-  { id: 'AU-23435', brand: 'Audi', model: 'A4 Avant RS4', location: 'München · 100km', timeLeft: '3 Tage 14 Std.', listPrice: 89138, currentBid: 75411, savings: 15.4, offersCount: 7, buyerRating: 100 },
-  { id: 'AU-23436', brand: 'BMW', model: 'M3 Competition', location: 'Berlin · 200km', timeLeft: '1 Tag 2 Std.', listPrice: 101200, currentBid: 85000, savings: 16.0, offersCount: 12, buyerRating: 90 },
-  { id: 'AU-23437', brand: 'VW', model: 'Passat Variant', location: 'Hamburg · 50km', timeLeft: '5 Tage 8 Std.', listPrice: 45000, currentBid: 39500, savings: 12.2, offersCount: 3, buyerRating: 80 },
-  { id: 'AU-23438', brand: 'Porsche', model: 'Macan S', location: 'Stuttgart · 50km', timeLeft: '12 Std.', listPrice: 82000, currentBid: 76500, savings: 6.7, offersCount: 5, buyerRating: 100 },
+  { id: 'AU-23435', brand: 'Audi', model: 'A4 Avant RS4', location: 'München · 100km', timeLeft: '3 Tage 14 Std.', listPrice: 89138, currentBid: 75411, savings: 15.4, offersCount: 7, buyerRating: 0 },
+  { id: 'AU-23436', brand: 'BMW', model: 'M3 Competition', location: 'Berlin · 200km', timeLeft: '1 Tag 2 Std.', listPrice: 101200, currentBid: 85000, savings: 16.0, offersCount: 12, buyerRating: 0 },
+  { id: 'AU-23437', brand: 'VW', model: 'Passat Variant', location: 'Hamburg · 50km', timeLeft: '5 Tage 8 Std.', listPrice: 45000, currentBid: 39500, savings: 12.2, offersCount: 3, buyerRating: 0 },
+  { id: 'AU-23438', brand: 'Porsche', model: 'Macan S', location: 'Stuttgart · 50km', timeLeft: '12 Std.', listPrice: 82000, currentBid: 76500, savings: 6.7, offersCount: 5, buyerRating: 0 },
 ];
 
 export default function AusschreibungenPage() {

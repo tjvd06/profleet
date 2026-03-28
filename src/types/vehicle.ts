@@ -60,9 +60,17 @@ export interface VehicleConfig {
   // Section 9: Interieur-Extras
   interiorExtras: string[];
 
-  // Section 10: Preis
+  // Preis (nur bei Upload-Modus relevant)
   listPriceNet: number | null;
   listPriceGross: number | null;
+
+  // Leasing & Finanzierung (per vehicle)
+  leasingRequested: boolean;
+  leasingDuration: string;
+  leasingKmYear: string;
+  financingRequested: boolean;
+  financingDuration: string;
+  financingDownPayment: string;
 
   // Upload
   uploadFile?: File | null;
@@ -115,6 +123,12 @@ export function createEmptyVehicleConfig(): VehicleConfig {
     interiorExtras: [],
     listPriceNet: null,
     listPriceGross: null,
+    leasingRequested: false,
+    leasingDuration: "36",
+    leasingKmYear: "15000",
+    financingRequested: false,
+    financingDuration: "48",
+    financingDownPayment: "",
   };
 }
 
@@ -201,6 +215,12 @@ export function dbRowToVehicleConfig(v: Record<string, unknown>): VehicleConfig 
     interiorExtras: (eq.interiorExtras as string[]) || [],
     listPriceNet: (v.list_price_net as number) ?? null,
     listPriceGross: (v.list_price_gross as number) ?? null,
+    leasingRequested: !!(v.leasing as any)?.requested,
+    leasingDuration: (v.leasing as any)?.duration || "36",
+    leasingKmYear: (v.leasing as any)?.km_year || "15000",
+    financingRequested: !!(v.financing as any)?.requested,
+    financingDuration: (v.financing as any)?.duration || "48",
+    financingDownPayment: (v.financing as any)?.down_payment || "",
     configFilePath: (v.config_file_path as string) || null,
   };
 }

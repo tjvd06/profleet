@@ -22,7 +22,7 @@ export default function DashboardOverviewPage() {
   } = useSubscription();
 
   const isDealer = profile?.role === "anbieter";
-  const userName = isDealer ? (profile?.company_name || "Händler") : (profile?.first_name || "User");
+  const userName = profile?.company_name || (isDealer ? "Händler" : "User");
 
   // ─── Real Supabase Stats ──────────────────────────────────────────────
   const [supabase] = useState(() => createClient());
@@ -42,14 +42,19 @@ export default function DashboardOverviewPage() {
     (async () => {
       try {
         if (!isDealer) {
-          const { data: tenders } = await timeout(
-            supabase
-              .from("tenders")
-              .select("id, status, tender_vehicles(list_price_gross), offers(total_price)")
-              .eq("buyer_id", user.id) as any
-          ) as any;
+          const [tendersRes, contactsRes, reviewsRes] = await Promise.all([
+            timeout(
+              supabase
+                .from("tenders")
+                .select("id, status, tender_vehicles(list_price_gross), offers(total_price)")
+                .eq("buyer_id", user.id) as any
+            ),
+            timeout(supabase.from("contacts").select("id, tender_id, tenders!inner(status)").eq("buyer_id", user.id).in("tenders.status", ["completed", "cancelled"]) as any),
+            timeout(supabase.from("reviews").select("contact_id").eq("from_user_id", user.id) as any),
+          ]);
 
           if (cancelled) return;
+          const tenders = (tendersRes as any)?.data;
           const activeTenders = tenders?.filter((t: any) => t.status === "active").length ?? 0;
           const totalOffers = tenders?.reduce((acc: number, t: any) => acc + ((t.offers as any[])?.length ?? 0), 0) ?? 0;
 
@@ -63,15 +68,25 @@ export default function DashboardOverviewPage() {
             }
           });
 
-          setBuyerStats({ activeTenders, totalOffers, avgSavings: savingsCount > 0 ? Math.round(savingsSum / savingsCount * 10) / 10 : 0, openRatings: 0 });
+          // Calculate open ratings
+          const completedContacts = ((contactsRes as any)?.data || []).map((c: any) => c.id);
+          const reviewedContactIds = new Set(((reviewsRes as any)?.data || []).map((r: any) => r.contact_id));
+          const openRatings = completedContacts.filter((id: string) => !reviewedContactIds.has(id)).length;
+
+          setBuyerStats({ activeTenders, totalOffers, avgSavings: savingsCount > 0 ? Math.round(savingsSum / savingsCount * 10) / 10 : 0, openRatings });
         } else {
-          const [offersRes, requestsRes] = await Promise.all([
+          const [offersRes, requestsRes, contactsRes, reviewsRes] = await Promise.all([
             timeout(supabase.from("offers").select("*", { count: "exact", head: true }).eq("dealer_id", user.id) as any),
             timeout(supabase.from("tenders").select("*", { count: "exact", head: true }).eq("status", "active") as any),
+            timeout(supabase.from("contacts").select("*", { count: "exact", head: true }).eq("dealer_id", user.id) as any),
+            timeout(supabase.from("reviews").select("id, type").eq("to_user_id", user.id) as any),
           ]) as any[];
 
           if (cancelled) return;
-          setDealerStats({ newRequests: requestsRes?.count ?? 0, openOffers: offersRes?.count ?? 0, contactRequests: 0, dealerRating: 0 });
+          const dealerReviews = reviewsRes?.data || [];
+          const positiveCount = dealerReviews.filter((r: any) => r.type === "positive").length;
+          const dealerRating = dealerReviews.length > 0 ? Math.round((positiveCount / dealerReviews.length) * 100) : 0;
+          setDealerStats({ newRequests: requestsRes?.count ?? 0, openOffers: offersRes?.count ?? 0, contactRequests: contactsRes?.count ?? 0, dealerRating });
         }
       } catch (e) {
         if (!cancelled) console.error("[Dashboard] Stats load error:", e);
@@ -152,16 +167,19 @@ export default function DashboardOverviewPage() {
                 </div>
               </Card>
 
-              <Card className="p-6 rounded-3xl border-slate-200 shadow-sm bg-white hover:border-blue-300 transition-colors group">
+              <Card className={`p-6 rounded-3xl shadow-sm bg-white transition-colors group ${buyerStats.openRatings > 0 ? "border-amber-300 border-2" : "border-slate-200 hover:border-blue-300"}`}>
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${buyerStats.openRatings > 0 ? "bg-amber-100 text-amber-600" : "bg-amber-50 text-amber-500"}`}>
                     <Star size={24} />
                   </div>
                   <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">Offene Ratings</div>
                 </div>
-                <div className="text-4xl font-black text-navy-950">
+                <div className={`text-4xl font-black ${buyerStats.openRatings > 0 ? "text-amber-600" : "text-navy-950"}`}>
                   {statsLoading ? <Loader2 size={24} className="animate-spin text-slate-300" /> : buyerStats.openRatings}
                 </div>
+                {buyerStats.openRatings > 0 && (
+                  <p className="text-xs text-amber-600 font-semibold mt-2">Bitte bewerten Sie Ihre Kontakte</p>
+                )}
               </Card>
             </div>
 

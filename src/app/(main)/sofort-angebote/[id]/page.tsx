@@ -425,9 +425,6 @@ export default function InstantOfferDetailPage() {
                 </div>
                 <div>
                   <div className="font-bold text-navy-950 text-lg">{dealerProfile?.company_name || "Anbieter"}</div>
-                  {dealerProfile?.first_name && (
-                    <div className="text-sm text-slate-600">{dealerProfile.first_name} {dealerProfile.last_name}</div>
-                  )}
                 </div>
               </div>
               {dealerProfile && (
@@ -443,16 +440,6 @@ export default function InstantOfferDetailPage() {
                     {dealerProfile.street && <span>{dealerProfile.street}, </span>}
                     {dealerProfile.zip || ""} {dealerProfile.city || location}
                   </div>
-                  {dealerProfile.email_public && (
-                    <a href={`mailto:${dealerProfile.email_public}`} className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium">
-                      <Mail size={14} className="shrink-0" /> {dealerProfile.email_public}
-                    </a>
-                  )}
-                  {dealerProfile.phone && (
-                    <a href={`tel:${dealerProfile.phone}`} className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium">
-                      <Phone size={14} className="shrink-0" /> {dealerProfile.phone}
-                    </a>
-                  )}
                   {dealerProfile.created_at && (
                     <div className="text-xs text-slate-400 mt-1">
                       Mitglied seit {new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" }).format(new Date(dealerProfile.created_at))}

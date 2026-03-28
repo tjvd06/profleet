@@ -7,11 +7,12 @@ import { createClient } from "@/lib/supabase";
 interface ConfigFileDownloadProps {
   filePath: string;
   className?: string;
+  label?: string;
 }
 
-export function ConfigFileDownload({ filePath, className = "" }: ConfigFileDownloadProps) {
+export function ConfigFileDownload({ filePath, className = "", label }: ConfigFileDownloadProps) {
   const [loading, setLoading] = useState(false);
-  const fileName = filePath.split("/").pop() || "Konfiguration";
+  const fileName = label || filePath.split("/").pop() || "Konfiguration";
 
   const handleDownload = async (e: React.MouseEvent) => {
     e.preventDefault();

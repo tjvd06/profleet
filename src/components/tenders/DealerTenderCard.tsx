@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Clock, AlertCircle, Building2, MapPin, CheckCircle2, Mail, Phone,
+  Clock, AlertCircle, Building2, MapPin, CheckCircle2,
   ChevronDown, Car, TrendingDown, Users, Star,
 } from "lucide-react";
 import Link from "next/link";
@@ -68,9 +68,6 @@ export function DealerTenderCard({ tender }: { tender: any }) {
             </div>
             <div className="min-w-0">
               <h3 className="font-black text-navy-950 text-lg leading-tight truncate">{tender.buyerType}</h3>
-              {tender.buyerName && tender.buyerName !== "—" && (
-                <p className="text-sm text-slate-600 font-medium truncate">{tender.buyerName}</p>
-              )}
             </div>
           </div>
 
@@ -88,27 +85,13 @@ export function DealerTenderCard({ tender }: { tender: any }) {
                 {tender.buyerPlz || ""} {tender.buyerCity || tender.location}
               </span>
             </div>
-            {tender.buyerEmail && (
-              <a href={`mailto:${tender.buyerEmail}`} className="flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors">
-                <Mail size={14} className="shrink-0" /> {tender.buyerEmail}
-              </a>
-            )}
-            {tender.buyerPhone && (
-              <a href={`tel:${tender.buyerPhone}`} className="flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors">
-                <Phone size={14} className="shrink-0" /> {tender.buyerPhone}
-              </a>
-            )}
           </div>
 
           {/* Rating box */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-3">
+          <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
             <div className="flex justify-between items-center">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Rating</span>
-              <RatingBadge score={tender.buyerRating} />
-            </div>
-            <div className="flex justify-between items-center pt-2 border-t border-slate-100">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Erfolgsquote</span>
-              <span className="font-bold text-navy-950">{tender.successRate}%</span>
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Bewertung</span>
+              <RatingBadge score={tender.buyerRating} total={tender.buyerRatingTotal} />
             </div>
           </div>
         </div>
@@ -152,10 +135,10 @@ export function DealerTenderCard({ tender }: { tender: any }) {
                       )}
                       </div>
                     </div>
-                    {config.listPriceGross != null && (
+                    {config.listPriceNet != null && (
                       <div className="text-right shrink-0">
-                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">UVP brutto</div>
-                        <div className="font-bold text-navy-950 text-sm">{config.listPriceGross.toLocaleString("de-DE")} €</div>
+                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">UVP netto</div>
+                        <div className="font-bold text-navy-950 text-sm">{config.listPriceNet.toLocaleString("de-DE")} €</div>
                       </div>
                     )}
                   </div>
@@ -182,12 +165,9 @@ export function DealerTenderCard({ tender }: { tender: any }) {
 
           {/* Multi-vehicle total */}
           {vehicleConfigs.length > 1 && (
-            <div className="flex items-center justify-between bg-navy-950 text-white px-5 py-3 rounded-xl mt-4 text-sm">
+            <div className="flex items-center justify-center bg-navy-950 text-white px-5 py-3 rounded-xl mt-4 text-sm">
               <span className="font-bold">
                 Gesamt: {tender.totalVehicles} Fahrzeug{tender.totalVehicles !== 1 ? "e" : ""}
-              </span>
-              <span className="font-bold text-amber-400">
-                ca. {(tender.totalPrice || 0).toLocaleString("de-DE")} € brutto
               </span>
             </div>
           )}
@@ -206,18 +186,13 @@ export function DealerTenderCard({ tender }: { tender: any }) {
                 <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Angebote</div>
                 <div className="text-2xl font-black text-navy-950">{tender.currentOffers}</div>
               </div>
-              {tender.currentOffers > 0 && tender.bestTotalGross != null && (
+              {tender.currentOffers > 0 && tender.bestPriceNet != null && (
                 <div>
                   <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Bester Preis</div>
                   <div className="font-bold text-green-600 text-sm flex items-center gap-1">
                     <TrendingDown size={14} />
-                    {(tender.bestTotalGross * 1.19).toLocaleString("de-DE", { maximumFractionDigits: 0 })} €
+                    {tender.bestPriceNet.toLocaleString("de-DE", { maximumFractionDigits: 0 })} € netto
                   </div>
-                  {tender.bestPriceNet != null && (
-                    <div className="text-[10px] text-slate-500 mt-0.5">
-                      {tender.bestPriceNet.toLocaleString("de-DE", { maximumFractionDigits: 0 })} € netto/Fzg.
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -232,9 +207,9 @@ export function DealerTenderCard({ tender }: { tender: any }) {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <div className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider mb-1">Gesamtpreis</div>
+                  <div className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider mb-1">Gesamtpreis netto</div>
                   <div className="font-bold text-navy-950 text-sm">
-                    {(tender.myTotalPrice * 1.19).toLocaleString("de-DE", { maximumFractionDigits: 0 })} € brutto
+                    {tender.myTotalPrice.toLocaleString("de-DE", { maximumFractionDigits: 0 })} €
                   </div>
                 </div>
                 {tender.myPriceNet != null && (
