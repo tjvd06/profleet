@@ -358,20 +358,26 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
           offer_details: {
             exactMatch: f.exactMatch,
             dayRegistration: f.dayRegistration,
-            dayRegistrationDate: f.dayRegistrationDate || null,
-            dayRegistrationKm: f.dayRegistrationKm || null,
+            dayRegistrationDate: f.dayRegistration ? (f.dayRegistrationDate || null) : null,
+            dayRegistrationKm: f.dayRegistration ? (f.dayRegistrationKm || null) : null,
             listPriceNetConfirm: parseFloat(f.listPriceNetConfirm) || null,
             hasFleetContract: f.hasFleetContract,
-            fleetContractDiscount: parseFloat(f.fleetContractDiscount) || null,
+            fleetContractDiscount: f.hasFleetContract ? (parseFloat(f.fleetContractDiscount) || null) : null,
             hasSpecialAgreement: f.hasSpecialAgreement,
-            specialAgreementDiscount: parseFloat(f.specialAgreementDiscount) || null,
-            leasingDuration: f.leasingDuration,
-            leasingKmYear: f.leasingKmYear,
-            leasingDownPayment: f.leasingDownPayment,
-            financingRate: parseFloat(f.financingRateNet) || null,
-            financingDuration: f.financingDuration,
-            financingDownPayment: f.financingDownPayment,
-            financingResidual: f.financingResidual,
+            specialAgreementDiscount: f.hasSpecialAgreement ? (parseFloat(f.specialAgreementDiscount) || null) : null,
+            // Only save leasing details if a rate was actually entered
+            ...(parseFloat(f.leasingRateNet) > 0 ? {
+              leasingDuration: f.leasingDuration,
+              leasingKmYear: f.leasingKmYear,
+              leasingDownPayment: f.leasingDownPayment,
+            } : {}),
+            // Only save financing details if a rate was actually entered
+            ...(parseFloat(f.financingRateNet) > 0 ? {
+              financingRate: parseFloat(f.financingRateNet),
+              financingDuration: f.financingDuration,
+              financingDownPayment: f.financingDownPayment,
+              financingResidual: f.financingResidual,
+            } : {}),
           },
         };
       });

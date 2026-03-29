@@ -18,11 +18,8 @@ type Props = {
   contactId: string;
   counterpartName: string;
   existingReview: Review | null;
-  counterpartContractConfirmed: boolean | null;
-  myContractConfirmed: boolean | null;
-  onContractAnswer: (contactId: string, concluded: boolean) => Promise<void>;
-  onSubmitReview: (contactId: string, type: "positive" | "neutral" | "negative", comment: string) => Promise<void>;
-  onUpdateReview?: (reviewId: string, type: "positive" | "neutral" | "negative", comment: string) => Promise<void>;
+  onSubmitReview: (contactId: string, type: "positive" | "neutral" | "negative", contractConcluded: boolean, comment: string) => Promise<void>;
+  onUpdateReview?: (reviewId: string, type: "positive" | "neutral" | "negative", contractConcluded: boolean, comment: string) => Promise<void>;
   disabled?: boolean;
 };
 
@@ -30,14 +27,14 @@ export function ReviewStepper({
   contactId,
   counterpartName,
   existingReview,
-  counterpartContractConfirmed,
-  myContractConfirmed,
-  onContractAnswer,
   onSubmitReview,
   onUpdateReview,
   disabled,
 }: Props) {
   const [loading, setLoading] = useState(false);
+  const [contractConcluded, setContractConcluded] = useState<boolean | null>(
+    existingReview?.contract_concluded ?? null,
+  );
   const [reviewType, setReviewType] = useState<"positive" | "neutral" | "negative" | null>(
     existingReview?.type ?? null,
   );
@@ -45,22 +42,16 @@ export function ReviewStepper({
   const [submitted, setSubmitted] = useState(!!existingReview);
   const [editing, setEditing] = useState(false);
 
-  const step1Done = myContractConfirmed !== null && myContractConfirmed !== undefined;
+  const step1Done = contractConcluded !== null;
   const step2Done = submitted && !editing;
 
-  const handleContractAnswer = async (concluded: boolean) => {
-    setLoading(true);
-    await onContractAnswer(contactId, concluded);
-    setLoading(false);
-  };
-
   const handleSubmitReview = async () => {
-    if (!reviewType) return;
+    if (!reviewType || contractConcluded === null) return;
     setLoading(true);
     if (editing && existingReview && onUpdateReview) {
-      await onUpdateReview(existingReview.id, reviewType, comment);
+      await onUpdateReview(existingReview.id, reviewType, contractConcluded, comment);
     } else {
-      await onSubmitReview(contactId, reviewType, comment);
+      await onSubmitReview(contactId, reviewType, contractConcluded, comment);
     }
     setSubmitted(true);
     setEditing(false);
@@ -72,6 +63,7 @@ export function ReviewStepper({
   };
 
   const cancelEditing = () => {
+    setContractConcluded(existingReview?.contract_concluded ?? null);
     setReviewType(existingReview?.type ?? null);
     setComment(existingReview?.comment ?? "");
     setEditing(false);
@@ -80,42 +72,37 @@ export function ReviewStepper({
   return (
     <div className="space-y-4">
       {/* Step 1: Contract concluded? */}
-      <div className={`rounded-2xl border p-5 transition-all ${step1Done ? "border-slate-200 bg-white" : "border-blue-200 bg-blue-50/30"}`}>
+      <div className={`rounded-2xl border p-5 transition-all ${step1Done && !editing ? "border-slate-200 bg-white" : "border-blue-200 bg-blue-50/30"}`}>
         <div className="flex items-center gap-3 mb-3">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${step1Done ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>
-            {step1Done ? <CheckCircle2 size={16} /> : "1"}
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${step1Done && !editing ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>
+            {step1Done && !editing ? <CheckCircle2 size={16} /> : "1"}
           </div>
           <h4 className="font-bold text-navy-950 text-sm">Ist ein Vertrag zustande gekommen?</h4>
-          {counterpartContractConfirmed !== null && counterpartContractConfirmed !== undefined && (
-            <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500 ml-auto">
-              {counterpartName}: {counterpartContractConfirmed ? "Ja" : "Nein"}
-            </Badge>
-          )}
         </div>
 
-        {!step1Done ? (
+        {(!step1Done || editing) ? (
           <div className="flex gap-3 ml-11">
             <button
-              onClick={() => handleContractAnswer(true)}
+              onClick={() => setContractConcluded(true)}
               disabled={loading || disabled}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-green-200 bg-green-50 text-green-700 font-bold text-sm hover:bg-green-100 hover:border-green-300 transition-all disabled:opacity-50"
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-bold transition-all disabled:opacity-50 ${contractConcluded === true ? "border-green-400 bg-green-100 text-green-700 ring-2 ring-green-200" : "border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300"}`}
             >
-              {loading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+              <CheckCircle2 size={16} />
               Ja, Vertrag abgeschlossen
             </button>
             <button
-              onClick={() => handleContractAnswer(false)}
+              onClick={() => setContractConcluded(false)}
               disabled={loading || disabled}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-600 font-bold text-sm hover:bg-slate-100 hover:border-slate-300 transition-all disabled:opacity-50"
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-bold transition-all disabled:opacity-50 ${contractConcluded === false ? "border-slate-400 bg-slate-100 text-slate-700 ring-2 ring-slate-200" : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:border-slate-300"}`}
             >
-              {loading ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={16} />}
+              <XCircle size={16} />
               Nein
             </button>
           </div>
         ) : (
           <div className="ml-11">
-            <Badge className={myContractConfirmed ? "bg-green-100 text-green-700 border-none" : "bg-slate-100 text-slate-600 border-none"}>
-              {myContractConfirmed ? <><CheckCircle2 size={12} className="mr-1" /> Vertrag abgeschlossen</> : <><XCircle size={12} className="mr-1" /> Kein Vertrag</>}
+            <Badge className={contractConcluded ? "bg-green-100 text-green-700 border-none" : "bg-slate-100 text-slate-600 border-none"}>
+              {contractConcluded ? <><CheckCircle2 size={12} className="mr-1" /> Vertrag abgeschlossen</> : <><XCircle size={12} className="mr-1" /> Kein Vertrag</>}
             </Badge>
           </div>
         )}
@@ -192,7 +179,7 @@ export function ReviewStepper({
               )}
               <Button
                 onClick={handleSubmitReview}
-                disabled={!reviewType || loading || disabled}
+                disabled={!reviewType || contractConcluded === null || loading || disabled}
                 className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold h-10 px-6"
               >
                 {loading ? <Loader2 size={16} className="animate-spin mr-2" /> : null}

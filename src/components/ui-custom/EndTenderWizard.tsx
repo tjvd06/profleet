@@ -19,8 +19,7 @@ type Props = {
   tenderIdShort: string;
   dealers: DealerInfo[];
   onConfirmEnd: () => Promise<void>;
-  onContractAnswer: (contactId: string, concluded: boolean) => Promise<void>;
-  onSubmitReview: (contactId: string, type: "positive" | "neutral" | "negative", comment: string) => Promise<void>;
+  onSubmitReview: (contactId: string, type: "positive" | "neutral" | "negative", contractConcluded: boolean, comment: string) => Promise<void>;
   onClose: () => void;
 };
 
@@ -30,7 +29,6 @@ export function EndTenderWizard({
   tenderIdShort,
   dealers,
   onConfirmEnd,
-  onContractAnswer,
   onSubmitReview,
   onClose,
 }: Props) {
@@ -60,20 +58,13 @@ export function EndTenderWizard({
     }
   };
 
-  const handleContractChoice = async (concluded: boolean) => {
-    if (!currentDealer) return;
-    setLoading(true);
-    await onContractAnswer(currentDealer.contactId, concluded);
-    setContractAnswers((prev) => ({ ...prev, [currentDealer.contactId]: concluded }));
-    setLoading(false);
-  };
-
   const handleSubmitAndNext = async () => {
     if (!currentDealer) return;
     const type = reviewTypes[currentDealer.contactId];
-    if (!type) return;
+    const contractConcluded = contractAnswers[currentDealer.contactId];
+    if (!type || contractConcluded === null || contractConcluded === undefined) return;
     setLoading(true);
-    await onSubmitReview(currentDealer.contactId, type, reviewComments[currentDealer.contactId] || "");
+    await onSubmitReview(currentDealer.contactId, type, contractConcluded, reviewComments[currentDealer.contactId] || "");
     setSubmittedReviews((prev) => new Set(prev).add(currentDealer.contactId));
     setLoading(false);
 
@@ -176,19 +167,19 @@ export function EndTenderWizard({
                   <h4 className="font-bold text-navy-950 mb-4">Ist ein Vertrag zustande gekommen?</h4>
                   <div className="flex gap-3">
                     <button
-                      onClick={() => handleContractChoice(true)}
+                      onClick={() => setContractAnswers((prev) => ({ ...prev, [currentDealer.contactId]: true }))}
                       disabled={loading}
                       className="flex-1 flex items-center justify-center gap-2 px-4 py-4 rounded-xl border-2 border-green-200 bg-green-50 text-green-700 font-bold hover:bg-green-100 hover:border-green-300 transition-all disabled:opacity-50"
                     >
-                      {loading ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
+                      <CheckCircle2 size={18} />
                       Ja
                     </button>
                     <button
-                      onClick={() => handleContractChoice(false)}
+                      onClick={() => setContractAnswers((prev) => ({ ...prev, [currentDealer.contactId]: false }))}
                       disabled={loading}
                       className="flex-1 flex items-center justify-center gap-2 px-4 py-4 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-600 font-bold hover:bg-slate-100 hover:border-slate-300 transition-all disabled:opacity-50"
                     >
-                      {loading ? <Loader2 size={18} className="animate-spin" /> : <XCircle size={18} />}
+                      <XCircle size={18} />
                       Nein
                     </button>
                   </div>

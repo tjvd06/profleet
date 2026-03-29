@@ -78,6 +78,210 @@ function formatDate(dateStr: string | null): string {
   return new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(dateStr));
 }
 
+// ─── Expandable offer details (same layout as Nachfrager side) ────────────────
+function OfferDetailsExpander({ offer }: { offer: any }) {
+  const [expanded, setExpanded] = useState(false);
+  const d = offer.offer_details || {};
+
+  const hasLeasing = !!(offer.lease_rate);
+  const hasFinancing = !!(d.financingRate);
+  const hasCosts = !!((offer.transfer_cost && offer.transfer_cost > 0) || (offer.registration_cost && offer.registration_cost > 0));
+  const hasDelivery = !!(offer.delivery_plz || offer.delivery_city || offer.delivery_date);
+  const hasDiscounts = !!(d.hasFleetContract || d.hasSpecialAgreement);
+  const hasDayReg = !!(d.dayRegistration && (d.dayRegistrationDate || d.dayRegistrationKm));
+  const hasExtras = hasLeasing || hasFinancing || hasCosts || hasDelivery || hasDiscounts || hasDayReg;
+
+  if (!hasExtras) return null;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+      >
+        {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        {expanded ? "Weniger anzeigen" : "Alle Details anzeigen"}
+      </button>
+
+      {expanded && (
+        <div className="mt-3 bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+
+          {/* Kosten */}
+          {(hasCosts || offer.total_price) && (
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Kosten</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                {offer.purchase_price && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Kaufpreis netto</span>
+                    <span className="font-semibold text-navy-950">{offer.purchase_price.toLocaleString("de-DE")} €</span>
+                  </div>
+                )}
+                {offer.transfer_cost != null && offer.transfer_cost > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Überführung</span>
+                    <span className="font-semibold text-navy-950">{offer.transfer_cost.toLocaleString("de-DE")} €</span>
+                  </div>
+                )}
+                {offer.registration_cost != null && offer.registration_cost > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Zulassung</span>
+                    <span className="font-semibold text-navy-950">{offer.registration_cost.toLocaleString("de-DE")} €</span>
+                  </div>
+                )}
+                {offer.total_price && (
+                  <div className="flex justify-between text-xs col-span-full pt-1 border-t border-slate-200 mt-1">
+                    <span className="text-slate-500 font-semibold">Abholpreis netto</span>
+                    <span className="font-bold text-navy-950">{offer.total_price.toLocaleString("de-DE")} €</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Leasing */}
+          {hasLeasing && (
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Leasing</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                {offer.lease_rate && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Rate / Monat netto</span>
+                    <span className="font-semibold text-navy-950">{offer.lease_rate.toLocaleString("de-DE")} €</span>
+                  </div>
+                )}
+                {d.leasingDuration && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Laufzeit</span>
+                    <span className="font-semibold text-navy-950">{d.leasingDuration} Monate</span>
+                  </div>
+                )}
+                {d.leasingKmYear && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">km / Jahr</span>
+                    <span className="font-semibold text-navy-950">{Number(d.leasingKmYear).toLocaleString("de-DE")} km</span>
+                  </div>
+                )}
+                {d.leasingDownPayment != null && d.leasingDownPayment !== "" && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Anzahlung netto</span>
+                    <span className="font-semibold text-navy-950">{Number(d.leasingDownPayment).toLocaleString("de-DE")} €</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Finanzierung */}
+          {hasFinancing && (
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Finanzierung</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                {d.financingRate && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Rate / Monat</span>
+                    <span className="font-semibold text-navy-950">{d.financingRate.toLocaleString("de-DE")} €</span>
+                  </div>
+                )}
+                {d.financingDuration && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Laufzeit</span>
+                    <span className="font-semibold text-navy-950">{d.financingDuration} Monate</span>
+                  </div>
+                )}
+                {d.financingDownPayment != null && d.financingDownPayment !== "" && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Anzahlung</span>
+                    <span className="font-semibold text-navy-950">{Number(d.financingDownPayment).toLocaleString("de-DE")} €</span>
+                  </div>
+                )}
+                {d.financingResidual != null && d.financingResidual !== "" && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Restwert</span>
+                    <span className="font-semibold text-navy-950">{Number(d.financingResidual).toLocaleString("de-DE")} €</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Lieferung */}
+          {hasDelivery && (
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Lieferung</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                {(offer.delivery_plz || offer.delivery_city) && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Abholort</span>
+                    <span className="font-semibold text-navy-950">{offer.delivery_plz || ""} {offer.delivery_city || ""}</span>
+                  </div>
+                )}
+                {offer.delivery_date && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Liefertermin</span>
+                    <span className="font-semibold text-navy-950">{formatDate(offer.delivery_date)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Rabatte */}
+          {hasDiscounts && (
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Rabatte</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                {d.hasFleetContract && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Großkundenrabatt</span>
+                    <span className="font-semibold text-green-700">{d.fleetContractDiscount ? `${d.fleetContractDiscount}%` : "Ja"}</span>
+                  </div>
+                )}
+                {d.hasSpecialAgreement && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Sondervereinbarung</span>
+                    <span className="font-semibold text-green-700">{d.specialAgreementDiscount ? `${d.specialAgreementDiscount}%` : "Ja"}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Tageszulassung */}
+          {hasDayReg && (
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Tageszulassung</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                {d.dayRegistrationDate && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Datum</span>
+                    <span className="font-semibold text-navy-950">{formatDate(d.dayRegistrationDate)}</span>
+                  </div>
+                )}
+                {d.dayRegistrationKm && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">km-Stand</span>
+                    <span className="font-semibold text-navy-950">{Number(d.dayRegistrationKm).toLocaleString("de-DE")} km</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* UVP Bestätigung */}
+          {d.listPriceNetConfirm && (
+            <div className="flex justify-between text-xs pt-1 border-t border-slate-200">
+              <span className="text-slate-500">UVP netto (bestätigt)</span>
+              <span className="font-semibold text-navy-950">{d.listPriceNetConfirm.toLocaleString("de-DE")} €</span>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── Review Popup (mirrors EndTenderWizard from Nachfrager side) ─────────────
 function DealerReviewPopup({
   buyerName, buyerInitial, buyerSubline,
@@ -362,7 +566,7 @@ export default function DealerOffersPage() {
     const { data, error } = await supabase.from("reviews").insert({
       tender_id: contact.tender_id, contact_id: contactId, from_user_id: user.id,
       to_user_id: contact.buyer_id, type,
-      contract_concluded: (contact as any).contract_concluded_dealer ?? false,
+      contract_concluded: false,
       comment: comment || null,
     }).select().single();
     if (error) toast.error("Fehler: " + error.message);
@@ -491,6 +695,7 @@ export default function DealerOffersPage() {
                     <div className="font-bold text-blue-700">{offer.total_price ? `${offer.total_price.toLocaleString("de-DE")} €` : "—"}</div>
                   </div>
                 </div>
+                <OfferDetailsExpander offer={offer} />
               </div>
             );
           })}
@@ -705,6 +910,7 @@ export default function DealerOffersPage() {
                             </Badge>
                           )}
                         </div>
+                        <OfferDetailsExpander offer={offer} />
                       </div>
                     ) : (
                       <div className="mt-3 pt-3 border-t border-slate-200">
@@ -732,6 +938,7 @@ export default function DealerOffersPage() {
                         Ihr Angebot: {offer.total_price ? `${offer.total_price.toLocaleString("de-DE")} €` : "—"}
                       </Badge>
                     </div>
+                    <OfferDetailsExpander offer={offer} />
                   </div>
                 );
               })}

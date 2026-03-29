@@ -187,6 +187,245 @@ function ConfirmDialog({
   );
 }
 
+// ─── Offer Row with expandable details ────────────────────────────────────────
+function OfferRow({ offer, offerIdx, isMultiVehicle, vehicleLabel, vehicle, d, hasExtras, hasLeasing, hasFinancing, hasCosts, hasDelivery, hasDiscounts, hasDayReg, formatDate }: {
+  offer: Offer; offerIdx: number; isMultiVehicle: boolean; vehicleLabel: string;
+  vehicle: any; d: Offer["offer_details"]; hasExtras: boolean;
+  hasLeasing: boolean; hasFinancing: boolean; hasCosts: boolean;
+  hasDelivery: boolean; hasDiscounts: boolean; hasDayReg: boolean;
+  formatDate: (s: string | null) => string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="px-5 py-3 border-t border-slate-100">
+      {/* Vehicle label + key price in one row */}
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="flex items-center gap-2 min-w-0">
+          {isMultiVehicle && <div className="w-5 h-5 rounded bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold shrink-0">{offerIdx + 1}</div>}
+          <span className="font-bold text-navy-950 text-sm truncate">{vehicleLabel || `Fahrzeug ${offerIdx + 1}`}</span>
+          {vehicle && <span className="text-[10px] text-slate-400 shrink-0">{(vehicle as any).quantity || 1}x</span>}
+        </div>
+        <div className="text-right shrink-0">
+          <span className="font-bold text-navy-950">{offer.purchase_price ? `${offer.purchase_price.toLocaleString("de-DE")} €` : "—"}</span>
+          <span className="text-[10px] text-slate-400 ml-1">Kaufpreis</span>
+        </div>
+      </div>
+
+      {/* Compact detail chips */}
+      <div className="flex flex-wrap gap-1.5">
+        {offer.total_price && offer.total_price !== offer.purchase_price && (
+          <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500">Abholpreis: {offer.total_price.toLocaleString("de-DE")} €</Badge>
+        )}
+        {offer.lease_rate && <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500">Leasing: {offer.lease_rate.toLocaleString("de-DE")} €/Mon.</Badge>}
+        {d?.financingRate && <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500">Finanz.: {d.financingRate.toLocaleString("de-DE")} €/Mon.</Badge>}
+        {d?.exactMatch ? (
+          <Badge className="bg-green-50 text-green-700 border border-green-100 text-[10px]"><CheckCircle2 size={10} className="mr-0.5" /> Exakt</Badge>
+        ) : (
+          <Badge className="bg-amber-50 text-amber-700 border border-amber-100 text-[10px]">Alternativ</Badge>
+        )}
+        {d?.dayRegistration && <Badge className="bg-slate-100 text-slate-500 border-none text-[10px]">Tageszulassung</Badge>}
+        {offer.delivery_date && <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500">Lieferung: {formatDate(offer.delivery_date)}</Badge>}
+        {(offer as any).config_file_path && <ConfigFileDownload filePath={(offer as any).config_file_path} label="Konfig-PDF" />}
+      </div>
+
+      {/* Deviation — only if present */}
+      {offer.deviation_type && offer.deviation_details?.description && (
+        <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-2 border border-amber-100">{offer.deviation_details.description}</p>
+      )}
+
+      {/* Expandable details */}
+      {hasExtras && (
+        <>
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+          >
+            {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            {expanded ? "Weniger anzeigen" : "Alle Details anzeigen"}
+          </button>
+
+          {expanded && (
+            <div className="mt-3 bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+
+              {/* Kosten */}
+              {(hasCosts || offer.total_price) && (
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Kosten</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                    {offer.purchase_price && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Kaufpreis netto</span>
+                        <span className="font-semibold text-navy-950">{offer.purchase_price.toLocaleString("de-DE")} €</span>
+                      </div>
+                    )}
+                    {offer.transfer_cost != null && offer.transfer_cost > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Überführung</span>
+                        <span className="font-semibold text-navy-950">{offer.transfer_cost.toLocaleString("de-DE")} €</span>
+                      </div>
+                    )}
+                    {offer.registration_cost != null && offer.registration_cost > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Zulassung</span>
+                        <span className="font-semibold text-navy-950">{offer.registration_cost.toLocaleString("de-DE")} €</span>
+                      </div>
+                    )}
+                    {offer.total_price && (
+                      <div className="flex justify-between text-xs col-span-full pt-1 border-t border-slate-200 mt-1">
+                        <span className="text-slate-500 font-semibold">Abholpreis netto</span>
+                        <span className="font-bold text-navy-950">{offer.total_price.toLocaleString("de-DE")} €</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Leasing */}
+              {hasLeasing && (
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Leasing</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                    {offer.lease_rate && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Rate / Monat netto</span>
+                        <span className="font-semibold text-navy-950">{offer.lease_rate.toLocaleString("de-DE")} €</span>
+                      </div>
+                    )}
+                    {d?.leasingDuration && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Laufzeit</span>
+                        <span className="font-semibold text-navy-950">{d.leasingDuration} Monate</span>
+                      </div>
+                    )}
+                    {d?.leasingKmYear && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">km / Jahr</span>
+                        <span className="font-semibold text-navy-950">{Number(d.leasingKmYear).toLocaleString("de-DE")} km</span>
+                      </div>
+                    )}
+                    {d?.leasingDownPayment != null && d.leasingDownPayment !== "" && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Anzahlung netto</span>
+                        <span className="font-semibold text-navy-950">{Number(d.leasingDownPayment).toLocaleString("de-DE")} €</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Finanzierung */}
+              {hasFinancing && (
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Finanzierung</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                    {d?.financingRate && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Rate / Monat</span>
+                        <span className="font-semibold text-navy-950">{d.financingRate.toLocaleString("de-DE")} €</span>
+                      </div>
+                    )}
+                    {d?.financingDuration && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Laufzeit</span>
+                        <span className="font-semibold text-navy-950">{d.financingDuration} Monate</span>
+                      </div>
+                    )}
+                    {d?.financingDownPayment != null && d.financingDownPayment !== "" && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Anzahlung</span>
+                        <span className="font-semibold text-navy-950">{Number(d.financingDownPayment).toLocaleString("de-DE")} €</span>
+                      </div>
+                    )}
+                    {d?.financingResidual != null && d.financingResidual !== "" && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Restwert</span>
+                        <span className="font-semibold text-navy-950">{Number(d.financingResidual).toLocaleString("de-DE")} €</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Lieferung */}
+              {hasDelivery && (
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Lieferung</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                    {(offer.delivery_plz || offer.delivery_city) && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Abholort</span>
+                        <span className="font-semibold text-navy-950">{offer.delivery_plz || ""} {offer.delivery_city || ""}</span>
+                      </div>
+                    )}
+                    {offer.delivery_date && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Liefertermin</span>
+                        <span className="font-semibold text-navy-950">{formatDate(offer.delivery_date)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Rabatte */}
+              {hasDiscounts && (
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Rabatte</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                    {d?.hasFleetContract && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Großkundenrabatt</span>
+                        <span className="font-semibold text-green-700">{d.fleetContractDiscount ? `${d.fleetContractDiscount}%` : "Ja"}</span>
+                      </div>
+                    )}
+                    {d?.hasSpecialAgreement && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Sondervereinbarung</span>
+                        <span className="font-semibold text-green-700">{d.specialAgreementDiscount ? `${d.specialAgreementDiscount}%` : "Ja"}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Tageszulassung */}
+              {hasDayReg && (
+                <div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Tageszulassung</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                    {d?.dayRegistrationDate && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Datum</span>
+                        <span className="font-semibold text-navy-950">{formatDate(d.dayRegistrationDate)}</span>
+                      </div>
+                    )}
+                    {d?.dayRegistrationKm && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">km-Stand</span>
+                        <span className="font-semibold text-navy-950">{Number(d.dayRegistrationKm).toLocaleString("de-DE")} km</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* UVP Bestätigung */}
+              {d?.listPriceNetConfirm && (
+                <div className="flex justify-between text-xs pt-1 border-t border-slate-200">
+                  <span className="text-slate-500">UVP netto (Händler bestätigt)</span>
+                  <span className="font-semibold text-navy-950">{d.listPriceNetConfirm.toLocaleString("de-DE")} €</span>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function MyTendersPage() {
   const { user, profile, isLoading: authLoading } = useAuth();
@@ -357,12 +596,7 @@ export default function MyTendersPage() {
     setTenders(prev => prev.map(t => t.id === id ? { ...t, status: "completed" } : t));
   };
 
-  const handleContractAnswer = async (contactId: string, concluded: boolean) => {
-    await supabase.from("contacts").update({ contract_concluded_buyer: concluded }).eq("id", contactId);
-    setContacts(prev => prev.map(c => c.id === contactId ? { ...c, contract_concluded_buyer: concluded } : c));
-  };
-
-  const handleSubmitReview = async (contactId: string, type: "positive" | "neutral" | "negative", comment: string) => {
+  const handleSubmitReview = async (contactId: string, type: "positive" | "neutral" | "negative", contractConcluded: boolean, comment: string) => {
     const contact = contacts.find(c => c.id === contactId);
     if (!contact || !user) return;
     const { data, error } = await supabase.from("reviews").insert({
@@ -371,7 +605,7 @@ export default function MyTendersPage() {
       from_user_id: user.id,
       to_user_id: contact.dealer_id,
       type,
-      contract_concluded: (contact as any).contract_concluded_buyer ?? false,
+      contract_concluded: contractConcluded,
       comment: comment || null,
     }).select().single();
     if (error) {
@@ -382,12 +616,12 @@ export default function MyTendersPage() {
     }
   };
 
-  const handleUpdateReview = async (reviewId: string, type: "positive" | "neutral" | "negative", comment: string) => {
-    const { error } = await supabase.from("reviews").update({ type, comment: comment || null }).eq("id", reviewId);
+  const handleUpdateReview = async (reviewId: string, type: "positive" | "neutral" | "negative", contractConcluded: boolean, comment: string) => {
+    const { error } = await supabase.from("reviews").update({ type, contract_concluded: contractConcluded, comment: comment || null }).eq("id", reviewId);
     if (error) {
       toast.error("Fehler: " + error.message);
     } else {
-      setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, type, comment: comment || null } : r));
+      setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, type, contract_concluded: contractConcluded, comment: comment || null } : r));
       toast.success("Bewertung aktualisiert!");
     }
   };
@@ -543,43 +777,32 @@ export default function MyTendersPage() {
                 const d = offer.offer_details;
                 const vehicleLabel = vehicle ? `${(vehicle as any).brand || ""} ${(vehicle as any).model_name || ""}`.trim() : "";
 
+                const hasLeasing = !!(offer.lease_rate);
+                const hasFinancing = !!(d?.financingRate);
+                const hasCosts = !!((offer.transfer_cost && offer.transfer_cost > 0) || (offer.registration_cost && offer.registration_cost > 0));
+                const hasDelivery = !!(offer.delivery_plz || offer.delivery_city || offer.delivery_date);
+                const hasDiscounts = !!(d?.hasFleetContract || d?.hasSpecialAgreement);
+                const hasDayReg = !!(d?.dayRegistration && (d?.dayRegistrationDate || d?.dayRegistrationKm));
+                const hasExtras = hasLeasing || hasFinancing || hasCosts || hasDelivery || hasDiscounts || hasDayReg;
+
                 return (
-                  <div key={offer.id} className="px-5 py-3 border-t border-slate-100">
-                    {/* Vehicle label + key price in one row */}
-                    <div className="flex items-center justify-between gap-3 mb-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        {isMultiVehicle && <div className="w-5 h-5 rounded bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold shrink-0">{offerIdx + 1}</div>}
-                        <span className="font-bold text-navy-950 text-sm truncate">{vehicleLabel || `Fahrzeug ${offerIdx + 1}`}</span>
-                        {vehicle && <span className="text-[10px] text-slate-400 shrink-0">{(vehicle as any).quantity || 1}x</span>}
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="font-bold text-navy-950">{offer.purchase_price ? `${offer.purchase_price.toLocaleString("de-DE")} €` : "—"}</span>
-                        <span className="text-[10px] text-slate-400 ml-1">Kaufpreis</span>
-                      </div>
-                    </div>
-
-                    {/* Compact detail chips */}
-                    <div className="flex flex-wrap gap-1.5">
-                      {offer.total_price && offer.total_price !== offer.purchase_price && (
-                        <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500">Abholpreis: {offer.total_price.toLocaleString("de-DE")} €</Badge>
-                      )}
-                      {offer.lease_rate && <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500">Leasing: {offer.lease_rate.toLocaleString("de-DE")} €/Mon.</Badge>}
-                      {d?.financingRate && <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500">Finanz.: {d.financingRate.toLocaleString("de-DE")} €/Mon.</Badge>}
-                      {d?.exactMatch ? (
-                        <Badge className="bg-green-50 text-green-700 border border-green-100 text-[10px]"><CheckCircle2 size={10} className="mr-0.5" /> Exakt</Badge>
-                      ) : (
-                        <Badge className="bg-amber-50 text-amber-700 border border-amber-100 text-[10px]">Alternativ</Badge>
-                      )}
-                      {d?.dayRegistration && <Badge className="bg-slate-100 text-slate-500 border-none text-[10px]">Tageszulassung</Badge>}
-                      {offer.delivery_date && <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500">Lieferung: {formatDate(offer.delivery_date)}</Badge>}
-                      {(offer as any).config_file_path && <ConfigFileDownload filePath={(offer as any).config_file_path} label="Konfig-PDF" />}
-                    </div>
-
-                    {/* Deviation — only if present */}
-                    {offer.deviation_type && offer.deviation_details?.description && (
-                      <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-2 border border-amber-100">{offer.deviation_details.description}</p>
-                    )}
-                  </div>
+                  <OfferRow
+                    key={offer.id}
+                    offer={offer}
+                    offerIdx={offerIdx}
+                    isMultiVehicle={isMultiVehicle}
+                    vehicleLabel={vehicleLabel}
+                    vehicle={vehicle}
+                    d={d}
+                    hasExtras={hasExtras}
+                    hasLeasing={hasLeasing}
+                    hasFinancing={hasFinancing}
+                    hasCosts={hasCosts}
+                    hasDelivery={hasDelivery}
+                    hasDiscounts={hasDiscounts}
+                    hasDayReg={hasDayReg}
+                    formatDate={formatDate}
+                  />
                 );
               })}
 
@@ -785,7 +1008,6 @@ export default function MyTendersPage() {
             tenderIdShort={t.id.split("-")[0].toUpperCase()}
             dealers={wizardDealers}
             onConfirmEnd={() => handleEndTender(t.id)}
-            onContractAnswer={handleContractAnswer}
             onSubmitReview={handleSubmitReview}
             onClose={() => setEndTenderWizard(null)}
           />
@@ -1010,9 +1232,6 @@ export default function MyTendersPage() {
                                         contactId={contact.id}
                                         counterpartName={dealer?.company_name || "Händler"}
                                         existingReview={existingReview ? { id: existingReview.id, type: existingReview.type, contract_concluded: existingReview.contract_concluded, comment: existingReview.comment } : null}
-                                        counterpartContractConfirmed={(contact as any).contract_concluded_dealer ?? null}
-                                        myContractConfirmed={(contact as any).contract_concluded_buyer ?? null}
-                                        onContractAnswer={handleContractAnswer}
                                         onSubmitReview={handleSubmitReview}
                                         onUpdateReview={handleUpdateReview}
                                       />

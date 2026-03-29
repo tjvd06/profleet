@@ -120,7 +120,7 @@ export default function BewertungenPage() {
         const [reviewsRecv, reviewsGiven, contactsRes, tendersRes] = await Promise.all([
           supabase.from("reviews").select("*").eq("to_user_id", user.id),
           supabase.from("reviews").select("*").eq("from_user_id", user.id),
-          supabase.from("contacts").select("id, created_at, contract_concluded_buyer, contract_concluded_dealer").eq(contactCol, user.id),
+          supabase.from("contacts").select("id, created_at").eq(contactCol, user.id),
           isDealer
             ? supabase.from("offers").select("id, tenders!inner(status)").eq("dealer_id", user.id)
             : supabase.from("tenders").select("id, status").eq("buyer_id", user.id),
@@ -150,12 +150,11 @@ export default function BewertungenPage() {
           }
         }
 
-        // Stats
+        // Stats - contract concluded now comes from reviews, not contacts
         const allContacts = contactsRes.data || [];
         setTotalContacts(allContacts.length);
         setContacts6m(allContacts.filter((c: any) => c.created_at >= sixMonthsAgoISO).length);
-        const concludedField = isDealer ? "contract_concluded_dealer" : "contract_concluded_buyer";
-        setConcludedCount(allContacts.filter((c: any) => c[concludedField] === true).length);
+        setConcludedCount(given.filter((r: ReviewRow) => r.contract_concluded === true).length);
         setTotalContactsForConcluded(allContacts.length);
 
         const tData = tendersRes.data || [];

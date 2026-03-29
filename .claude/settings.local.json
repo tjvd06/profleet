@@ -48,7 +48,9 @@
       "Bash(grep -n \"supabase.from.*offers\" /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/eingang/[id]/angebot/page.tsx)",
       "Bash(grep -A 5 \"status: draft\" /c/Projekte/profleet/src/app/\\\\\\(main\\\\\\)/dashboard/eingang/[id]/angebot/page.tsx)",
       "Bash(npx tsc:*)",
-      "Bash(grep -r phone.*city.*zip /c/Projekte/profleet --include=*.sql --include=*.ts --include=*.tsx)"
+      "Bash(grep -r phone.*city.*zip /c/Projekte/profleet --include=*.sql --include=*.ts --include=*.tsx)",
+      "Bash(find /c/Projekte/profleet -name *.config.* -o -name constants*)",
+      "Bash(grep -r \"ChatWindow\\\\|StatusTracker\" /c/Projekte/profleet/src --include=*.ts --include=*.tsx)"
     ]
   }
 }

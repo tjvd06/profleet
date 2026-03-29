@@ -5,9 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Send, Loader2, MessageCircle, Search, ArrowLeft, Info,
-  Phone, Check, CheckCheck, Mail, MapPin, Car, Users, ExternalLink,
-  Smile,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {
+  Send, Loader2, MessageCircle, Search, ArrowLeft,
+  Phone, Check, CheckCheck, Mail, MapPin, Car, ExternalLink,
+  Smile, Trash2, ChevronDown,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -88,6 +97,42 @@ function formatListTime(dateStr: string | null) {
   return d.toLocaleDateString("de-DE", { day: "2-digit", month: "short" });
 }
 
+// ─── Hidden chats persistence (localStorage) ───────────────────────────────
+const HIDDEN_KEY = "profleet_hidden_chats";
+
+function getHiddenChats(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem(HIDDEN_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function hideChat(contactId: string) {
+  const hidden = getHiddenChats();
+  hidden[contactId] = new Date().toISOString();
+  localStorage.setItem(HIDDEN_KEY, JSON.stringify(hidden));
+}
+
+function unhideChat(contactId: string) {
+  const hidden = getHiddenChats();
+  delete hidden[contactId];
+  localStorage.setItem(HIDDEN_KEY, JSON.stringify(hidden));
+}
+
+function isChatVisible(contact: ContactWithProfile): boolean {
+  const hidden = getHiddenChats();
+  const hiddenAt = hidden[contact.id];
+  if (!hiddenAt) return true;
+  // Show chat again if there's a message after it was hidden
+  if (contact.lastMessageAt && new Date(contact.lastMessageAt) > new Date(hiddenAt)) {
+    unhideChat(contact.id);
+    return true;
+  }
+  return false;
+}
+
 // ─── Main Page ──────────────────────────────────────────────────────────────
 export default function MessagesPage() {
   const { user, profile, isLoading: authLoading } = useAuth();
@@ -104,7 +149,9 @@ export default function MessagesPage() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [mobileShowChat, setMobileShowChat] = useState(!!initialContactId);
+  const [deleteTarget, setDeleteTarget] = useState<ContactWithProfile | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [, setHiddenVersion] = useState(0); // triggers re-filter on hide/unhide
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -186,8 +233,10 @@ export default function MessagesPage() {
 
       if (!cancelled) {
         setContactsList(enriched);
-        if (!activeContactId && enriched.length > 0) {
-          setActiveContactId(enriched[0].id);
+        // Auto-select first visible contact if none selected
+        if (!activeContactId) {
+          const firstVisible = enriched.find((c) => isChatVisible(c));
+          if (firstVisible) setActiveContactId(firstVisible.id);
         }
         setLoading(false);
       }
@@ -267,6 +316,9 @@ export default function MessagesPage() {
             updated.sort((a, b) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime());
             return updated;
           });
+
+          // Force re-check hidden state (new message might unhide a chat)
+          setHiddenVersion((v) => v + 1);
         }
       )
       .subscribe();
@@ -292,13 +344,28 @@ export default function MessagesPage() {
     setSending(false);
   };
 
-  // ── Filtered contacts ────────────────────────────────────────────────────
+  // ── Delete (hide) chat ──────────────────────────────────────────────────
+  const handleDeleteChat = (contact: ContactWithProfile) => {
+    hideChat(contact.id);
+    setHiddenVersion((v) => v + 1);
+    if (activeContactId === contact.id) {
+      const nextVisible = contactsList.find((c) => c.id !== contact.id && isChatVisible(c));
+      setActiveContactId(nextVisible?.id || null);
+      setMobileShowChat(false);
+    }
+    setDeleteTarget(null);
+  };
+
+  // ── Filtered & visible contacts ──────────────────────────────────────────
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const visibleContacts = contactsList.filter((c) => isChatVisible(c));
+
   const filteredContacts = searchQuery
-    ? contactsList.filter((c) =>
+    ? visibleContacts.filter((c) =>
         (c.partner?.company_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (c.partner?.company_name || "").toLowerCase().includes(searchQuery.toLowerCase())
+        c.tenderLabel.toLowerCase().includes(searchQuery.toLowerCase())
       )
-    : contactsList;
+    : visibleContacts;
 
   const selectContact = (id: string) => {
     setActiveContactId(id);
@@ -323,7 +390,7 @@ export default function MessagesPage() {
     );
   }
 
-  if (contactsList.length === 0) {
+  if (visibleContacts.length === 0 && contactsList.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-130px)] text-center px-4">
         <div className="w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-50 rounded-3xl flex items-center justify-center mb-6 shadow-inner">
@@ -346,134 +413,255 @@ export default function MessagesPage() {
     : "??";
 
   return (
-    <div className="flex h-[calc(100vh-130px)] bg-slate-50">
-      {/* ── Left: Conversation List ──────────────────────────────── */}
-      <div className={`w-full md:w-[360px] md:min-w-[360px] border-r border-slate-200/80 flex flex-col bg-white ${mobileShowChat ? "hidden md:flex" : "flex"}`}>
-        {/* Search header */}
-        <div className="p-4 pb-3">
-          <h2 className="text-lg font-bold text-navy-950 mb-3">Nachrichten</h2>
-          <div className="relative">
-            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <Input
-              placeholder="Suchen..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-10 bg-slate-50/80 border-slate-200/60 rounded-xl text-sm placeholder:text-slate-400 focus:bg-white"
-            />
+    <>
+      <div className="flex h-[calc(100vh-130px)] bg-slate-50">
+        {/* ── Left: Conversation List ──────────────────────────────── */}
+        <div className={`w-full md:w-[360px] md:min-w-[360px] border-r border-slate-200/80 flex flex-col bg-white ${mobileShowChat ? "hidden md:flex" : "flex"}`}>
+          {/* Search header */}
+          <div className="p-4 pb-3">
+            <h2 className="text-lg font-bold text-navy-950 mb-3">Nachrichten</h2>
+            <div className="relative">
+              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Input
+                placeholder="Suchen..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-10 bg-slate-50/80 border-slate-200/60 rounded-xl text-sm placeholder:text-slate-400 focus:bg-white"
+              />
+            </div>
+          </div>
+
+          {/* Conversation list */}
+          <div className="flex-1 overflow-y-auto">
+            {filteredContacts.length === 0 && visibleContacts.length === 0 && contactsList.length > 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+                <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+                  <MessageCircle size={24} className="text-slate-300" />
+                </div>
+                <p className="text-sm font-medium text-slate-500 mb-1">Alle Chats ausgeblendet</p>
+                <p className="text-xs text-slate-400">Neue Nachrichten lassen Chats automatisch wieder erscheinen.</p>
+              </div>
+            ) : filteredContacts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+                <p className="text-sm text-slate-400">Keine Ergebnisse</p>
+              </div>
+            ) : (
+              filteredContacts.map((contact) => {
+                const isActive = contact.id === activeContactId;
+                const companyName = contact.partner?.company_name || "Unbekannt";
+                const initials = companyName.substring(0, 2).toUpperCase();
+                const hasUnread = contact.unreadCount > 0;
+
+                return (
+                  <div
+                    key={contact.id}
+                    className={`relative group ${isActive ? "bg-blue-50/70" : "hover:bg-slate-50/80"}`}
+                  >
+                    <button
+                      onClick={() => selectContact(contact.id)}
+                      className="w-full text-left px-4 py-3.5 transition-all flex items-center gap-3"
+                    >
+                      {/* Active indicator */}
+                      {isActive && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-8 bg-blue-600 rounded-r-full" />
+                      )}
+
+                      {/* Avatar */}
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-sm shrink-0 transition-colors ${
+                        isActive
+                          ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md shadow-blue-500/20"
+                          : hasUnread
+                          ? "bg-gradient-to-br from-blue-100 to-blue-50 text-blue-600"
+                          : "bg-slate-100 text-slate-500"
+                      }`}>
+                        {initials}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className={`text-[13px] truncate flex items-center gap-1.5 ${
+                            hasUnread ? "font-bold text-navy-950" : "font-semibold text-navy-950"
+                          }`}>
+                            {companyName}
+                          </span>
+                          <span className={`text-[11px] shrink-0 ml-2 ${hasUnread ? "text-blue-600 font-semibold" : "text-slate-400"}`}>
+                            {formatListTime(contact.lastMessageAt)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className={`text-xs truncate leading-relaxed ${hasUnread ? "text-slate-700 font-medium" : "text-slate-500"}`}>
+                            {contact.lastMessage || "Neue Konversation"}
+                          </p>
+                          {hasUnread && (
+                            <span className="ml-2 bg-blue-600 text-white text-[10px] font-bold rounded-full min-w-[20px] h-[20px] flex items-center justify-center px-1 shrink-0 shadow-sm shadow-blue-600/30">
+                              {contact.unreadCount > 99 ? "99+" : contact.unreadCount}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <Car size={10} className="text-slate-400 shrink-0" />
+                          <span className="text-[10px] text-slate-400 truncate">{contact.tenderLabel}</span>
+                        </div>
+                      </div>
+                    </button>
+
+                    {/* Delete button - visible on hover */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteTarget(contact);
+                      }}
+                      className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500"
+                      title="Chat ausblenden"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 
-        {/* Conversation list */}
-        <div className="flex-1 overflow-y-auto">
-          {filteredContacts.map((contact) => {
-            const isActive = contact.id === activeContactId;
-            const partnerName = contact.partner?.company_name || "";
-            const companyName = contact.partner?.company_name || "Unbekannt";
-            const initials = companyName.substring(0, 2).toUpperCase();
-            const hasUnread = contact.unreadCount > 0;
-
-            return (
-              <button
-                key={contact.id}
-                onClick={() => selectContact(contact.id)}
-                className={`w-full text-left px-4 py-3.5 transition-all flex items-center gap-3 relative group ${
-                  isActive
-                    ? "bg-blue-50/70"
-                    : "hover:bg-slate-50/80"
-                }`}
-              >
-                {/* Active indicator */}
-                {isActive && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-8 bg-blue-600 rounded-r-full" />
-                )}
-
-                {/* Avatar */}
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-sm shrink-0 transition-colors ${
-                  isActive
-                    ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md shadow-blue-500/20"
-                    : hasUnread
-                    ? "bg-gradient-to-br from-blue-100 to-blue-50 text-blue-600"
-                    : "bg-slate-100 text-slate-500"
-                }`}>
-                  {initials}
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className={`text-[13px] truncate flex items-center gap-1.5 ${
-                      hasUnread ? "font-bold text-navy-950" : "font-semibold text-navy-950"
-                    }`}>
-                      {companyName}
-                                          </span>
-                    <span className={`text-[11px] shrink-0 ml-2 ${hasUnread ? "text-blue-600 font-semibold" : "text-slate-400"}`}>
-                      {formatListTime(contact.lastMessageAt)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className={`text-xs truncate leading-relaxed ${hasUnread ? "text-slate-700 font-medium" : "text-slate-500"}`}>
-                      {contact.lastMessage || partnerName || "Neue Konversation"}
-                    </p>
-                    {hasUnread && (
-                      <span className="ml-2 bg-blue-600 text-white text-[10px] font-bold rounded-full min-w-[20px] h-[20px] flex items-center justify-center px-1 shrink-0 shadow-sm shadow-blue-600/30">
-                        {contact.unreadCount > 99 ? "99+" : contact.unreadCount}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <Car size={10} className="text-slate-400 shrink-0" />
-                    <span className="text-[10px] text-slate-400 truncate">{contact.tenderLabel}</span>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Center: Chat Area ────────────────────────────────────── */}
-      <div className={`flex-1 flex flex-col min-w-0 ${!mobileShowChat ? "hidden md:flex" : "flex"}`}>
-        {activeContact ? (
-          <>
-            {/* Chat header */}
-            <div className="px-5 py-3 border-b border-slate-200/80 flex items-center justify-between bg-white shrink-0">
-              <div className="flex items-center gap-3">
+        {/* ── Center: Chat Area ────────────────────────────────────── */}
+        <div className={`flex-1 flex flex-col min-w-0 ${!mobileShowChat ? "hidden md:flex" : "flex"}`}>
+          {activeContact ? (
+            <>
+              {/* Chat header — clicks to expand details below */}
+              <div className="bg-white shrink-0 border-b border-slate-200/80">
                 <button
-                  onClick={() => setMobileShowChat(false)}
-                  className="md:hidden text-slate-400 hover:text-navy-950 transition-colors"
+                  onClick={() => setShowDetails((v) => !v)}
+                  className="w-full px-5 py-3 flex items-center justify-between cursor-pointer hover:bg-slate-50/60 transition-colors text-left"
                 >
-                  <ArrowLeft size={20} />
+                  <div className="flex items-center gap-3 min-w-0">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setMobileShowChat(false); }}
+                      className="md:hidden text-slate-400 hover:text-navy-950 transition-colors"
+                    >
+                      <ArrowLeft size={20} />
+                    </button>
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center font-bold text-xs text-white shadow-sm shadow-blue-500/20 shrink-0">
+                      {partnerInitials}
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-bold text-navy-950 truncate">
+                        {p?.company_name || "Unbekannt"}
+                      </h3>
+                      <p className="text-xs text-slate-400 truncate">
+                        {activeContact.tenderLabel !== "Ausschreibung" && (
+                          <span className="inline-flex items-center gap-1">
+                            <Car size={10} className="shrink-0" />
+                            {activeContact.tenderLabel}
+                          </span>
+                        )}
+                        {activeContact.tenderLabel === "Ausschreibung" && (p?.city ? `${p.zip || ""} ${p.city}` : "—")}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronDown size={16} className={`text-slate-400 shrink-0 ml-2 transition-transform duration-200 ${showDetails ? "rotate-180" : ""}`} />
                 </button>
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center font-bold text-xs text-white shadow-sm shadow-blue-500/20">
-                  {partnerInitials}
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm font-bold text-navy-950 flex items-center gap-1.5 truncate">
-                    {p?.company_name || "Unbekannt"}
-                                      </h3>
-                  <p className="text-xs text-slate-400 truncate">
-                    {p?.company_name || "—"}
-                    {activeContact.tenderLabel !== "Ausschreibung" && (
-                      <span className="text-slate-300 mx-1.5">|</span>
-                    )}
-                    {activeContact.tenderLabel !== "Ausschreibung" && activeContact.tenderLabel}
-                  </p>
+
+                {/* Expanded details panel */}
+                <div
+                  className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${showDetails ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="border-t border-slate-100">
+                      {/* Partner hero */}
+                      <div className="bg-gradient-to-br from-slate-50/80 to-white px-5 py-5">
+                        <div className="flex items-start gap-4">
+                          <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-2xl flex items-center justify-center font-bold text-base text-white shadow-lg shadow-blue-500/20 shrink-0">
+                            {partnerInitials}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-navy-950 text-base truncate">{p?.company_name || "Unbekannt"}</p>
+                            {p?.city && (
+                              <p className="text-sm text-slate-500 mt-0.5 flex items-center gap-1.5">
+                                <MapPin size={12} className="shrink-0 text-slate-400" />
+                                {[p.street, [p.zip, p.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                              {p?.dealer_type && (
+                                <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500 font-medium">{p.dealer_type}</Badge>
+                              )}
+                              {p?.industry && (
+                                <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500 font-medium">{p.industry}</Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Contact action buttons */}
+                        <div className="flex items-center gap-2 mt-4">
+                          {p?.phone && (
+                            <a
+                              href={`tel:${p.phone}`}
+                              className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-white border border-slate-200/80 text-sm font-medium text-navy-950 hover:bg-green-50 hover:border-green-200 hover:text-green-700 transition-colors shadow-sm"
+                            >
+                              <Phone size={14} />
+                              <span className="truncate">{p.phone}</span>
+                            </a>
+                          )}
+                          {p?.email_public && (
+                            <a
+                              href={`mailto:${p.email_public}`}
+                              className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-white border border-slate-200/80 text-sm font-medium text-navy-950 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-colors shadow-sm"
+                            >
+                              <Mail size={14} />
+                              <span className="truncate">{p.email_public}</span>
+                            </a>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Tender info */}
+                      {t && (
+                        <div className="px-5 py-4 border-t border-slate-100">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Ausschreibung</p>
+                          <div className="flex items-center gap-2 mb-3">
+                            <Badge variant="outline" className="text-[10px] font-mono text-slate-500 bg-white">{t.id.split("-")[0].toUpperCase()}</Badge>
+                            <Badge className={`text-[10px] border-none ${t.status === "active" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}>
+                              {t.status === "active" ? "Aktiv" : t.status === "cancelled" ? "Zurückgezogen" : "Abgeschlossen"}
+                            </Badge>
+                          </div>
+                          {t.tender_vehicles.map((v, i) => (
+                            <div key={i} className="flex items-center gap-2.5 mb-1.5">
+                              <Car size={14} className="text-blue-500 shrink-0" />
+                              <span className="font-semibold text-navy-950 text-sm">{v.quantity}x {v.brand || "—"} {v.model_name || ""}</span>
+                            </div>
+                          ))}
+                          <Link
+                            href={isDealer ? `/dashboard/eingang/${t.id}/angebot` : `/dashboard/ausschreibungen`}
+                            className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-semibold mt-2 transition-colors"
+                          >
+                            <ExternalLink size={13} />
+                            Zur Ausschreibung
+                          </Link>
+                        </div>
+                      )}
+
+                      {/* Footer */}
+                      <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          Kontakt seit {new Date(activeContact.created_at).toLocaleDateString("de-DE", { day: "2-digit", month: "long", year: "numeric" })}
+                        </span>
+                        <button
+                          onClick={() => setDeleteTarget(activeContact)}
+                          className="flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition-colors"
+                        >
+                          <Trash2 size={13} />
+                          Ausblenden
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <button
-                onClick={() => setShowDetails(!showDetails)}
-                className={`hidden lg:flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
-                  showDetails ? "bg-blue-50 text-blue-600" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                <Info size={14} />
-                Details
-              </button>
-            </div>
 
-            <div className="flex-1 flex overflow-hidden">
               {/* Messages area */}
-              <div className="flex-1 flex flex-col min-w-0">
+              <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 <div
                   ref={scrollRef}
                   className="flex-1 overflow-y-auto px-4 md:px-6 py-5 space-y-1"
@@ -501,7 +689,7 @@ export default function MessagesPage() {
                         const timeDiff = prevMsg
                           ? new Date(msg.created_at).getTime() - new Date(prevMsg.created_at).getTime()
                           : Infinity;
-                        const showGap = timeDiff > 300000; // 5 min gap
+                        const showGap = timeDiff > 300000;
 
                         return (
                           <div key={msg.id}>
@@ -569,127 +757,47 @@ export default function MessagesPage() {
                   </div>
                 </div>
               </div>
-
-              {/* ── Right: Contact Details Panel ──────────────────── */}
-              {showDetails && (
-                <div className="w-[340px] border-l border-slate-200/80 bg-white overflow-y-auto shrink-0 hidden lg:block animate-in slide-in-from-right-4 duration-200">
-                  <div className="p-6 space-y-6">
-                    {/* Partner profile */}
-                    <div className="flex flex-col items-center text-center">
-                      <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-2xl flex items-center justify-center font-bold text-xl text-white mb-4 shadow-lg shadow-blue-500/20">
-                        {partnerInitials}
-                      </div>
-                      <h3 className="font-bold text-navy-950 text-lg leading-tight">
-                        {p?.company_name || "Unbekannt"}
-                      </h3>
-                      {p?.city && <p className="text-sm text-slate-500 mt-0.5">{p.zip || ""} {p.city}</p>}
-                      <div className="flex items-center gap-1.5 mt-2 flex-wrap justify-center">
-                                                {p?.dealer_type && (
-                          <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500 font-medium">{p.dealer_type}</Badge>
-                        )}
-                        {p?.industry && (
-                          <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500 font-medium">{p.industry}</Badge>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Contact info cards */}
-                    <div className="space-y-2">
-                      {p?.email_public && (
-                        <a
-                          href={`mailto:${p.email_public}`}
-                          className="flex items-center gap-3 p-3 rounded-xl bg-slate-50/80 hover:bg-blue-50 transition-colors group"
-                        >
-                          <div className="w-9 h-9 rounded-lg bg-blue-100/80 flex items-center justify-center shrink-0 group-hover:bg-blue-200/60 transition-colors">
-                            <Mail size={15} className="text-blue-600" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">E-Mail</p>
-                            <p className="text-sm font-medium text-navy-950 truncate">{p.email_public}</p>
-                          </div>
-                        </a>
-                      )}
-                      {p?.phone && (
-                        <a
-                          href={`tel:${p.phone}`}
-                          className="flex items-center gap-3 p-3 rounded-xl bg-slate-50/80 hover:bg-green-50 transition-colors group"
-                        >
-                          <div className="w-9 h-9 rounded-lg bg-green-100/80 flex items-center justify-center shrink-0 group-hover:bg-green-200/60 transition-colors">
-                            <Phone size={15} className="text-green-600" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Telefon</p>
-                            <p className="text-sm font-medium text-navy-950">{p.phone}</p>
-                          </div>
-                        </a>
-                      )}
-                      {(p?.street || p?.zip || p?.city) && (
-                        <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50/80">
-                          <div className="w-9 h-9 rounded-lg bg-amber-100/80 flex items-center justify-center shrink-0">
-                            <MapPin size={15} className="text-amber-600" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Adresse</p>
-                            <p className="text-sm font-medium text-navy-950">
-                              {p?.street && <>{p.street}<br /></>}
-                              {[p?.zip, p?.city].filter(Boolean).join(" ")}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Tender info */}
-                    {t && (
-                      <div className="pt-2">
-                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">Ausschreibung</h4>
-                        <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-4 border border-slate-100 space-y-3">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-[10px] font-mono text-slate-500 bg-white">{t.id.split("-")[0].toUpperCase()}</Badge>
-                            <Badge className={`text-[10px] border-none ${t.status === "active" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}>
-                              {t.status === "active" ? "Aktiv" : t.status === "cancelled" ? "Zurückgezogen" : "Abgeschlossen"}
-                            </Badge>
-                          </div>
-                          {t.tender_vehicles.map((v, i) => (
-                            <div key={i} className="flex items-center gap-2 text-sm">
-                              <Car size={14} className="text-blue-500 shrink-0" />
-                              <span className="font-semibold text-navy-950">{v.quantity}x {v.brand || "—"} {v.model_name || ""}</span>
-                            </div>
-                          ))}
-                          <Link
-                            href={isDealer ? `/dashboard/eingang/${t.id}/angebot` : `/dashboard/ausschreibungen`}
-                            className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-semibold mt-1 transition-colors"
-                          >
-                            <ExternalLink size={11} />
-                            Zur Ausschreibung
-                          </Link>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Contact since */}
-                    <div className="text-center pt-2">
-                      <p className="text-[10px] text-slate-400 font-medium">
-                        Kontakt seit {new Date(activeContact.created_at).toLocaleDateString("de-DE", { day: "2-digit", month: "long", year: "numeric" })}
-                      </p>
-                    </div>
-                  </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-center px-4 bg-slate-50/50">
+              <div className="flex flex-col items-center">
+                <div className="w-20 h-20 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center mb-5">
+                  <MessageCircle size={32} className="text-slate-300" />
                 </div>
-              )}
-            </div>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center text-center px-4 bg-slate-50/50">
-            <div className="flex flex-col items-center">
-              <div className="w-20 h-20 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center mb-5">
-                <MessageCircle size={32} className="text-slate-300" />
+                <h3 className="text-lg font-bold text-navy-950 mb-1">Wählen Sie eine Konversation</h3>
+                <p className="text-sm text-slate-500 max-w-xs">Klicken Sie links auf eine Konversation, um den Chat zu öffnen.</p>
               </div>
-              <h3 className="text-lg font-bold text-navy-950 mb-1">Wählen Sie eine Konversation</h3>
-              <p className="text-sm text-slate-500 max-w-xs">Klicken Sie links auf eine Konversation, um den Chat zu öffnen.</p>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* ── Delete confirmation dialog ──────────────────────────────── */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Chat ausblenden?</DialogTitle>
+            <DialogDescription>
+              Der Chat mit <span className="font-semibold text-navy-950">{deleteTarget?.partner?.company_name || "diesem Kontakt"}</span> wird
+              aus Ihrer Liste entfernt. Alle Nachrichten bleiben erhalten &mdash; wenn Sie eine neue Nachricht erhalten,
+              erscheint der Chat automatisch wieder mit dem gesamten Verlauf.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <DialogClose render={<Button variant="outline" className="rounded-xl" />}>
+              Abbrechen
+            </DialogClose>
+            <Button
+              variant="destructive"
+              className="rounded-xl"
+              onClick={() => deleteTarget && handleDeleteChat(deleteTarget)}
+            >
+              <Trash2 size={14} className="mr-1.5" />
+              Ausblenden
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

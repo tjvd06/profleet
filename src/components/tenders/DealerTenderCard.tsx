@@ -186,12 +186,12 @@ export function DealerTenderCard({ tender }: { tender: any }) {
                 <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Angebote</div>
                 <div className="text-2xl font-black text-navy-950">{tender.currentOffers}</div>
               </div>
-              {tender.currentOffers > 0 && tender.bestPriceNet != null && (
+              {tender.currentOffers > 0 && tender.bestTotalGross != null && (
                 <div>
-                  <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Bester Preis</div>
+                  <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Bester Gesamtpreis</div>
                   <div className="font-bold text-green-600 text-sm flex items-center gap-1">
                     <TrendingDown size={14} />
-                    {tender.bestPriceNet.toLocaleString("de-DE", { maximumFractionDigits: 0 })} € netto
+                    {tender.bestTotalGross.toLocaleString("de-DE", { maximumFractionDigits: 0 })} € netto
                   </div>
                 </div>
               )}
@@ -199,30 +199,42 @@ export function DealerTenderCard({ tender }: { tender: any }) {
           </div>
 
           {/* My offer stats (if answered) */}
-          {tender.hasAnswered && tender.myTotalPrice != null && (
-            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 mb-5">
-              <div className="flex items-center gap-2 mb-4">
-                <Star size={16} className="text-blue-500" />
-                <span className="text-xs font-semibold text-blue-500 uppercase tracking-widest">Mein Angebot</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider mb-1">Gesamtpreis netto</div>
-                  <div className="font-bold text-navy-950 text-sm">
-                    {tender.myTotalPrice.toLocaleString("de-DE", { maximumFractionDigits: 0 })} €
-                  </div>
+          {tender.hasAnswered && tender.myTotalPrice != null && (() => {
+            const isBest = tender.bestTotalGross != null && tender.myTotalPrice <= tender.bestTotalGross;
+            return (
+              <div className={`rounded-2xl p-5 mb-5 ${isBest ? "bg-green-50 border border-green-200" : "bg-blue-50 border border-blue-200"}`}>
+                <div className="flex items-center gap-2 mb-4">
+                  <Star size={16} className={isBest ? "text-green-500" : "text-blue-500"} />
+                  <span className={`text-xs font-semibold uppercase tracking-widest ${isBest ? "text-green-600" : "text-blue-500"}`}>Mein Angebot</span>
                 </div>
-                {tender.myPriceNet != null && (
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider mb-1">Pro Fahrzeug</div>
+                    <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${isBest ? "text-green-500" : "text-blue-400"}`}>Gesamtpreis netto</div>
                     <div className="font-bold text-navy-950 text-sm">
-                      {tender.myPriceNet.toLocaleString("de-DE", { maximumFractionDigits: 0 })} € netto
+                      {tender.myTotalPrice.toLocaleString("de-DE", { maximumFractionDigits: 0 })} €
                     </div>
+                  </div>
+                  {tender.myPriceNet != null && (
+                    <div>
+                      <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${isBest ? "text-green-500" : "text-blue-400"}`}>Pro Fahrzeug</div>
+                      <div className="font-bold text-navy-950 text-sm">
+                        {tender.myPriceNet.toLocaleString("de-DE", { maximumFractionDigits: 0 })} € netto
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {tender.currentOffers > 1 && (
+                  <div className={`mt-4 pt-3 border-t flex items-center gap-2 text-xs font-semibold ${isBest ? "border-green-200 text-green-700" : "border-blue-200 text-amber-600"}`}>
+                    {isBest ? (
+                      <><CheckCircle2 size={14} /> Sie haben aktuell den günstigsten Gesamtpreis</>
+                    ) : (
+                      <><TrendingDown size={14} /> Andere Anbieter haben günstigere Angebote abgegeben</>
+                    )}
                   </div>
                 )}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* CTA button pushed to bottom */}
           <div className="mt-auto pt-4">
