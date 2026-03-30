@@ -1,3 +1,0 @@
--- No migration needed: street, city, phone, email_public already exist in profiles table.
--- Column "zip" (not "plz") is the postal code field.
--- This file is kept as documentation only.
