@@ -16,6 +16,7 @@ import { VehicleConfigForm } from "@/components/wizard/VehicleConfigForm";
 import { VehicleSummaryList } from "@/components/wizard/VehicleSummaryList";
 import type { VehicleConfig } from "@/types/vehicle";
 import { createEmptyVehicleConfig, buildEquipmentJson } from "@/types/vehicle";
+import { usePlzLookup } from "@/hooks/usePlzLookup";
 
 const STEPS = ["Fahrzeug", "Details", "Lieferung", "Starten"];
 const DURATION_DAYS: Record<string, number> = { "7": 7, "14": 14, "30": 30 };
@@ -43,8 +44,9 @@ export default function NewTenderWizard() {
     acceptHigherTrim: true,
     acceptDayRegistration: false,
     zipCode: "",
-    radius: "nationwide",
   });
+
+  const { city: deliveryCity, loading: cityLoading } = usePlzLookup(sharedData.zipCode);
 
   const nextStep = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
   const prevStep = () => setStep((s) => Math.max(s - 1, 0));
@@ -103,9 +105,7 @@ export default function NewTenderWizard() {
           start_at: now.toISOString(),
           end_at: endDate.toISOString(),
           delivery_plz: sharedData.zipCode || null,
-          delivery_city: sharedData.zipCode.length >= 5 ? "München" : null,
-          delivery_radius: sharedData.radius === "local" ? 50 : null,
-          tender_scope: sharedData.radius === "nationwide" ? "bundesweit" : "lokal",
+          delivery_city: deliveryCity || null,
         })
         .select()
         .single();
@@ -309,39 +309,11 @@ export default function NewTenderWizard() {
                 </div>
                 <div className="space-y-3">
                   <Label className="text-base text-slate-700 font-semibold">Ort (Autom. erkannt)</Label>
-                  <Input placeholder="Ort" className="rounded-xl text-xl font-semibold h-14 bg-slate-100 border-transparent text-slate-500" readOnly value={sharedData.zipCode.length >= 5 ? "München" : ""} />
+                  <div className="relative">
+                    <Input placeholder="Ort" className="rounded-xl text-xl font-semibold h-14 bg-slate-100 border-transparent text-slate-500" readOnly value={cityLoading ? "Wird gesucht…" : deliveryCity} />
+                    {cityLoading && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-slate-400" size={20} />}
+                  </div>
                 </div>
-              </div>
-
-              <div>
-                <Label className="text-xl font-bold text-navy-950 mb-6 block">In welchem Radius sollen wir Händler anfragen?</Label>
-                <RadioGroup
-                  value={sharedData.radius}
-                  onValueChange={(v) => setSharedData({ ...sharedData, radius: v })}
-                  className="space-y-4"
-                >
-                  <div className="flex items-center space-x-4 p-6 border-2 border-blue-200 bg-blue-50/40 rounded-3xl relative overflow-hidden transition-all hover:bg-blue-50/60 cursor-pointer">
-                    <div className="absolute top-0 right-0 bg-blue-500 text-white text-[11px] uppercase tracking-wider font-bold px-4 py-1.5 rounded-bl-xl shadow-sm">Empfohlen</div>
-                    <RadioGroupItem value="nationwide" id="r-nationwide" className="scale-125 border-slate-400" />
-                    <Label htmlFor="r-nationwide" className="font-bold text-navy-950 text-lg cursor-pointer flex-grow pl-2">
-                      Bundesweit
-                      <span className="text-slate-500 font-normal block text-sm mt-1.5 leading-relaxed">Maximale Ersparnis durch den größten Händler-Pool in ganz Deutschland.</span>
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-4 p-6 border-2 border-slate-200 rounded-3xl transition-all hover:bg-slate-50 cursor-pointer data-[state=checked]:border-blue-500">
-                    <RadioGroupItem value="local" id="r-local" className="scale-125 border-slate-400" />
-                    <Label htmlFor="r-local" className="font-bold text-navy-950 text-lg cursor-pointer flex-grow pl-2 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <span>Lokal im Umkreis</span>
-                      {sharedData.radius === "local" && (
-                        <select className="h-12 w-full md:w-64 rounded-xl border border-slate-300 bg-white px-4 text-base focus:ring-2 focus:ring-blue-500 outline-none animate-in fade-in">
-                          <option>50 km Umgebung</option>
-                          <option>100 km Umgebung</option>
-                          <option>200 km Umgebung</option>
-                        </select>
-                      )}
-                    </Label>
-                  </div>
-                </RadioGroup>
               </div>
 
               <Card className="border-green-200 bg-green-50 rounded-2xl">
@@ -397,14 +369,10 @@ export default function NewTenderWizard() {
 
             {/* Shared data summary */}
             <div className="bg-white border-2 border-slate-100 shadow-sm rounded-3xl p-8 mb-8">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                 <div>
                   <dt className="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-2">Lieferort</dt>
-                  <dd className="font-bold text-navy-950 text-lg">{sharedData.zipCode || "Nicht angegeben"}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-2">Radius</dt>
-                  <dd className="font-bold text-navy-950 text-lg">{sharedData.radius === "nationwide" ? "Bundesweit" : "Lokal"}</dd>
+                  <dd className="font-bold text-navy-950 text-lg">{sharedData.zipCode ? `${sharedData.zipCode} ${deliveryCity}` : "Nicht angegeben"}</dd>
                 </div>
                 <div>
                   <dt className="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-2">Großkunde</dt>

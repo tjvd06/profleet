@@ -6,7 +6,6 @@ import { WizardStepper } from "@/components/ui-custom/WizardStepper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { ChevronRight, ChevronLeft, CheckCircle2, Loader2, Save } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,6 +15,7 @@ import { VehicleConfigForm } from "@/components/wizard/VehicleConfigForm";
 import { VehicleSummaryList } from "@/components/wizard/VehicleSummaryList";
 import type { VehicleConfig } from "@/types/vehicle";
 import { createEmptyVehicleConfig, buildEquipmentJson, dbRowToVehicleConfig } from "@/types/vehicle";
+import { usePlzLookup } from "@/hooks/usePlzLookup";
 
 const STEPS = ["Fahrzeug", "Details", "Lieferung", "Speichern"];
 
@@ -42,8 +42,9 @@ export default function EditTenderWizard({ params }: { params: { id: string } })
     acceptHigherTrim: true,
     acceptDayRegistration: false,
     zipCode: "",
-    radius: "nationwide",
   });
+
+  const { city: deliveryCity, loading: cityLoading } = usePlzLookup(sharedData.zipCode);
 
   // Load existing tender data
   useEffect(() => {
@@ -67,7 +68,6 @@ export default function EditTenderWizard({ params }: { params: { id: string } })
           acceptHigherTrim: data.tender_vehicles?.[0]?.alt_preferences?.accept_higher_trim ?? true,
           acceptDayRegistration: data.tender_vehicles?.[0]?.alt_preferences?.accept_day_registration || false,
           zipCode: data.delivery_plz || "",
-          radius: data.tender_scope === "bundesweit" ? "nationwide" : "local",
         });
 
         // Map vehicles
@@ -145,9 +145,7 @@ export default function EditTenderWizard({ params }: { params: { id: string } })
         .from("tenders")
         .update({
           delivery_plz: sharedData.zipCode || null,
-          delivery_city: sharedData.zipCode.length >= 5 ? "München" : null,
-          delivery_radius: sharedData.radius === "local" ? 50 : null,
-          tender_scope: sharedData.radius === "nationwide" ? "bundesweit" : "lokal",
+          delivery_city: deliveryCity || null,
         })
         .eq("id", params.id);
 
@@ -327,22 +325,11 @@ export default function EditTenderWizard({ params }: { params: { id: string } })
                 </div>
                 <div className="space-y-3">
                   <Label className="text-base text-slate-700 font-semibold">Ort (Autom. erkannt)</Label>
-                  <Input readOnly className="rounded-xl text-xl font-semibold h-14 bg-slate-100 border-transparent text-slate-500" value={sharedData.zipCode.length >= 5 ? "München" : ""} />
+                  <div className="relative">
+                    <Input readOnly placeholder="Ort" className="rounded-xl text-xl font-semibold h-14 bg-slate-100 border-transparent text-slate-500" value={cityLoading ? "Wird gesucht…" : deliveryCity} />
+                    {cityLoading && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-slate-400" size={20} />}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <Label className="text-xl font-bold text-navy-950 mb-6 block">Radius</Label>
-                <RadioGroup value={sharedData.radius} onValueChange={(v) => setSharedData({ ...sharedData, radius: v })} className="space-y-4">
-                  <div className="flex items-center space-x-4 p-6 border-2 border-blue-200 bg-blue-50/40 rounded-3xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 bg-blue-500 text-white text-[11px] uppercase tracking-wider font-bold px-4 py-1.5 rounded-bl-xl">Empfohlen</div>
-                    <RadioGroupItem value="nationwide" id="edit-nationwide" className="scale-125" />
-                    <Label htmlFor="edit-nationwide" className="font-bold text-navy-950 text-lg cursor-pointer flex-grow pl-2">Bundesweit</Label>
-                  </div>
-                  <div className="flex items-center space-x-4 p-6 border-2 border-slate-200 rounded-3xl">
-                    <RadioGroupItem value="local" id="edit-local" className="scale-125" />
-                    <Label htmlFor="edit-local" className="font-bold text-navy-950 text-lg cursor-pointer flex-grow pl-2">Lokal im Umkreis</Label>
-                  </div>
-                </RadioGroup>
               </div>
             </div>
           </div>
@@ -383,14 +370,10 @@ export default function EditTenderWizard({ params }: { params: { id: string } })
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 bg-white border-2 border-slate-100 rounded-3xl p-8 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 bg-white border-2 border-slate-100 rounded-3xl p-8 mb-8">
               <div>
                 <dt className="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-2">Lieferort</dt>
-                <dd className="font-bold text-navy-950">{sharedData.zipCode || "Nicht angegeben"}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-2">Radius</dt>
-                <dd className="font-bold text-navy-950">{sharedData.radius === "nationwide" ? "Bundesweit" : "Lokal"}</dd>
+                <dd className="font-bold text-navy-950">{sharedData.zipCode ? `${sharedData.zipCode} ${deliveryCity}` : "Nicht angegeben"}</dd>
               </div>
               <div>
                 <dt className="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-2">Großkunde</dt>

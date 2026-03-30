@@ -166,12 +166,9 @@ export default function AusschreibungenPage() {
                 const totalListPrice = vehicles.reduce((sum: number, v: Record<string, unknown>) => sum + (((v.list_price_net as number) || 0) * ((v.quantity as number) || 1)), 0);
 
                 // Location
-                const locationParts: string[] = [];
-                if (tender.delivery_city) locationParts.push(tender.delivery_city);
-                else if (tender.delivery_plz) locationParts.push(tender.delivery_plz);
-                if (tender.delivery_radius) locationParts.push(`${tender.delivery_radius} km`);
-                if (tender.tender_scope === "bundesweit" && !tender.delivery_city) locationParts.push("Bundesweit");
-                const location = locationParts.join(" · ") || "Deutschland";
+                const location = tender.delivery_city
+                  ? `${tender.delivery_city}${tender.delivery_plz ? ` (${tender.delivery_plz})` : ""}`
+                  : tender.delivery_plz || "Deutschland";
 
                 return (
                   <PublicTenderCard

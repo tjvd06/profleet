@@ -153,8 +153,24 @@ function isFormFilled(f: VehicleOfferForm): boolean {
   return parseFloat(f.purchasePriceNet) > 0;
 }
 
+function validateForm(f: VehicleOfferForm): string[] {
+  const errors: string[] = [];
+  const price = parseFloat(f.purchasePriceNet);
+  if (!price || price <= 0) errors.push("Kaufpreis netto ist erforderlich und muss > 0 sein");
+  if (price < 0) errors.push("Kaufpreis darf nicht negativ sein");
+  const qty = parseInt(f.offeredQuantity);
+  if (!qty || qty < 1) errors.push("Stückzahl muss mindestens 1 sein");
+  if (parseFloat(f.transferCostNet) < 0) errors.push("Überführungskosten dürfen nicht negativ sein");
+  if (parseFloat(f.registrationCostNet) < 0) errors.push("Zulassungskosten dürfen nicht negativ sein");
+  if (parseFloat(f.leasingRateNet) < 0) errors.push("Leasing-Rate darf nicht negativ sein");
+  if (parseFloat(f.financingRateNet) < 0) errors.push("Finanzierungs-Rate darf nicht negativ sein");
+  const override = parseFloat(f.totalPriceNetOverride);
+  if (f.totalPriceNetOverride && override <= 0) errors.push("Gesamtpreis netto muss > 0 sein");
+  return errors;
+}
+
 function calcTotalNetto(f: VehicleOfferForm): number {
-  return (parseFloat(f.purchasePriceNet) || 0) + (parseFloat(f.transferCostNet) || 0) + (parseFloat(f.registrationCostNet) || 0);
+  return Math.max(0, (parseFloat(f.purchasePriceNet) || 0)) + Math.max(0, (parseFloat(f.transferCostNet) || 0)) + Math.max(0, (parseFloat(f.registrationCostNet) || 0));
 }
 
 function fmt(n: number): string {
@@ -315,20 +331,42 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
   const currentForm = !isSummary ? forms[step] : null;
 
   const updateForm = (patch: Partial<VehicleOfferForm>) => {
-    setForms((prev) => prev.map((f, i) => (i === step ? { ...f, ...patch } : f)));
+    setForms((prev) => prev.map((f, i) => {
+      if (i !== step) return f;
+      const updated = { ...f, ...patch };
+      // Auto-clear override when component prices change so the total recalculates
+      if ("purchasePriceNet" in patch || "transferCostNet" in patch || "registrationCostNet" in patch) {
+        updated.totalPriceNetOverride = "";
+      }
+      return updated;
+    }));
   };
 
-  const grandTotalNetto = forms.reduce((sum, f, i) => {
-    const total = f.totalPriceNetOverride && parseFloat(f.totalPriceNetOverride) > 0
+  const grandTotalNetto = forms.reduce((sum, f) => {
+    const perVehicle = f.totalPriceNetOverride && parseFloat(f.totalPriceNetOverride) > 0
       ? parseFloat(f.totalPriceNetOverride)
       : calcTotalNetto(f);
-    return sum + total * (parseInt(f.offeredQuantity) || 1);
+    return sum + perVehicle * (parseInt(f.offeredQuantity) || 1);
   }, 0);
   const totalVehicleCount = forms.reduce((sum, f) => sum + (parseInt(f.offeredQuantity) || 0), 0);
+  const allFormsValid = forms.every((f) => validateForm(f).length === 0);
+  const allFormErrors = forms.map((f) => validateForm(f));
 
   /* ---- Submit ---- */
   const handleSubmitOffer = async (draft = false) => {
     if (!user || !tender) return;
+
+    // Validate all forms before submitting (skip for drafts)
+    if (!draft) {
+      const errors = forms.flatMap((f, i) =>
+        validateForm(f).map((msg) => `Fahrzeug ${i + 1}: ${msg}`)
+      );
+      if (errors.length > 0) {
+        setSubmitError(errors.join(" · "));
+        return;
+      }
+    }
+
     setSubmitting(true);
     setSubmitError(null);
 
@@ -348,7 +386,7 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
           lease_rate: v.leasing?.requested ? parseFloat(f.leasingRateNet) || null : null,
           transfer_cost: parseFloat(f.transferCostNet) || 0,
           registration_cost: parseFloat(f.registrationCostNet) || 0,
-          total_price: perVehicleNetto * qty,
+          total_price: perVehicleNetto,
           offered_quantity: qty,
           delivery_plz: f.deliveryZip || null,
           delivery_city: f.deliveryCity || null,
@@ -599,14 +637,33 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
               </Label>
             </div>
 
+            {/* Validation errors per vehicle */}
+            {!allFormsValid && (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle size={16} className="text-amber-600" />
+                  <span className="font-bold text-amber-800 text-sm">Bitte korrigieren Sie folgende Angaben:</span>
+                </div>
+                <ul className="text-sm text-amber-700 space-y-1">
+                  {allFormErrors.map((errors, i) =>
+                    errors.map((err, j) => (
+                      <li key={`${i}-${j}`} className="flex items-center gap-2">
+                        <span className="font-semibold">{vehicles.length > 1 ? `Fzg. ${i + 1}:` : ""}</span> {err}
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            )}
+
             {submitError && <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-sm font-semibold">{submitError}</div>}
 
             <div className="bg-white/90 backdrop-blur-xl p-4 sm:p-6 rounded-2xl shadow-lg border border-slate-200 sticky bottom-6 z-50 flex flex-col sm:flex-row justify-between items-center gap-4">
               <Button variant="outline" onClick={() => handleSubmitOffer(true)} disabled={submitting} className="w-full sm:w-auto rounded-xl h-12 px-6 text-slate-600 font-semibold border-slate-300">
                 <Save className="mr-2" size={18} /> Entwurf
               </Button>
-              <Button onClick={() => handleSubmitOffer(false)} disabled={submitting}
-                className="w-full sm:w-auto rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg px-8 h-12 font-bold">
+              <Button onClick={() => handleSubmitOffer(false)} disabled={submitting || !allFormsValid}
+                className="w-full sm:w-auto rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg px-8 h-12 font-bold disabled:opacity-50 disabled:cursor-not-allowed">
                 {submitting ? <><Loader2 className="animate-spin mr-2" size={18} /> Wird gesendet…</> : <><Mail className="mr-2" size={18} /> Verbindlich abgeben</>}
               </Button>
             </div>
@@ -759,14 +816,14 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
                   <h4 className="font-bold text-navy-950 mb-4">Barkauf-Angebot</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-sm font-semibold text-slate-700">Kaufpreis netto / Fzg. (€)</Label>
-                      <Input type="number" step="0.01" value={currentForm.purchasePriceNet}
+                      <Label className="text-sm font-semibold text-slate-700">Kaufpreis netto / Fzg. (€) *</Label>
+                      <Input type="number" step="0.01" min="0" value={currentForm.purchasePriceNet}
                         onChange={(e) => updateForm({ purchasePriceNet: e.target.value })}
                         className="rounded-xl h-12 border-blue-200 bg-white text-lg font-bold text-blue-700 mt-1" placeholder="0,00" />
                     </div>
                     <div>
                       <Label className="text-sm font-semibold text-slate-700">Stückzahl</Label>
-                      <Input type="number" min={1} value={currentForm.offeredQuantity} onChange={(e) => updateForm({ offeredQuantity: e.target.value })}
+                      <Input type="number" min="1" value={currentForm.offeredQuantity} onChange={(e) => updateForm({ offeredQuantity: e.target.value })}
                         className="rounded-xl h-12 bg-slate-50 border-slate-200 text-lg mt-1" />
                       <p className="text-[10px] text-slate-400 mt-1">Angefragt: {currentVehicle.quantity}</p>
                     </div>
@@ -779,10 +836,10 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
                     <h4 className="font-bold text-navy-950 mb-1">Leasing-Angebot</h4>
                     <p className="text-xs text-slate-500 mb-4">Vom Nachfrager gewünscht: {currentVehicle.leasing.duration || 36} Mon., {parseInt(currentVehicle.leasing.km_year || "15000").toLocaleString("de-DE")} km/Jahr</p>
                     <div className="grid grid-cols-2 gap-4">
-                      <div><Label className="text-sm text-slate-700 font-semibold">Rate mtl. netto (€)</Label><Input type="number" step="0.01" value={currentForm.leasingRateNet} onChange={(e) => updateForm({ leasingRateNet: e.target.value })} className="rounded-xl h-11 mt-1" placeholder="0,00" /></div>
-                      <div><Label className="text-sm text-slate-700 font-semibold">Laufzeit (Mon.)</Label><Input type="number" value={currentForm.leasingDuration} onChange={(e) => updateForm({ leasingDuration: e.target.value })} className="rounded-xl h-11 mt-1" /></div>
-                      <div><Label className="text-sm text-slate-700 font-semibold">KM / Jahr</Label><Input type="number" value={currentForm.leasingKmYear} onChange={(e) => updateForm({ leasingKmYear: e.target.value })} className="rounded-xl h-11 mt-1" /></div>
-                      <div><Label className="text-sm text-slate-700 font-semibold">Anzahlung (€)</Label><Input type="number" value={currentForm.leasingDownPayment} onChange={(e) => updateForm({ leasingDownPayment: e.target.value })} className="rounded-xl h-11 mt-1" /></div>
+                      <div><Label className="text-sm text-slate-700 font-semibold">Rate mtl. netto (€)</Label><Input type="number" step="0.01" min="0" value={currentForm.leasingRateNet} onChange={(e) => updateForm({ leasingRateNet: e.target.value })} className="rounded-xl h-11 mt-1" placeholder="0,00" /></div>
+                      <div><Label className="text-sm text-slate-700 font-semibold">Laufzeit (Mon.)</Label><Input type="number" min="1" value={currentForm.leasingDuration} onChange={(e) => updateForm({ leasingDuration: e.target.value })} className="rounded-xl h-11 mt-1" /></div>
+                      <div><Label className="text-sm text-slate-700 font-semibold">KM / Jahr</Label><Input type="number" min="0" value={currentForm.leasingKmYear} onChange={(e) => updateForm({ leasingKmYear: e.target.value })} className="rounded-xl h-11 mt-1" /></div>
+                      <div><Label className="text-sm text-slate-700 font-semibold">Anzahlung (€)</Label><Input type="number" min="0" value={currentForm.leasingDownPayment} onChange={(e) => updateForm({ leasingDownPayment: e.target.value })} className="rounded-xl h-11 mt-1" /></div>
                     </div>
                   </div>
                 )}
@@ -793,10 +850,10 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
                     <h4 className="font-bold text-navy-950 mb-1">Finanzierungs-Angebot</h4>
                     <p className="text-xs text-slate-500 mb-4">Vom Nachfrager gewünscht: {currentVehicle.financing.duration || 48} Mon.</p>
                     <div className="grid grid-cols-2 gap-4">
-                      <div><Label className="text-sm text-slate-700 font-semibold">Rate mtl. netto (€)</Label><Input type="number" step="0.01" value={currentForm.financingRateNet} onChange={(e) => updateForm({ financingRateNet: e.target.value })} className="rounded-xl h-11 mt-1" placeholder="0,00" /></div>
-                      <div><Label className="text-sm text-slate-700 font-semibold">Laufzeit (Mon.)</Label><Input type="number" value={currentForm.financingDuration} onChange={(e) => updateForm({ financingDuration: e.target.value })} className="rounded-xl h-11 mt-1" /></div>
-                      <div><Label className="text-sm text-slate-700 font-semibold">Anzahlung (€)</Label><Input type="number" value={currentForm.financingDownPayment} onChange={(e) => updateForm({ financingDownPayment: e.target.value })} className="rounded-xl h-11 mt-1" /></div>
-                      <div><Label className="text-sm text-slate-700 font-semibold">Restzahlung (€)</Label><Input type="number" value={currentForm.financingResidual} onChange={(e) => updateForm({ financingResidual: e.target.value })} className="rounded-xl h-11 mt-1" /></div>
+                      <div><Label className="text-sm text-slate-700 font-semibold">Rate mtl. netto (€)</Label><Input type="number" step="0.01" min="0" value={currentForm.financingRateNet} onChange={(e) => updateForm({ financingRateNet: e.target.value })} className="rounded-xl h-11 mt-1" placeholder="0,00" /></div>
+                      <div><Label className="text-sm text-slate-700 font-semibold">Laufzeit (Mon.)</Label><Input type="number" min="1" value={currentForm.financingDuration} onChange={(e) => updateForm({ financingDuration: e.target.value })} className="rounded-xl h-11 mt-1" /></div>
+                      <div><Label className="text-sm text-slate-700 font-semibold">Anzahlung (€)</Label><Input type="number" min="0" value={currentForm.financingDownPayment} onChange={(e) => updateForm({ financingDownPayment: e.target.value })} className="rounded-xl h-11 mt-1" /></div>
+                      <div><Label className="text-sm text-slate-700 font-semibold">Restzahlung (€)</Label><Input type="number" min="0" value={currentForm.financingResidual} onChange={(e) => updateForm({ financingResidual: e.target.value })} className="rounded-xl h-11 mt-1" /></div>
                     </div>
                   </div>
                 )}
@@ -808,14 +865,14 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
                       <Label className="font-bold text-navy-950 block text-sm">Überführungskosten netto (€)</Label>
                       <span className="text-slate-500 text-xs">inkl. Reinigung, Übergabe</span>
                     </div>
-                    <Input type="number" value={currentForm.transferCostNet} onChange={(e) => updateForm({ transferCostNet: e.target.value })} className="w-32 rounded-xl h-10 text-right font-bold bg-white" placeholder="0" />
+                    <Input type="number" min="0" value={currentForm.transferCostNet} onChange={(e) => updateForm({ transferCostNet: e.target.value })} className="w-32 rounded-xl h-10 text-right font-bold bg-white" placeholder="0" />
                   </div>
                   <div className="flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-100">
                     <div>
                       <Label className="font-bold text-navy-950 block text-sm">Zulassungskosten netto (€)</Label>
                       <span className="text-slate-500 text-xs">inkl. Wunschkennzeichen</span>
                     </div>
-                    <Input type="number" value={currentForm.registrationCostNet} onChange={(e) => updateForm({ registrationCostNet: e.target.value })} className="w-32 rounded-xl h-10 text-right font-bold bg-white" placeholder="0" />
+                    <Input type="number" min="0" value={currentForm.registrationCostNet} onChange={(e) => updateForm({ registrationCostNet: e.target.value })} className="w-32 rounded-xl h-10 text-right font-bold bg-white" placeholder="0" />
                   </div>
                 </div>
 
@@ -825,7 +882,7 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
                     <Label className="font-bold text-navy-950 block">Gesamtpreis netto (Abholpreis)</Label>
                     <span className="text-slate-400 text-xs">Kaufpreis + Überführung + Zulassung</span>
                   </div>
-                  <Input type="number"
+                  <Input type="number" min="0" step="0.01"
                     value={currentForm.totalPriceNetOverride || (currentForm.purchasePriceNet ? String(calcTotalNetto(currentForm)) : "")}
                     onChange={(e) => updateForm({ totalPriceNetOverride: e.target.value })}
                     className="w-40 rounded-xl h-12 text-right text-xl font-black text-blue-700 bg-white border-blue-200" />
@@ -849,7 +906,7 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
                   <Input type="date" value={currentForm.deliveryDate} onChange={(e) => updateForm({ deliveryDate: e.target.value })} className="rounded-xl h-11 bg-slate-50 mt-1" />
                 </div>
               </div>
-              <p className="text-xs text-slate-400 mt-3">Gewünschter Auslieferungsort des Nachfragers: {tender.delivery_plz || "—"} {tender.delivery_city || ""} ({tender.tender_scope === "bundesweit" ? "Bundesweit" : "Lokal"})</p>
+              <p className="text-xs text-slate-400 mt-3">Gewünschter Auslieferungsort des Nachfragers: {tender.delivery_plz || "—"} {tender.delivery_city || ""}</p>
             </Section>
 
             {/* 4. Vertragsdaten */}
@@ -860,7 +917,7 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
                   <div className="flex-grow">
                     <Label className="font-semibold text-navy-950 block mb-1">Großkundenvertrag</Label>
                     {currentForm.hasFleetContract && (
-                      <div className="mt-2"><Label className="text-xs text-slate-600">Rabatt %</Label><Input type="number" step="0.1" value={currentForm.fleetContractDiscount} onChange={(e) => updateForm({ fleetContractDiscount: e.target.value })} className="rounded-xl h-10 w-32 mt-1" /></div>
+                      <div className="mt-2"><Label className="text-xs text-slate-600">Rabatt %</Label><Input type="number" step="0.1" min="0" max="100" value={currentForm.fleetContractDiscount} onChange={(e) => updateForm({ fleetContractDiscount: e.target.value })} className="rounded-xl h-10 w-32 mt-1" /></div>
                     )}
                   </div>
                 </div>
@@ -869,7 +926,7 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
                   <div className="flex-grow">
                     <Label className="font-semibold text-navy-950 block mb-1">Sondervereinbarung</Label>
                     {currentForm.hasSpecialAgreement && (
-                      <div className="mt-2"><Label className="text-xs text-slate-600">Rabatt %</Label><Input type="number" step="0.1" value={currentForm.specialAgreementDiscount} onChange={(e) => updateForm({ specialAgreementDiscount: e.target.value })} className="rounded-xl h-10 w-32 mt-1" /></div>
+                      <div className="mt-2"><Label className="text-xs text-slate-600">Rabatt %</Label><Input type="number" step="0.1" min="0" max="100" value={currentForm.specialAgreementDiscount} onChange={(e) => updateForm({ specialAgreementDiscount: e.target.value })} className="rounded-xl h-10 w-32 mt-1" /></div>
                     )}
                   </div>
                 </div>

@@ -114,7 +114,7 @@ function mapTenderToCardProps(
     buyerMemberSince: buyer?.created_at || null,
     location: tender.delivery_plz
       ? `${tender.delivery_city || "Unbekannt"} (${tender.delivery_plz})`
-      : tender.tender_scope === "bundesweit" ? "Bundesweit" : "Lokal",
+      : "Deutschland",
     buyerRating: buyerRatings[tender.buyer_id]?.score ?? 0,
     buyerRatingTotal: buyerRatings[tender.buyer_id]?.total ?? 0,
     successRate: 0,
@@ -176,7 +176,7 @@ export default function InboxPage() {
           ]),
           supabase
             .from("offers")
-            .select("tender_id, purchase_price, total_price")
+            .select("tender_id, purchase_price, total_price, offered_quantity")
             .eq("dealer_id", user.id),
         ]);
 
@@ -229,13 +229,13 @@ export default function InboxPage() {
           const answered = new Set<string>();
           const myOfferMap: Record<string, { purchasePriceNet: number; totalPrice: number }> = {};
           if (offersData) {
-            (offersData as { tender_id: string; purchase_price: number | null; total_price: number | null }[]).forEach((o) => {
+            (offersData as { tender_id: string; purchase_price: number | null; total_price: number | null; offered_quantity: number | null }[]).forEach((o) => {
               answered.add(o.tender_id);
               if (!myOfferMap[o.tender_id]) {
                 myOfferMap[o.tender_id] = { purchasePriceNet: 0, totalPrice: 0 };
               }
               myOfferMap[o.tender_id].purchasePriceNet += o.purchase_price || 0;
-              myOfferMap[o.tender_id].totalPrice += o.total_price || 0;
+              myOfferMap[o.tender_id].totalPrice += (o.total_price || 0) * (o.offered_quantity || 1);
             });
           }
           setAnsweredTenderIds(answered);

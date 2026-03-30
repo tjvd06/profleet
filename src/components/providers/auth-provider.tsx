@@ -11,6 +11,7 @@ type Profile = {
   company_name: string | null;
   first_name: string | null;
   last_name: string | null;
+  last_login: string | null;
 };
 
 type AuthContextType = {
@@ -34,7 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [supabase] = useState(() => createClient());
   const router = useRouter();
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, updateLastLogin = false) => {
     try {
       const { data, error } = await supabase
         .from("profiles")
@@ -44,8 +45,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) {
         console.error("[AuthProvider] fetchProfile Supabase error:", error.message);
       } else if (data) {
+        // Store the OLD last_login so dashboard can use it for "since last login"
         setProfile(data as Profile);
         console.log("[AuthProvider] Profile loaded:", data.role, data.company_name ?? data.first_name);
+
+        // Update last_login to now (fire-and-forget)
+        if (updateLastLogin) {
+          supabase
+            .from("profiles")
+            .update({ last_login: new Date().toISOString() })
+            .eq("id", userId)
+            .then(({ error: updateErr }) => {
+              if (updateErr) console.error("[AuthProvider] last_login update error:", updateErr.message);
+            });
+        }
       }
     } catch (e) {
       console.error("[AuthProvider] fetchProfile exception:", e);
@@ -64,9 +77,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           setUser(session.user);
           if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "USER_UPDATED") {
+            const shouldUpdateLogin = event === "SIGNED_IN";
             // Race fetchProfile against a 5-second timeout so isLoading never hangs forever
             await Promise.race([
-              fetchProfile(session.user.id),
+              fetchProfile(session.user.id, shouldUpdateLogin),
               new Promise<void>(resolve => setTimeout(resolve, 5000)),
             ]);
           }

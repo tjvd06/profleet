@@ -714,8 +714,8 @@ export default function MyTendersPage() {
 
     // Sort dealer groups by their total price (sum of all vehicle offers) ascending
     const sortedDealerIds = Object.keys(dealerGroups).sort((a, b) => {
-      const totalA = dealerGroups[a].reduce((s, o) => s + (o.total_price ?? 0), 0);
-      const totalB = dealerGroups[b].reduce((s, o) => s + (o.total_price ?? 0), 0);
+      const totalA = dealerGroups[a].reduce((s, o) => s + ((o.total_price ?? 0) * (o.offered_quantity ?? 1)), 0);
+      const totalB = dealerGroups[b].reduce((s, o) => s + ((o.total_price ?? 0) * (o.offered_quantity ?? 1)), 0);
       return totalA - totalB;
     });
 
@@ -728,7 +728,7 @@ export default function MyTendersPage() {
           const dealerProfile = dealerProfiles[dealerId] || null;
           const contact = getContactForDealer(tender.id, dealerId) || dealerOffers.map(o => getContactForOffer(o.id)).find(Boolean);
           const hasContact = !!contact;
-          const grandTotal = dealerOffers.reduce((s, o) => s + (o.total_price ?? 0), 0);
+          const grandTotal = dealerOffers.reduce((s, o) => s + ((o.total_price ?? 0) * (o.offered_quantity ?? 1)), 0);
           const firstOffer = dealerOffers[0];
           const getVehicleForOffer = (offer: Offer) =>
             tender.tender_vehicles.find((v: TenderVehicle) => v.id === offer.tender_vehicle_id);
@@ -844,7 +844,7 @@ export default function MyTendersPage() {
         // Group by dealer, sum total_price per dealer, take the min
         const dealerTotals: Record<string, number> = {};
         tender.offers.forEach(o => {
-          dealerTotals[o.dealer_id] = (dealerTotals[o.dealer_id] || 0) + (o.total_price ?? 0);
+          dealerTotals[o.dealer_id] = (dealerTotals[o.dealer_id] || 0) + ((o.total_price ?? 0) * (o.offered_quantity ?? 1));
         });
         const totals = Object.values(dealerTotals).filter(t => t > 0);
         return totals.length > 0 ? Math.min(...totals) : null;

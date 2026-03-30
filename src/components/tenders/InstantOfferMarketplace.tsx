@@ -5,7 +5,6 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { InstantOfferCard } from "@/components/tenders/InstantOfferCard";
 import { MultiSelectDropdown } from "@/components/ui-custom/MultiSelectDropdown";
-import { RangeSliderInput } from "@/components/ui-custom/RangeSliderInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -35,6 +34,7 @@ import {
   LogIn,
   Sparkles,
   Info,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase";
@@ -42,13 +42,12 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { useSubscription } from "@/components/providers/subscription-provider";
 import { HeroSection } from "@/components/ui-custom/HeroSection";
 import { type InstantOfferRow } from "@/lib/instant-offers";
+import { EXTERIOR_COLOR_OPTIONS } from "@/lib/vehicle-options";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 12;
 const PUBLIC_LIMIT = 10;
-const VAT_RATE = 1.19;
-
 type MarketplaceTab = "all" | "bookmarked" | "mine";
 
 // ─── Advanced filter state ───────────────────────────────────────────────────
@@ -115,84 +114,136 @@ interface EquipmentFeature {
   check: (eq: Record<string, unknown> | null) => boolean;
 }
 
-const EQUIPMENT_FEATURES: EquipmentFeature[] = [
+interface EquipmentGroup {
+  label: string;
+  items: EquipmentFeature[];
+}
+
+function extCheck(name: string): (eq: Record<string, unknown> | null) => boolean {
+  return (eq) => !!(eq?.exteriorExtras as string[])?.includes?.(name);
+}
+
+function intCheck(name: string): (eq: Record<string, unknown> | null) => boolean {
+  return (eq) => !!(eq?.interiorExtras as string[])?.includes?.(name);
+}
+
+function extItem(name: string): EquipmentFeature {
+  return { key: `ext:${name}`, label: name, check: extCheck(name) };
+}
+
+function intItem(name: string): EquipmentFeature {
+  return { key: `int:${name}`, label: name, check: intCheck(name) };
+}
+
+const EQUIPMENT_GROUPS: EquipmentGroup[] = [
   {
-    key: "klimaautomatik",
-    label: "Klimaautomatik",
-    check: (eq) =>
-      eq?.climate === "Klimaautomatik" || eq?.climate === "Automatik",
+    label: "Highlights",
+    items: [
+      {
+        key: "klimaautomatik",
+        label: "Klimaautomatik",
+        check: (eq) =>
+          eq?.climate === "Klimaautomatik" || eq?.climate === "Automatik",
+      },
+      {
+        key: "leder",
+        label: "Lederausstattung",
+        check: (eq) =>
+          typeof eq?.interiorMaterial === "string" &&
+          (eq.interiorMaterial as string).toLowerCase().includes("leder"),
+      },
+      {
+        key: "einparkhilfe",
+        label: "Einparkhilfe",
+        check: (eq) =>
+          Array.isArray(eq?.parkingAid) &&
+          (eq!.parkingAid as string[]).length > 0,
+      },
+      {
+        key: "tempomat",
+        label: "Tempomat",
+        check: (eq) => !!eq?.cruiseControl,
+      },
+    ],
   },
   {
-    key: "navi",
-    label: "Navigationssystem",
-    check: (eq) =>
-      !!(eq?.interiorExtras as string[])?.includes?.("Navigationssystem") ||
-      !!(eq?.exteriorExtras as string[])?.includes?.("Navigationssystem"),
+    label: "Licht & Sicht",
+    items: [
+      "Adaptives Kurvenlicht", "Bi-Xenon Scheinwerfer", "Blendfreies Fernlicht",
+      "Fernlichtassistent", "Kurvenlicht", "Laserlicht", "LED-Scheinwerfer",
+      "LED-Tagfahrlicht", "Lichtsensor", "Nachtsicht-Assistent",
+      "Nebelscheinwerfer", "Scheinwerferreinigung", "Tagfahrlicht",
+      "Xenonscheinwerfer",
+    ].map(extItem),
   },
   {
-    key: "sitzheizung",
-    label: "Sitzheizung",
-    check: (eq) =>
-      !!(eq?.interiorExtras as string[])?.includes?.("Sitzheizung"),
+    label: "Sicherheit & Assistenz",
+    items: [
+      "ABS", "Abstandswarner", "Berganfahrassistent", "ESP",
+      "Notbremsassistent", "Spurhalteassistent", "Totwinkel-Assistent",
+      "Traktionskontrolle", "Verkehrszeichenerkennung",
+      "Geschwindigkeitsbegrenzer", "Reifendruckkontrolle",
+      "Elektr. Wegfahrsperre",
+    ].map(extItem),
   },
   {
-    key: "leder",
-    label: "Lederausstattung",
-    check: (eq) =>
-      typeof eq?.interiorMaterial === "string" &&
-      (eq.interiorMaterial as string).toLowerCase().includes("leder"),
+    label: "Fahrwerk & Räder",
+    items: [
+      "Adaptives Fahrwerk", "Luftfederung", "Sportfahrwerk",
+      "Leichtmetallfelgen", "Stahlfelgen", "Allwetterreifen",
+      "Sommerreifen", "Winterreifen", "Winterpaket", "Sportpaket",
+    ].map(extItem),
   },
   {
-    key: "led",
-    label: "LED-Scheinwerfer",
-    check: (eq) =>
-      !!(eq?.exteriorExtras as string[])?.includes?.("LED-Scheinwerfer"),
+    label: "Komfort & Karosserie",
+    items: [
+      "Abgedunkelte Scheiben", "Beheizbare Frontscheibe", "Dachreling",
+      "Elektr. Heckklappe", "Faltdach", "Panorama-Dach", "Regensensor",
+      "Schiebedach", "Schlüssellose Zentralverriegelung", "Servolenkung",
+      "Start/Stopp-Automatik", "Zentralverriegelung", "Notrad", "Pannenkit",
+      "Reserverad", "Behindertengerecht",
+    ].map(extItem),
   },
   {
-    key: "einparkhilfe",
-    label: "Einparkhilfe",
-    check: (eq) =>
-      Array.isArray(eq?.parkingAid) && (eq!.parkingAid as string[]).length > 0,
+    label: "Infotainment & Konnektivität",
+    items: [
+      "Android Auto", "Apple CarPlay", "Bluetooth", "CD-Spieler",
+      "Freisprecheinrichtung", "Induktionsladen Smartphones",
+      "Musikstreaming integriert", "Navigationssystem", "Radio DAB",
+      "Soundsystem", "Sprachsteuerung", "Touchscreen", "Tuner/Radio", "TV",
+      "USB", "Volldigitales Kombiinstrument", "WLAN/Wifi Hotspot",
+      "Head-Up Display",
+    ].map(intItem),
   },
   {
-    key: "tempomat",
-    label: "Tempomat",
-    check: (eq) => !!eq?.cruiseControl,
+    label: "Sitze & Komfort",
+    items: [
+      "Armlehne", "Beheizbares Lenkrad", "Elektr. Sitzeinstellung",
+      "Elektr. Sitzeinstellung mit Memory", "Elektr. Sitzeinstellung hinten",
+      "Lederlenkrad", "Lordosenstütze", "Massagesitze", "Sitzbelüftung",
+      "Sitzheizung", "Sitzheizung hinten", "Sportsitze",
+      "Umklappbarer Beifahrersitz", "Multifunktionslenkrad", "Schaltwippen",
+    ].map(intItem),
   },
   {
-    key: "alu",
-    label: "Leichtmetallfelgen",
-    check: (eq) =>
-      !!(eq?.exteriorExtras as string[])?.includes?.("Leichtmetallfelgen"),
+    label: "Sicherheit & Überwachung",
+    items: [
+      "Alarmanlage", "Bordcomputer", "Elektr. Seitenspiegel",
+      "Elektr. Seitenspiegel anklappbar", "Elektr. Fensterheber",
+      "Innenspiegel autom. abblendend", "Isofix", "Isofix Beifahrersitz",
+      "Müdigkeitswarner", "Notrufsystem", "Virtuelle Seitenspiegel",
+    ].map(intItem),
   },
   {
-    key: "schiebedach",
-    label: "Schiebedach",
-    check: (eq) =>
-      !!(eq?.exteriorExtras as string[])?.some?.((e: string) =>
-        e.toLowerCase().includes("schiebedach")
-      ),
-  },
-  {
-    key: "standheizung",
-    label: "Standheizung",
-    check: (eq) =>
-      !!(eq?.interiorExtras as string[])?.includes?.("Standheizung") ||
-      !!(eq?.exteriorExtras as string[])?.includes?.("Standheizung"),
-  },
-  {
-    key: "sportsitze",
-    label: "Sportsitze",
-    check: (eq) =>
-      !!(eq?.interiorExtras as string[])?.includes?.("Sportsitze"),
-  },
-  {
-    key: "sportfahrwerk",
-    label: "Sportfahrwerk",
-    check: (eq) =>
-      !!(eq?.exteriorExtras as string[])?.includes?.("Sportfahrwerk"),
+    label: "Sonstiges Interieur",
+    items: [
+      "Ambiente-Beleuchtung", "Gepäckraumabtrennung", "Raucherpaket",
+      "Rechtslenker", "Skisack", "Standheizung",
+    ].map(intItem),
   },
 ];
+
+const ALL_EQUIPMENT_FEATURES = EQUIPMENT_GROUPS.flatMap((g) => g.items);
 
 // ─── Static options ─────────────────────────────────────────────────────────
 
@@ -230,36 +281,6 @@ const RADIUS_OPTIONS = [
   { value: "200", label: "200 km" },
 ];
 
-// ─── Filter options (populated from DB) ─────────────────────────────────────
-
-interface FilterOptions {
-  brands: string[];
-  allModels: { brand: string; model: string }[];
-  bodyTypes: string[];
-  fuelTypes: string[];
-  colors: string[];
-  doorValues: number[];
-  priceRange: [number, number];
-  leasingRange: [number, number];
-  financingRange: [number, number];
-  powerRange: [number, number];
-  availableEquipment: string[];
-}
-
-const DEFAULT_OPTIONS: FilterOptions = {
-  brands: [],
-  allModels: [],
-  bodyTypes: [],
-  fuelTypes: [],
-  colors: [],
-  doorValues: [],
-  priceRange: [0, 500000],
-  leasingRange: [0, 5000],
-  financingRange: [0, 5000],
-  powerRange: [50, 700],
-  availableEquipment: [],
-};
-
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function offerMatchesEquipment(
@@ -268,7 +289,7 @@ function offerMatchesEquipment(
 ): boolean {
   if (equipmentKeys.length === 0) return true;
   return equipmentKeys.every((key) => {
-    const feat = EQUIPMENT_FEATURES.find((f) => f.key === key);
+    const feat = ALL_EQUIPMENT_FEATURES.find((f) => f.key === key);
     return feat ? feat.check(offer.equipment) : true;
   });
 }
@@ -285,23 +306,20 @@ function plzInRadius(
   return offerPlz.substring(0, digits) === filterPlz.substring(0, digits);
 }
 
-function formatPrice(net: number, gross: boolean): string {
-  const val = gross ? net * VAT_RATE : net;
-  return val.toLocaleString("de-DE", { maximumFractionDigits: 0 });
+function formatPrice(net: number): string {
+  return net.toLocaleString("de-DE", { maximumFractionDigits: 0 });
 }
 
 // URL param serialization
 function filtersToParams(
   search: string,
   sortBy: string,
-  showGross: boolean,
   filters: AdvancedFilters,
   pricingPills: string[]
 ): URLSearchParams {
   const p = new URLSearchParams();
   if (search) p.set("q", search);
   if (sortBy !== "newest") p.set("sort", sortBy);
-  if (showGross) p.set("gross", "1");
   if (filters.vehicleType) p.set("type", filters.vehicleType);
   if (filters.brands.length) p.set("brand", filters.brands.join(","));
   if (filters.modelSeries.length) p.set("series", filters.modelSeries.join(","));
@@ -333,7 +351,6 @@ function paramsToState(p: URLSearchParams) {
   return {
     search: p.get("q") || "",
     sortBy: p.get("sort") || "newest",
-    showGross: p.get("gross") === "1",
     pricingPills: p.get("pricing")?.split(",").filter(Boolean) || [],
     filters: {
       ...DEFAULT_ADVANCED,
@@ -393,7 +410,6 @@ export function InstantOfferMarketplace() {
   // Quick filters (apply immediately)
   const [search, setSearch] = useState(initial.search);
   const [sortBy, setSortBy] = useState(initial.sortBy);
-  const [showGross, setShowGross] = useState(initial.showGross);
   const [pricingPills, setPricingPills] = useState<string[]>(
     initial.pricingPills
   );
@@ -409,6 +425,9 @@ export function InstantOfferMarketplace() {
   const [tab, setTab] = useState<MarketplaceTab>("all");
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [expandedEquipGroups, setExpandedEquipGroups] = useState<Set<string>>(
+    new Set(["Highlights"])
+  );
 
   // Data
   const [offers, setOffers] = useState<InstantOfferRow[]>([]);
@@ -418,136 +437,59 @@ export function InstantOfferMarketplace() {
   const [page, setPage] = useState(0);
   const [dbAvailable, setDbAvailable] = useState(true);
 
-  // Filter options (from DB)
-  const [filterOptions, setFilterOptions] =
-    useState<FilterOptions>(DEFAULT_OPTIONS);
+  // ── Brands & models from vehicle_models table ────────────────────────────
+  const [vmBrands, setVmBrands] = useState<string[]>([]);
+  const [vmAllModels, setVmAllModels] = useState<{ brand: string; model: string }[]>([]);
 
-  // ── Load filter options ──────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await supabase
-          .from("instant_offers")
-          .select(
-            "brand, model_name, body_type, fuel_type, color, doors, equipment, power_ps, purchase_price_net, leasing_rate_net, financing_rate_net, leasing_enabled, financing_enabled"
-          )
-          .eq("status", "active")
-          .gt("expires_at", new Date().toISOString());
-
-        if (data && data.length > 0) {
+        let query = supabase.from("vehicle_models").select("brand, model, vehicle_type");
+        const vt = filtersOpen ? draft.vehicleType : filters.vehicleType;
+        if (vt) query = query.eq("vehicle_type", vt);
+        const { data } = await query;
+        if (data) {
           const brands = Array.from(
-            new Set(
-              data
-                .map((r: Record<string, unknown>) => r.brand as string)
-                .filter(Boolean)
-            )
-          ).sort();
-          const allModels = Array.from(
-            new Map(
-              data.map((r: Record<string, unknown>) => [
-                `${r.brand}|${r.model_name}`,
-                { brand: r.brand as string, model: r.model_name as string },
-              ])
-            ).values()
-          ).filter((m) => m.brand && m.model);
-          const bodyTypes = Array.from(
-            new Set(
-              data
-                .map((r: Record<string, unknown>) => r.body_type as string)
-                .filter(Boolean)
-            )
-          ).sort();
-          const fuelTypes = Array.from(
-            new Set(
-              data
-                .map((r: Record<string, unknown>) => r.fuel_type as string)
-                .filter(Boolean)
-            )
-          ).sort();
-          const colors = Array.from(
-            new Set(
-              data
-                .map((r: Record<string, unknown>) => r.color as string)
-                .filter(Boolean)
-            )
-          ).sort();
-          const doorValues = Array.from(
-            new Set(
-              data
-                .map((r: Record<string, unknown>) => r.doors as number)
-                .filter(Boolean)
-            )
-          ).sort((a, b) => a - b);
-
-          const prices = data
-            .map((r: Record<string, unknown>) => r.purchase_price_net as number)
-            .filter(Boolean);
-          const leasingRates = data
-            .filter((r: Record<string, unknown>) => r.leasing_enabled)
-            .map((r: Record<string, unknown>) => r.leasing_rate_net as number)
-            .filter(Boolean);
-          const financingRates = data
-            .filter((r: Record<string, unknown>) => r.financing_enabled)
-            .map((r: Record<string, unknown>) => r.financing_rate_net as number)
-            .filter(Boolean);
-          const powerValues = data
-            .map((r: Record<string, unknown>) => r.power_ps as number)
-            .filter(Boolean);
-
-          const availableEquipment = EQUIPMENT_FEATURES.filter((feat) =>
-            data.some((r: Record<string, unknown>) =>
-              feat.check(r.equipment as Record<string, unknown> | null)
-            )
-          ).map((f) => f.key);
-
-          setFilterOptions({
-            brands,
-            allModels,
-            bodyTypes,
-            fuelTypes,
-            colors,
-            doorValues,
-            priceRange: prices.length
-              ? [Math.min(...prices), Math.max(...prices)]
-              : [0, 500000],
-            leasingRange: leasingRates.length
-              ? [Math.min(...leasingRates), Math.max(...leasingRates)]
-              : [0, 5000],
-            financingRange: financingRates.length
-              ? [Math.min(...financingRates), Math.max(...financingRates)]
-              : [0, 5000],
-            powerRange: powerValues.length
-              ? [Math.min(...powerValues), Math.max(...powerValues)]
-              : [50, 700],
-            availableEquipment,
-          });
+            new Set(data.map((r: { brand: string }) => r.brand))
+          ).filter(Boolean).sort();
+          setVmBrands(brands);
+          setVmAllModels(
+            data
+              .filter((r: { brand: string; model: string }) => r.brand && r.model)
+              .map((r: { brand: string; model: string }) => ({ brand: r.brand, model: r.model }))
+          );
         }
       } catch {
-        // DB not available yet
+        // DB not available
       }
     })();
-  }, [supabase]);
+  }, [supabase, filters.vehicleType, draft.vehicleType, filtersOpen]);
+
+  // ── Load bookmarks from DB ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!user) {
+      setBookmarkedIds(new Set());
+      return;
+    }
+    (async () => {
+      const { data } = await supabase
+        .from("bookmarks")
+        .select("instant_offer_id")
+        .eq("user_id", user.id);
+      if (data) {
+        setBookmarkedIds(new Set(data.map((b: { instant_offer_id: string }) => b.instant_offer_id)));
+      }
+    })();
+  }, [supabase, user]);
 
   // ── Models filtered by selected brands ───────────────────────────────────
   const filteredModels = useMemo(() => {
     const brandsToUse = filtersOpen ? draft.brands : filters.brands;
-    if (brandsToUse.length === 0) {
-      return Array.from(
-        new Set(filterOptions.allModels.map((m) => m.model))
-      )
-        .filter(Boolean)
-        .sort();
-    }
-    return Array.from(
-      new Set(
-        filterOptions.allModels
-          .filter((m) => brandsToUse.includes(m.brand))
-          .map((m) => m.model)
-      )
-    )
-      .filter(Boolean)
-      .sort();
-  }, [filterOptions.allModels, filters.brands, draft.brands, filtersOpen]);
+    const models = brandsToUse.length === 0
+      ? vmAllModels
+      : vmAllModels.filter((m) => brandsToUse.includes(m.brand));
+    return Array.from(new Set(models.map((m) => m.model))).filter(Boolean).sort();
+  }, [vmAllModels, filters.brands, draft.brands, filtersOpen]);
 
   // ── Fetch offers ─────────────────────────────────────────────────────────
   const fetchOffers = useCallback(
@@ -652,38 +594,19 @@ export function InstantOfferMarketplace() {
         else if (filters.metallic === "no")
           query = query.eq("metallic", false);
 
-        // Price ranges (convert gross input to net for DB query)
-        const pm = showGross ? 1 / VAT_RATE : 1;
+        // Price ranges (all values are net)
         if (filters.priceMin > 0)
-          query = query.gte(
-            "purchase_price_net",
-            Math.round(filters.priceMin * pm)
-          );
+          query = query.gte("purchase_price_net", filters.priceMin);
         if (filters.priceMax < 500000)
-          query = query.lte(
-            "purchase_price_net",
-            Math.round(filters.priceMax * pm)
-          );
+          query = query.lte("purchase_price_net", filters.priceMax);
         if (filters.leasingMin > 0)
-          query = query.gte(
-            "leasing_rate_net",
-            Math.round(filters.leasingMin * pm)
-          );
+          query = query.gte("leasing_rate_net", filters.leasingMin);
         if (filters.leasingMax < 5000)
-          query = query.lte(
-            "leasing_rate_net",
-            Math.round(filters.leasingMax * pm)
-          );
+          query = query.lte("leasing_rate_net", filters.leasingMax);
         if (filters.financingMin > 0)
-          query = query.gte(
-            "financing_rate_net",
-            Math.round(filters.financingMin * pm)
-          );
+          query = query.gte("financing_rate_net", filters.financingMin);
         if (filters.financingMax < 5000)
-          query = query.lte(
-            "financing_rate_net",
-            Math.round(filters.financingMax * pm)
-          );
+          query = query.lte("financing_rate_net", filters.financingMax);
 
         // Pricing pills (OR logic)
         if (pricingPills.length > 0) {
@@ -795,7 +718,6 @@ export function InstantOfferMarketplace() {
       sortBy,
       filters,
       pricingPills,
-      showGross,
       tab,
       bookmarkedIds,
       isLoggedIn,
@@ -816,17 +738,11 @@ export function InstantOfferMarketplace() {
       isInitialized.current = true;
       return;
     }
-    const params = filtersToParams(
-      search,
-      sortBy,
-      showGross,
-      filters,
-      pricingPills
-    );
+    const params = filtersToParams(search, sortBy, filters, pricingPills);
     const str = params.toString();
     const newUrl = str ? `${pathname}?${str}` : pathname;
     router.replace(newUrl, { scroll: false });
-  }, [search, sortBy, showGross, filters, pricingPills, pathname, router]);
+  }, [search, sortBy, filters, pricingPills, pathname, router]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -836,13 +752,44 @@ export function InstantOfferMarketplace() {
     fetchOffers(next, true);
   };
 
-  const handleBookmarkToggle = (offerId: string) => {
+  const handleBookmarkToggle = async (offerId: string) => {
+    if (!user) return;
+    const wasBookmarked = bookmarkedIds.has(offerId);
+
+    // Optimistic update
     setBookmarkedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(offerId)) next.delete(offerId);
+      if (wasBookmarked) next.delete(offerId);
       else next.add(offerId);
       return next;
     });
+
+    // Persist to DB
+    if (wasBookmarked) {
+      const { error } = await supabase
+        .from("bookmarks")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("instant_offer_id", offerId);
+      if (error) {
+        // Revert on failure
+        setBookmarkedIds((prev) => new Set(prev).add(offerId));
+        toast.error("Lesezeichen konnte nicht entfernt werden");
+      }
+    } else {
+      const { error } = await supabase
+        .from("bookmarks")
+        .insert({ user_id: user.id, instant_offer_id: offerId });
+      if (error) {
+        // Revert on failure
+        setBookmarkedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(offerId);
+          return next;
+        });
+        toast.error("Lesezeichen konnte nicht gesetzt werden");
+      }
+    }
   };
 
   const handleInquiry = async (offerId: string, dealerId: string) => {
@@ -900,7 +847,6 @@ export function InstantOfferMarketplace() {
   const resetAllFilters = () => {
     setSearch("");
     setSortBy("newest");
-    setShowGross(false);
     setPricingPills([]);
     const reset = { ...DEFAULT_ADVANCED };
     setFilters(reset);
@@ -1023,7 +969,7 @@ export function InstantOfferMarketplace() {
       });
 
     filters.equipment.forEach((eq) => {
-      const feat = EQUIPMENT_FEATURES.find((f2) => f2.key === eq);
+      const feat = ALL_EQUIPMENT_FEATURES.find((f2) => f2.key === eq);
       if (feat)
         pills.push({
           label: feat.label,
@@ -1037,7 +983,7 @@ export function InstantOfferMarketplace() {
 
     if (filters.priceMin > 0 || filters.priceMax < 500000)
       pills.push({
-        label: `${formatPrice(filters.priceMin, showGross)}–${formatPrice(filters.priceMax, showGross)} €`,
+        label: `${formatPrice(filters.priceMin)}–${formatPrice(filters.priceMax)} €`,
         clear: () =>
           setFilters((f) => ({ ...f, priceMin: 0, priceMax: 500000 })),
       });
@@ -1062,7 +1008,7 @@ export function InstantOfferMarketplace() {
     );
 
     return pills;
-  }, [filters, pricingPills, showGross]);
+  }, [filters, pricingPills]);
 
   const remaining = totalCount - offers.length;
   const instantOfferLimit = getInstantOfferLimit();
@@ -1095,52 +1041,23 @@ export function InstantOfferMarketplace() {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-            Preisanzeige
-          </span>
-          <div className="flex items-center gap-2">
-            <span
-              className={`text-xs font-medium ${!showGross ? "text-navy-950" : "text-slate-400"}`}
-            >
-              Netto
-            </span>
-            <button
-              onClick={() => setShowGross(!showGross)}
-              className={`relative w-9 h-5 rounded-full transition-colors ${showGross ? "bg-blue-600" : "bg-slate-300"}`}
-            >
-              <span
-                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${showGross ? "translate-x-[18px]" : "translate-x-0.5"}`}
-              />
-            </button>
-            <span
-              className={`text-xs font-medium ${showGross ? "text-navy-950" : "text-slate-400"}`}
-            >
-              Brutto
-            </span>
-          </div>
-        </div>
       </div>
 
-      {/* Filter groups grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
-        {/* ── Fahrzeug ── */}
-        <div className="space-y-4">
-          <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+      {/* Filter groups – 2 columns + full-width equipment */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+        {/* ── Left: Fahrzeug ── */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pb-1 border-b border-slate-100">
             Fahrzeug
           </h3>
           <div>
-            <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-              Fahrzeugart
-            </label>
-            <div className="flex gap-1">
+            <label className="text-sm font-medium text-slate-600 mb-1 block">Fahrzeugart</label>
+            <div className="flex gap-1.5">
               {(["", "PKW", "NFZ"] as const).map((t) => (
                 <button
                   key={t || "alle"}
-                  onClick={() =>
-                    setDraft((d) => ({ ...d, vehicleType: t }))
-                  }
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                  onClick={() => setDraft((d) => ({ ...d, vehicleType: t }))}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
                     draft.vehicleType === t
                       ? "bg-blue-600 text-white"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -1151,80 +1068,116 @@ export function InstantOfferMarketplace() {
               ))}
             </div>
           </div>
-          <div>
-            <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-              Marke
-            </label>
-            <MultiSelectDropdown
-              options={filterOptions.brands}
-              selected={draft.brands}
-              onChange={(v) =>
-                setDraft((d) => ({ ...d, brands: v, modelSeries: [] }))
-              }
-              placeholder="Alle Marken"
-              searchPlaceholder="Marke suchen..."
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm font-medium text-slate-600 mb-1 block">Marke</label>
+              <MultiSelectDropdown
+                options={vmBrands}
+                selected={draft.brands}
+                onChange={(v) => setDraft((d) => ({ ...d, brands: v, modelSeries: [] }))}
+                placeholder="Alle Marken"
+                searchPlaceholder="Marke suchen..."
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-600 mb-1 block">Modellreihe</label>
+              <MultiSelectDropdown
+                options={filteredModels}
+                selected={draft.modelSeries}
+                onChange={(v) => setDraft((d) => ({ ...d, modelSeries: v }))}
+                placeholder="Alle Modelle"
+                searchPlaceholder="Modell suchen..."
+              />
+            </div>
           </div>
-          <div>
-            <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-              Modellreihe
-            </label>
-            <MultiSelectDropdown
-              options={filteredModels}
-              selected={draft.modelSeries}
-              onChange={(v) => setDraft((d) => ({ ...d, modelSeries: v }))}
-              placeholder="Alle Modelle"
-              searchPlaceholder="Modell suchen..."
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm font-medium text-slate-600 mb-1 block">Modellbezeichnung</label>
+              <Input
+                value={draft.modelName}
+                onChange={(e) => setDraft((d) => ({ ...d, modelName: e.target.value }))}
+                placeholder="z.B. 320d xDrive"
+                className="h-10 rounded-xl border-slate-200"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-600 mb-1 block">Ausstattungslinie</label>
+              <Input
+                value={draft.trimLevel}
+                onChange={(e) => setDraft((d) => ({ ...d, trimLevel: e.target.value }))}
+                placeholder="z.B. Sport Line"
+                className="h-10 rounded-xl border-slate-200"
+              />
+            </div>
           </div>
-          <div>
-            <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-              Modellbezeichnung
-            </label>
-            <Input
-              value={draft.modelName}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, modelName: e.target.value }))
-              }
-              placeholder="z.B. 320d xDrive"
-              className="h-10 rounded-xl border-slate-200"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-              Ausstattungslinie
-            </label>
-            <Input
-              value={draft.trimLevel}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, trimLevel: e.target.value }))
-              }
-              placeholder="z.B. Sport Line"
-              className="h-10 rounded-xl border-slate-200"
-            />
+
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pb-1 border-b border-slate-100 !mt-5">
+            Farbe & Optik
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm font-medium text-slate-600 mb-1 block">Farbe</label>
+              <Input
+                value={draft.color}
+                onChange={(e) => setDraft((d) => ({ ...d, color: e.target.value }))}
+                placeholder="z.B. Schwarz, Weiß..."
+                className="h-10 rounded-xl border-slate-200"
+                list="color-opts"
+              />
+              <datalist id="color-opts">
+                {EXTERIOR_COLOR_OPTIONS.map((c) => (
+                  <option key={c.name} value={c.name} />
+                ))}
+              </datalist>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-600 mb-1 block">Metallic</label>
+              <div className="flex gap-1.5">
+                {([{ v: "", l: "Egal" }, { v: "yes", l: "Ja" }, { v: "no", l: "Nein" }] as const).map(({ v, l }) => (
+                  <button
+                    key={v}
+                    onClick={() => setDraft((d) => ({ ...d, metallic: v as AdvancedFilters["metallic"] }))}
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                      draft.metallic === v
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* ── Karosserie & Antrieb ── */}
-        <div className="space-y-4">
-          <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+        {/* ── Right: Karosserie, Antrieb, Preis, Standort ── */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pb-1 border-b border-slate-100">
             Karosserie & Antrieb
           </h3>
-          <div>
-            <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-              Karosserieform
-            </label>
-            <MultiSelectDropdown
-              options={BODY_TYPE_OPTIONS}
-              selected={draft.bodyTypes}
-              onChange={(v) => setDraft((d) => ({ ...d, bodyTypes: v }))}
-              placeholder="Alle Karosserieformen"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm font-medium text-slate-600 mb-1 block">Karosserieform</label>
+              <MultiSelectDropdown
+                options={BODY_TYPE_OPTIONS}
+                selected={draft.bodyTypes}
+                onChange={(v) => setDraft((d) => ({ ...d, bodyTypes: v }))}
+                placeholder="Alle Karosserieformen"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-600 mb-1 block">Kraftstoffart</label>
+              <MultiSelectDropdown
+                options={FUEL_TYPE_OPTIONS}
+                selected={draft.fuelTypes}
+                onChange={(v) => setDraft((d) => ({ ...d, fuelTypes: v }))}
+                placeholder="Alle Kraftstoffarten"
+              />
+            </div>
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-              Anzahl Türen
-            </label>
+            <label className="text-sm font-medium text-slate-600 mb-1 block">Türen</label>
             <div className="flex gap-1.5">
               {DOOR_OPTIONS.map((d) => (
                 <button
@@ -1237,7 +1190,7 @@ export function InstantOfferMarketplace() {
                         : [...prev.doors, d],
                     }))
                   }
-                  className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
                     draft.doors.includes(d)
                       ? "bg-blue-600 text-white"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -1248,359 +1201,258 @@ export function InstantOfferMarketplace() {
               ))}
             </div>
           </div>
-          <div>
-            <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-              Kraftstoffart
-            </label>
-            <MultiSelectDropdown
-              options={FUEL_TYPE_OPTIONS}
-              selected={draft.fuelTypes}
-              onChange={(v) => setDraft((d) => ({ ...d, fuelTypes: v }))}
-              placeholder="Alle Kraftstoffarten"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-              Getriebe
-            </label>
-            <div className="flex gap-1">
-              {(
-                [
-                  { v: "", l: "Alle" },
-                  { v: "Manuell", l: "Manuell" },
-                  { v: "Automatik", l: "Automatik" },
-                ] as const
-              ).map(({ v, l }) => (
-                <button
-                  key={v}
-                  onClick={() =>
-                    setDraft((d) => ({
-                      ...d,
-                      transmission:
-                        v as AdvancedFilters["transmission"],
-                    }))
-                  }
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                    draft.transmission === v
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-              Allradantrieb
-            </label>
-            <div className="flex gap-1">
-              {(
-                [
-                  { v: "", l: "Egal" },
-                  { v: "yes", l: "Ja" },
-                  { v: "no", l: "Nein" },
-                ] as const
-              ).map(({ v, l }) => (
-                <button
-                  key={v}
-                  onClick={() =>
-                    setDraft((d) => ({
-                      ...d,
-                      awd: v as AdvancedFilters["awd"],
-                    }))
-                  }
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                    draft.awd === v
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Leistung & Ausstattung ── */}
-        <div className="space-y-4">
-          <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-            Leistung & Ausstattung
-          </h3>
-          <div>
-            <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-              Motorleistung (PS)
-            </label>
-            <RangeSliderInput
-              min={filterOptions.powerRange[0]}
-              max={filterOptions.powerRange[1]}
-              valueMin={draft.powerMin}
-              valueMax={draft.powerMax}
-              onChange={(mn, mx) =>
-                setDraft((d) => ({ ...d, powerMin: mn, powerMax: mx }))
-              }
-              step={10}
-              unit="PS"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-              Farbe
-            </label>
-            <Input
-              value={draft.color}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, color: e.target.value }))
-              }
-              placeholder="z.B. Schwarz, Weiß..."
-              className="h-10 rounded-xl border-slate-200"
-              list="color-opts"
-            />
-            <datalist id="color-opts">
-              {filterOptions.colors.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-              Metallic
-            </label>
-            <div className="flex gap-1">
-              {(
-                [
-                  { v: "", l: "Egal" },
-                  { v: "yes", l: "Ja" },
-                  { v: "no", l: "Nein" },
-                ] as const
-              ).map(({ v, l }) => (
-                <button
-                  key={v}
-                  onClick={() =>
-                    setDraft((d) => ({
-                      ...d,
-                      metallic: v as AdvancedFilters["metallic"],
-                    }))
-                  }
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                    draft.metallic === v
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-slate-600 mb-2 block">
-              Ausstattung enthält
-            </label>
-            <div className="grid grid-cols-2 gap-1.5">
-              {EQUIPMENT_FEATURES.map((feat) => {
-                const available =
-                  filterOptions.availableEquipment.includes(feat.key);
-                const selected = draft.equipment.includes(feat.key);
-                return (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm font-medium text-slate-600 mb-1 block">Getriebe</label>
+              <div className="flex gap-1.5">
+                {([{ v: "", l: "Alle" }, { v: "Manuell", l: "Manuell" }, { v: "Automatik", l: "Auto" }] as const).map(({ v, l }) => (
                   <button
-                    key={feat.key}
-                    onClick={() => {
-                      if (!available) return;
-                      setDraft((d) => ({
-                        ...d,
-                        equipment: selected
-                          ? d.equipment.filter((x) => x !== feat.key)
-                          : [...d.equipment, feat.key],
-                      }));
-                    }}
-                    disabled={!available}
-                    className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
-                      selected
-                        ? "bg-blue-50 text-blue-700 border border-blue-200"
-                        : available
-                          ? "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-transparent"
-                          : "bg-slate-50 text-slate-300 cursor-not-allowed border border-transparent"
+                    key={v}
+                    onClick={() => setDraft((d) => ({ ...d, transmission: v as AdvancedFilters["transmission"] }))}
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                      draft.transmission === v
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                   >
-                    <div
-                      className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${
-                        selected
-                          ? "bg-blue-600 border-blue-600"
-                          : available
-                            ? "border-slate-300"
-                            : "border-slate-200"
-                      }`}
-                    >
-                      {selected && (
-                        <svg
-                          className="w-2.5 h-2.5 text-white"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={3}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      )}
-                    </div>
-                    {feat.label}
+                    {l}
                   </button>
-                );
-              })}
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-600 mb-1 block">Allrad</label>
+              <div className="flex gap-1.5">
+                {([{ v: "", l: "Egal" }, { v: "yes", l: "Ja" }, { v: "no", l: "Nein" }] as const).map(({ v, l }) => (
+                  <button
+                    key={v}
+                    onClick={() => setDraft((d) => ({ ...d, awd: v as AdvancedFilters["awd"] }))}
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                      draft.awd === v
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-600 mb-1 block">Motorleistung (PS)</label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                value={draft.powerMin || ""}
+                onChange={(e) => setDraft((d) => ({ ...d, powerMin: Number(e.target.value) || 0 }))}
+                placeholder="von"
+                className="h-10 rounded-xl border-slate-200 text-center"
+              />
+              <span className="text-slate-300 shrink-0">—</span>
+              <Input
+                type="number"
+                value={draft.powerMax || ""}
+                onChange={(e) => setDraft((d) => ({ ...d, powerMax: Number(e.target.value) || 700 }))}
+                placeholder="bis"
+                className="h-10 rounded-xl border-slate-200 text-center"
+              />
+              <span className="text-xs text-slate-400 shrink-0">PS</span>
+            </div>
+          </div>
+
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pb-1 border-b border-slate-100 !mt-5">
+            Preis (Netto)
+          </h3>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-sm font-medium text-slate-600 mb-1 block">Kaufpreis</label>
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="number"
+                  value={draft.priceMin || ""}
+                  onChange={(e) => setDraft((d) => ({ ...d, priceMin: Number(e.target.value) || 0 }))}
+                  placeholder="von"
+                  className="h-10 rounded-xl border-slate-200 text-center text-sm"
+                />
+                <span className="text-slate-300 shrink-0">–</span>
+                <Input
+                  type="number"
+                  value={draft.priceMax >= 500000 ? "" : draft.priceMax}
+                  onChange={(e) => setDraft((d) => ({ ...d, priceMax: Number(e.target.value) || 500000 }))}
+                  placeholder="bis"
+                  className="h-10 rounded-xl border-slate-200 text-center text-sm"
+                />
+                <span className="text-xs text-slate-400 shrink-0">€</span>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-600 mb-1 block">Leasing/Mon.</label>
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="number"
+                  value={draft.leasingMin || ""}
+                  onChange={(e) => setDraft((d) => ({ ...d, leasingMin: Number(e.target.value) || 0 }))}
+                  placeholder="von"
+                  className="h-10 rounded-xl border-slate-200 text-center text-sm"
+                />
+                <span className="text-slate-300 shrink-0">–</span>
+                <Input
+                  type="number"
+                  value={draft.leasingMax >= 5000 ? "" : draft.leasingMax}
+                  onChange={(e) => setDraft((d) => ({ ...d, leasingMax: Number(e.target.value) || 5000 }))}
+                  placeholder="bis"
+                  className="h-10 rounded-xl border-slate-200 text-center text-sm"
+                />
+                <span className="text-xs text-slate-400 shrink-0">€</span>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-600 mb-1 block">Finanz./Mon.</label>
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="number"
+                  value={draft.financingMin || ""}
+                  onChange={(e) => setDraft((d) => ({ ...d, financingMin: Number(e.target.value) || 0 }))}
+                  placeholder="von"
+                  className="h-10 rounded-xl border-slate-200 text-center text-sm"
+                />
+                <span className="text-slate-300 shrink-0">–</span>
+                <Input
+                  type="number"
+                  value={draft.financingMax >= 5000 ? "" : draft.financingMax}
+                  onChange={(e) => setDraft((d) => ({ ...d, financingMax: Number(e.target.value) || 5000 }))}
+                  placeholder="bis"
+                  className="h-10 rounded-xl border-slate-200 text-center text-sm"
+                />
+                <span className="text-xs text-slate-400 shrink-0">€</span>
+              </div>
+            </div>
+          </div>
+
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pb-1 border-b border-slate-100 !mt-5">
+            Standort & Lieferung
+          </h3>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-sm font-medium text-slate-600 mb-1 block">PLZ / Ort</label>
+              <Input
+                value={draft.plz}
+                onChange={(e) => setDraft((d) => ({ ...d, plz: e.target.value }))}
+                placeholder="z.B. 80331"
+                className="h-10 rounded-xl border-slate-200"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-600 mb-1 block">Umkreis</label>
+              <Select
+                value={draft.radius || "__bw__"}
+                onValueChange={(v) => setDraft((d) => ({ ...d, radius: v === "__bw__" ? "" : (v ?? "") }))}
+              >
+                <SelectTrigger className="h-10 border-slate-200 rounded-xl">
+                  <SelectValue placeholder="Bundesweit" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__bw__">Bundesweit</SelectItem>
+                  {RADIUS_OPTIONS.map((r) => (
+                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-600 mb-1 block">Lieferbar bis</label>
+              <Input
+                type="date"
+                value={draft.deliveryBefore}
+                onChange={(e) => setDraft((d) => ({ ...d, deliveryBefore: e.target.value }))}
+                className="h-10 rounded-xl border-slate-200"
+              />
             </div>
           </div>
         </div>
+      </div>
 
-        {/* ── Preis ── */}
-        <div className="space-y-4">
-          <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-            Preis {showGross ? "(Brutto)" : "(Netto)"}
-          </h3>
-          <div>
-            <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-              Kaufpreis
-            </label>
-            <RangeSliderInput
-              min={
-                showGross
-                  ? Math.round(filterOptions.priceRange[0] * VAT_RATE)
-                  : filterOptions.priceRange[0]
-              }
-              max={
-                showGross
-                  ? Math.round(filterOptions.priceRange[1] * VAT_RATE)
-                  : filterOptions.priceRange[1]
-              }
-              valueMin={draft.priceMin}
-              valueMax={draft.priceMax}
-              onChange={(mn, mx) =>
-                setDraft((d) => ({ ...d, priceMin: mn, priceMax: mx }))
-              }
-              step={1000}
-              unit="€"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-              Leasingrate
-            </label>
-            <RangeSliderInput
-              min={
-                showGross
-                  ? Math.round(filterOptions.leasingRange[0] * VAT_RATE)
-                  : filterOptions.leasingRange[0]
-              }
-              max={
-                showGross
-                  ? Math.round(filterOptions.leasingRange[1] * VAT_RATE)
-                  : filterOptions.leasingRange[1]
-              }
-              valueMin={draft.leasingMin}
-              valueMax={draft.leasingMax}
-              onChange={(mn, mx) =>
-                setDraft((d) => ({ ...d, leasingMin: mn, leasingMax: mx }))
-              }
-              step={50}
-              unit="€/Mon."
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-              Finanzierungsrate
-            </label>
-            <RangeSliderInput
-              min={
-                showGross
-                  ? Math.round(filterOptions.financingRange[0] * VAT_RATE)
-                  : filterOptions.financingRange[0]
-              }
-              max={
-                showGross
-                  ? Math.round(filterOptions.financingRange[1] * VAT_RATE)
-                  : filterOptions.financingRange[1]
-              }
-              valueMin={draft.financingMin}
-              valueMax={draft.financingMax}
-              onChange={(mn, mx) =>
-                setDraft((d) => ({
-                  ...d,
-                  financingMin: mn,
-                  financingMax: mx,
-                }))
-              }
-              step={50}
-              unit="€/Mon."
-            />
-          </div>
-        </div>
-
-        {/* ── Standort & Lieferung ── */}
-        <div className="space-y-4">
-          <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-            Standort & Lieferung
-          </h3>
-          <div>
-            <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-              PLZ oder Ort
-            </label>
-            <Input
-              value={draft.plz}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, plz: e.target.value }))
-              }
-              placeholder="z.B. 80331"
-              className="h-10 rounded-xl border-slate-200"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-              Umkreis
-            </label>
-            <Select
-              value={draft.radius || "__bw__"}
-              onValueChange={(v) =>
-                setDraft((d) => ({
-                  ...d,
-                  radius: v === "__bw__" ? "" : (v ?? ""),
-                }))
-              }
-            >
-              <SelectTrigger className="h-10 border-slate-200 rounded-xl">
-                <SelectValue placeholder="Bundesweit" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__bw__">Bundesweit</SelectItem>
-                {RADIUS_OPTIONS.map((r) => (
-                  <SelectItem key={r.value} value={r.value}>
-                    {r.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-              Lieferbar bis
-            </label>
-            <Input
-              type="date"
-              value={draft.deliveryBefore}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  deliveryBefore: e.target.value,
-                }))
-              }
-              className="h-10 rounded-xl border-slate-200"
-            />
-          </div>
+      {/* ── Ausstattung (full width) ── */}
+      <div className="mt-5">
+        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pb-1 border-b border-slate-100 mb-3">
+          Ausstattung
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          {EQUIPMENT_GROUPS.map((group) => {
+            const isOpen = expandedEquipGroups.has(group.label);
+            const selectedCount = group.items.filter((f) =>
+              draft.equipment.includes(f.key)
+            ).length;
+            return (
+              <div key={group.label} className="border border-slate-200 rounded-xl overflow-hidden">
+                <button
+                  onClick={() =>
+                    setExpandedEquipGroups((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(group.label)) next.delete(group.label);
+                      else next.add(group.label);
+                      return next;
+                    })
+                  }
+                  className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors"
+                >
+                  <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    {group.label}
+                    {selectedCount > 0 && (
+                      <span className="ml-1.5 inline-flex items-center justify-center text-[10px] font-bold bg-blue-600 text-white rounded-full px-1.5 py-0.5">
+                        {selectedCount}
+                      </span>
+                    )}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={`text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+                {isOpen && (
+                  <div className="grid grid-cols-2 gap-1 p-2">
+                    {group.items.map((feat) => {
+                      const selected = draft.equipment.includes(feat.key);
+                      return (
+                        <button
+                          key={feat.key}
+                          onClick={() =>
+                            setDraft((d) => ({
+                              ...d,
+                              equipment: selected
+                                ? d.equipment.filter((x) => x !== feat.key)
+                                : [...d.equipment, feat.key],
+                            }))
+                          }
+                          className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
+                            selected
+                              ? "bg-blue-50 text-blue-700 border border-blue-200"
+                              : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-transparent"
+                          }`}
+                        >
+                          <div
+                            className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                              selected
+                                ? "bg-blue-600 border-blue-600"
+                                : "border-slate-300"
+                            }`}
+                          >
+                            {selected && (
+                              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                          {feat.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -1778,27 +1630,6 @@ export function InstantOfferMarketplace() {
               </Select>
             </div>
 
-            {/* Brutto/Netto toggle (desktop) */}
-            <div className="hidden md:flex items-center gap-1.5 shrink-0">
-              <span
-                className={`text-xs font-medium ${!showGross ? "text-navy-950" : "text-slate-400"}`}
-              >
-                Netto
-              </span>
-              <button
-                onClick={() => setShowGross(!showGross)}
-                className={`relative w-9 h-5 rounded-full transition-colors ${showGross ? "bg-blue-600" : "bg-slate-300"}`}
-              >
-                <span
-                  className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${showGross ? "translate-x-[18px]" : "translate-x-0.5"}`}
-                />
-              </button>
-              <span
-                className={`text-xs font-medium ${showGross ? "text-navy-950" : "text-slate-400"}`}
-              >
-                Brutto
-              </span>
-            </div>
           </div>
         </div>
       </div>
@@ -1920,17 +1751,6 @@ export function InstantOfferMarketplace() {
                 <Plus size={18} /> Sofort-Angebot erstellen
               </Button>
             )}
-          </div>
-        )}
-
-        {/* Bookmarks hint */}
-        {isLoggedIn && isBuyer && tab === "bookmarked" && (
-          <div className="flex items-start gap-2 mb-6 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
-            <Info size={16} className="shrink-0 mt-0.5" />
-            <span>
-              Ihre Merkzettel werden aktuell nicht gespeichert. Diese
-              Funktion wird bald erweitert.
-            </span>
           </div>
         )}
 

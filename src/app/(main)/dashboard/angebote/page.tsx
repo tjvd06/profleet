@@ -619,7 +619,7 @@ export default function DealerOffersPage() {
     const firstOffer = groupOffers[0];
     const buyer = firstOffer.tenders?.buyer_id ? buyerProfiles[firstOffer.tenders.buyer_id] : null;
     const isMulti = groupOffers.length > 1;
-    const grandTotal = groupOffers.reduce((s: number, o: any) => s + (o.total_price ?? 0), 0);
+    const grandTotal = groupOffers.reduce((s: number, o: any) => s + ((o.total_price ?? 0) * (o.offered_quantity ?? 1)), 0);
     const tenderId = firstOffer.tender_id;
     const contact = getContactForTender(tenderId);
     const rawTenderStatus = firstOffer.tenders?.status;
@@ -771,13 +771,13 @@ export default function DealerOffersPage() {
     // Build offer lookup by tender_vehicle_id
     const offerByVehicleId: Record<string, any> = {};
     groupOffers.forEach((o: any) => { if (o.tender_vehicle_id) offerByVehicleId[o.tender_vehicle_id] = o; });
-    const grandTotal = groupOffers.reduce((s: number, o: any) => s + (o.total_price ?? 0), 0);
+    const grandTotal = groupOffers.reduce((s: number, o: any) => s + ((o.total_price ?? 0) * (o.offered_quantity ?? 1)), 0);
     const totalOfferedQty = groupOffers.reduce((s: number, o: any) => s + (o.offered_quantity ?? 1), 0);
 
     // Delivery location from tender
     const deliveryLocation = tender?.delivery_plz
       ? `${tender.delivery_city || "Unbekannt"} (${tender.delivery_plz})`
-      : tender?.tender_scope === "bundesweit" ? "Bundesweit" : tender?.tender_scope === "lokal" ? "Lokal" : null;
+      : "Deutschland";
 
     return (
       <Card key={tenderId} className="border-slate-200 shadow-sm rounded-3xl overflow-hidden">

@@ -13,7 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Save, User, Building2, X, PartyPopper } from "lucide-react";
+import {
+  Loader2, Save, User, Building2, X, PartyPopper,
+  Inbox, MessageCircle, Star, FileText, Zap, InboxIcon, Activity,
+} from "lucide-react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/components/providers/auth-provider";
 import { toast } from "sonner";
@@ -55,12 +59,35 @@ type ProfileForm = {
   brands: string[];
 };
 
+type ActivityItem = {
+  id: string;
+  type: "offer" | "message" | "review" | "tender" | "instant_offer";
+  title: string;
+  subtitle: string;
+  time: string;
+  href: string;
+};
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Gerade eben";
+  if (mins < 60) return `vor ${mins} Min.`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `vor ${hours} Std.`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `vor ${days} Tag${days > 1 ? "en" : ""}`;
+  return new Date(dateStr).toLocaleDateString("de-DE", { day: "2-digit", month: "short", year: "numeric" });
+}
+
 export default function ProfilePage() {
   const { user, profile, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const isWelcome = searchParams.get("welcome") === "1";
   const [supabase] = useState(() => createClient());
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(true);
 
   const [form, setForm] = useState<ProfileForm>({
     first_name: "",
@@ -117,6 +144,152 @@ export default function ProfilePage() {
       setLoading(false);
     })();
   }, [authLoading, user?.id]);
+
+  // ─── Load all activities ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (authLoading || !user) return;
+    let cancelled = false;
+    const isDealer = profile?.role === "anbieter";
+
+    (async () => {
+      try {
+        const activityItems: ActivityItem[] = [];
+
+        if (!isDealer) {
+          // Buyer activities
+          const [tendersRes, reviewsRes, messagesRes] = await Promise.all([
+            supabase
+              .from("tenders")
+              .select("id, status, created_at, tender_vehicles(brand, model_name), offers(id, created_at)")
+              .eq("buyer_id", user.id) as any,
+            supabase.from("reviews").select("id, from_user_id, to_user_id, type, created_at").or(`from_user_id.eq.${user.id},to_user_id.eq.${user.id}`) as any,
+            supabase.from("messages").select("id, sender_id, content, created_at").neq("sender_id", user.id).order("created_at", { ascending: false }).limit(50) as any,
+          ]);
+
+          // Offers received
+          ((tendersRes as any)?.data || []).forEach((t: any) => {
+            ((t.offers as any[]) || []).forEach((o: any) => {
+              const vehicle = t.tender_vehicles?.[0];
+              const vehicleName = vehicle ? [vehicle.brand, vehicle.model_name].filter(Boolean).join(" ") : "Fahrzeug";
+              activityItems.push({
+                id: `offer-${o.id}`,
+                type: "offer",
+                title: "Neues Angebot erhalten",
+                subtitle: `Für ${vehicleName}`,
+                time: o.created_at,
+                href: `/dashboard/ausschreibungen`,
+              });
+            });
+          });
+
+          // Messages
+          ((messagesRes as any)?.data || []).forEach((m: any) => {
+            activityItems.push({
+              id: `msg-${m.id}`,
+              type: "message",
+              title: "Neue Nachricht",
+              subtitle: m.content?.substring(0, 50) + (m.content?.length > 50 ? "\u2026" : ""),
+              time: m.created_at,
+              href: `/dashboard/nachrichten`,
+            });
+          });
+
+          // Reviews received
+          ((reviewsRes as any)?.data || [])
+            .filter((r: any) => r.to_user_id === user.id)
+            .forEach((r: any) => {
+              activityItems.push({
+                id: `review-${r.id}`,
+                type: "review",
+                title: "Neue Bewertung erhalten",
+                subtitle: r.type === "positive" ? "Positive Bewertung" : r.type === "neutral" ? "Neutrale Bewertung" : "Negative Bewertung",
+                time: r.created_at,
+                href: `/dashboard/bewertungen`,
+              });
+            });
+        } else {
+          // Dealer activities
+          const [tendersRes, contactsRes, reviewsRes, messagesRes] = await Promise.all([
+            supabase.from("tenders").select("id, created_at, tender_vehicles(brand, model_name)").eq("status", "active").order("created_at", { ascending: false }).limit(50) as any,
+            supabase.from("contacts").select("id, instant_offer_id, created_at").eq("dealer_id", user.id).order("created_at", { ascending: false }).limit(50) as any,
+            supabase.from("reviews").select("id, from_user_id, to_user_id, type, created_at").or(`from_user_id.eq.${user.id},to_user_id.eq.${user.id}`) as any,
+            supabase.from("messages").select("id, sender_id, content, created_at").neq("sender_id", user.id).order("created_at", { ascending: false }).limit(50) as any,
+          ]);
+
+          // Tenders
+          ((tendersRes as any)?.data || []).forEach((t: any) => {
+            const vehicle = t.tender_vehicles?.[0];
+            const vehicleName = vehicle ? [vehicle.brand, vehicle.model_name].filter(Boolean).join(" ") : "Fahrzeug";
+            activityItems.push({
+              id: `tender-${t.id}`,
+              type: "tender",
+              title: "Neue Ausschreibung",
+              subtitle: vehicleName,
+              time: t.created_at,
+              href: `/dashboard/eingang`,
+            });
+          });
+
+          // Contacts
+          ((contactsRes as any)?.data || []).forEach((c: any) => {
+            activityItems.push({
+              id: `contact-${c.id}`,
+              type: "offer",
+              title: "Neuer Kontaktwunsch",
+              subtitle: c.instant_offer_id ? "Sofort-Angebot Anfrage" : "Ausschreibungs-Anfrage",
+              time: c.created_at,
+              href: `/dashboard/nachrichten`,
+            });
+          });
+
+          // Messages
+          ((messagesRes as any)?.data || []).forEach((m: any) => {
+            activityItems.push({
+              id: `msg-${m.id}`,
+              type: "message",
+              title: "Neue Nachricht",
+              subtitle: m.content?.substring(0, 50) + (m.content?.length > 50 ? "\u2026" : ""),
+              time: m.created_at,
+              href: `/dashboard/nachrichten`,
+            });
+          });
+
+          // Reviews received
+          ((reviewsRes as any)?.data || [])
+            .filter((r: any) => r.to_user_id === user.id)
+            .forEach((r: any) => {
+              activityItems.push({
+                id: `review-${r.id}`,
+                type: "review",
+                title: "Neue Bewertung erhalten",
+                subtitle: r.type === "positive" ? "Positive Bewertung" : r.type === "neutral" ? "Neutrale Bewertung" : "Negative Bewertung",
+                time: r.created_at,
+                href: `/dashboard/bewertungen`,
+              });
+            });
+        }
+
+        activityItems.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+        if (!cancelled) setActivities(activityItems);
+      } catch (e) {
+        console.error("[Profil] Activities load error:", e);
+      } finally {
+        if (!cancelled) setActivitiesLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [authLoading, user?.id, profile?.role]);
+
+  const activityIcon = (type: ActivityItem["type"]) => {
+    switch (type) {
+      case "offer": return <Inbox size={16} className="text-emerald-600" />;
+      case "message": return <MessageCircle size={16} className="text-blue-600" />;
+      case "review": return <Star size={16} className="text-amber-500" />;
+      case "tender": return <FileText size={16} className="text-blue-600" />;
+      case "instant_offer": return <Zap size={16} className="text-purple-600" />;
+    }
+  };
 
   const update = (patch: Partial<ProfileForm>) => setForm((prev) => ({ ...prev, ...patch }));
 
@@ -439,6 +612,49 @@ export default function ProfilePage() {
             {saving ? <Loader2 className="animate-spin mr-2" size={18} /> : <Save size={18} className="mr-2" />}
             Profil speichern
           </Button>
+        </div>
+
+        {/* Alle Aktivitäten */}
+        <div id="aktivitaeten" className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-8 py-6 border-b border-slate-100 flex items-center gap-3">
+            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+              <Activity size={20} className="text-slate-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-navy-950">Alle Aktivitäten</h2>
+              <p className="text-sm text-slate-500">Ihre gesamte Aktivitätshistorie</p>
+            </div>
+          </div>
+          <div className="p-6 md:p-8">
+            {activitiesLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 size={24} className="animate-spin text-slate-300" />
+              </div>
+            ) : activities.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 text-slate-300">
+                  <InboxIcon size={32} />
+                </div>
+                <h4 className="text-lg font-bold text-navy-950 mb-2">Noch keine Aktivitäten</h4>
+                <p className="text-sm text-slate-500 max-w-xs">Ihre Aktivitäten werden hier angezeigt, sobald es Neuigkeiten gibt.</p>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {activities.map((a) => (
+                  <Link key={a.id} href={a.href} className="flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors group/item">
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 mt-0.5 group-hover/item:bg-slate-200 transition-colors">
+                      {activityIcon(a.type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-navy-950 truncate">{a.title}</p>
+                      <p className="text-xs text-slate-500 truncate">{a.subtitle}</p>
+                    </div>
+                    <span className="text-xs text-slate-400 shrink-0 mt-1">{timeAgo(a.time)}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
