@@ -55,16 +55,25 @@ type TenderInfo = {
   tender_vehicles: { brand: string | null; model_name: string | null; quantity: number }[];
 };
 
+type InstantOfferInfo = {
+  id: string;
+  brand: string | null;
+  model_name: string | null;
+  status: string;
+};
+
 type ContactWithProfile = {
   id: string;
-  tender_id: string;
-  offer_id: string;
+  tender_id: string | null;
+  offer_id: string | null;
+  instant_offer_id: string | null;
   buyer_id: string;
   dealer_id: string;
   status: string;
   created_at: string;
   partner: PartnerProfile | null;
   tender: TenderInfo | null;
+  instantOffer: InstantOfferInfo | null;
   tenderLabel: string;
   lastMessage: string | null;
   lastMessageAt: string | null;
@@ -187,10 +196,20 @@ export default function MessagesPage() {
       );
       const uniquePartnerIds = Array.from(new Set(partnerIds));
 
-      const [profilesResult, messagesResult, tendersResult] = await Promise.all([
-        supabase.from("profiles").select("id, company_name, first_name, last_name, phone, email_public, city, zip, street, role, industry, dealer_type").in("id", uniquePartnerIds),
-        supabase.from("messages").select("contact_id, content, sender_id, read, created_at").in("contact_id", rawContacts.map((c: any) => c.id)).order("created_at", { ascending: false }),
-        supabase.from("tenders").select("id, status, tender_vehicles(brand, model_name, quantity)").in("id", rawContacts.map((c: any) => c.tender_id)),
+      const tenderIds = rawContacts.map((c: any) => c.tender_id).filter(Boolean);
+      const instantOfferIds = rawContacts.map((c: any) => c.instant_offer_id).filter(Boolean);
+
+      const profilesPromise = supabase.from("profiles").select("id, company_name, first_name, last_name, phone, email_public, city, zip, street, role, industry, dealer_type").in("id", uniquePartnerIds);
+      const messagesPromise = supabase.from("messages").select("contact_id, content, sender_id, read, created_at").in("contact_id", rawContacts.map((c: any) => c.id)).order("created_at", { ascending: false });
+      const tendersPromise = tenderIds.length > 0
+        ? supabase.from("tenders").select("id, status, tender_vehicles(brand, model_name, quantity)").in("id", tenderIds)
+        : null;
+      const instantOffersPromise = instantOfferIds.length > 0
+        ? supabase.from("instant_offers").select("id, brand, model_name, status").in("id", instantOfferIds)
+        : null;
+
+      const [profilesResult, messagesResult, tendersResult, instantOffersResult] = await Promise.all([
+        profilesPromise, messagesPromise, tendersPromise, instantOffersPromise,
       ]);
 
       if (cancelled) return;
@@ -199,7 +218,10 @@ export default function MessagesPage() {
       (profilesResult.data || []).forEach((p: any) => { profileMap[p.id] = p; });
 
       const tenderMap: Record<string, TenderInfo> = {};
-      (tendersResult.data || []).forEach((t: any) => { tenderMap[t.id] = t; });
+      (tendersResult?.data || []).forEach((t: any) => { tenderMap[t.id] = t; });
+
+      const instantOfferMap: Record<string, InstantOfferInfo> = {};
+      (instantOffersResult?.data || []).forEach((io: any) => { instantOfferMap[io.id] = io; });
 
       const msgByContact: Record<string, { last: any; unread: number }> = {};
       (messagesResult.data || []).forEach((m: any) => {
@@ -214,14 +236,25 @@ export default function MessagesPage() {
       const enriched: ContactWithProfile[] = rawContacts.map((c: any) => {
         const partnerId = c.buyer_id === user.id ? c.dealer_id : c.buyer_id;
         const partner = profileMap[partnerId] || null;
-        const tender = tenderMap[c.tender_id] || null;
-        const v = tender?.tender_vehicles?.[0];
-        const tenderLabel = v ? `${v.brand || ""} ${v.model_name || ""}`.trim() : "Ausschreibung";
+        const tender = c.tender_id ? (tenderMap[c.tender_id] || null) : null;
+        const instantOffer = c.instant_offer_id ? (instantOfferMap[c.instant_offer_id] || null) : null;
+
+        let tenderLabel: string;
+        if (instantOffer) {
+          tenderLabel = `${instantOffer.brand || ""} ${instantOffer.model_name || ""}`.trim() || "Sofort-Angebot";
+        } else if (tender) {
+          const v = tender.tender_vehicles?.[0];
+          tenderLabel = v ? `${v.brand || ""} ${v.model_name || ""}`.trim() : "Ausschreibung";
+        } else {
+          tenderLabel = "Konversation";
+        }
+
         const msgInfo = msgByContact[c.id];
         return {
           ...c,
           partner,
           tender,
+          instantOffer,
           tenderLabel,
           lastMessage: msgInfo?.last?.content || null,
           lastMessageAt: msgInfo?.last?.created_at || c.created_at,
@@ -638,6 +671,26 @@ export default function MessagesPage() {
                           >
                             <ExternalLink size={13} />
                             Zur Ausschreibung
+                          </Link>
+                        </div>
+                      )}
+
+                      {/* Instant offer info */}
+                      {activeContact.instantOffer && (
+                        <div className="px-5 py-4 border-t border-slate-100">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Sofort-Angebot</p>
+                          <div className="flex items-center gap-2.5 mb-1.5">
+                            <Car size={14} className="text-blue-500 shrink-0" />
+                            <span className="font-semibold text-navy-950 text-sm">
+                              {activeContact.instantOffer.brand || "—"} {activeContact.instantOffer.model_name || ""}
+                            </span>
+                          </div>
+                          <Link
+                            href={`/sofort-angebote/${activeContact.instantOffer.id}`}
+                            className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-semibold mt-2 transition-colors"
+                          >
+                            <ExternalLink size={13} />
+                            Zum Sofort-Angebot
                           </Link>
                         </div>
                       )}

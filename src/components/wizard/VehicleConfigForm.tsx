@@ -75,6 +75,7 @@ export function VehicleConfigForm({
   mode = "tender",
 }: VehicleConfigFormProps) {
   const [openSections, setOpenSections] = useState<Set<number>>(new Set([0]));
+  const [powerUnit, setPowerUnit] = useState<"kw" | "ps">("kw");
 
   const { brands, loadingBrands } = useVehicleModels(vehicle.vehicleType);
   const { models, loadingModels } = useVehicleModelsByBrand(vehicle.vehicleType, vehicle.brand);
@@ -150,6 +151,26 @@ export function VehicleConfigForm({
           ))}
         </select>
       </div>
+    </div>
+  );
+
+  /** Numeric input for exact values (instant-offer mode) */
+  const numInput = (
+    label: string,
+    value: number | null,
+    onCh: (v: number | null) => void,
+    opts?: { unit?: string; placeholder?: string; step?: string },
+  ) => (
+    <div className="space-y-1.5">
+      <Label className="text-sm text-slate-600 font-semibold">{label}{opts?.unit ? ` (${opts.unit})` : ""}</Label>
+      <Input
+        type="number"
+        placeholder={opts?.placeholder || ""}
+        step={opts?.step}
+        value={value ?? ""}
+        onChange={(e) => onCh(e.target.value ? Number(e.target.value) : null)}
+        className="rounded-xl h-11 bg-slate-50 border-slate-200 text-base focus-visible:ring-blue-500"
+      />
     </div>
   );
 
@@ -305,15 +326,18 @@ export function VehicleConfigForm({
                   {sel("Anzahl Türen", vehicle.doors, DOORS_OPTIONS, (v) => update({ doors: parseInt(v) }))}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {rangeSel(
-                    "Anzahl Sitzplätze",
-                    vehicle.seatsFrom,
-                    vehicle.seatsTo,
-                    SEATS_OPTIONS,
-                    (v) => update({ seatsFrom: v }),
-                    (v) => update({ seatsTo: v }),
-                    { fmt: (n) => (n === 9 ? "9+" : String(n)) },
-                  )}
+                  {mode === "instant-offer"
+                    ? sel("Anzahl Sitzplätze", vehicle.seatsFrom, SEATS_OPTIONS, (v) => update({ seatsFrom: v ? Number(v) : null }))
+                    : rangeSel(
+                        "Anzahl Sitzplätze",
+                        vehicle.seatsFrom,
+                        vehicle.seatsTo,
+                        SEATS_OPTIONS,
+                        (v) => update({ seatsFrom: v }),
+                        (v) => update({ seatsTo: v }),
+                        { fmt: (n) => (n === 9 ? "9+" : String(n)) },
+                      )
+                  }
                   {sel("Schiebetür", vehicle.slidingDoor, SLIDING_DOOR_OPTIONS, (v) => update({ slidingDoor: v }))}
                 </div>
               </div>
@@ -329,29 +353,99 @@ export function VehicleConfigForm({
                   {sel("Kraftstoffart", vehicle.fuelType, FUEL_TYPE_OPTIONS, (v) => update({ fuelType: v }))}
                   {sel("Getriebe", vehicle.transmission, TRANSMISSION_OPTIONS, (v) => update({ transmission: v }))}
                 </div>
-                {rangeSel(
-                  "Leistung",
-                  vehicle.powerFrom,
-                  vehicle.powerTo,
-                  POWER_OPTIONS.map((p) => p.kw),
-                  (v) => update({ powerFrom: v }),
-                  (v) => update({ powerTo: v }),
-                  {
-                    fmt: (kw) => {
-                      const p = POWER_OPTIONS.find((po) => po.kw === kw);
-                      return p ? `${p.kw} kW (${p.ps} PS)` : `${kw} kW`;
-                    },
-                  },
+
+                {mode === "instant-offer" ? (
+                  <>
+                    {/* Power with kW/PS toggle — always stored as kW */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm text-slate-600 font-semibold">Leistung</Label>
+                        <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+                          {(["kw", "ps"] as const).map((u) => (
+                            <button
+                              key={u}
+                              type="button"
+                              onClick={() => setPowerUnit(u)}
+                              className={`px-3 py-1 text-xs font-bold transition-all ${
+                                powerUnit === u
+                                  ? "bg-blue-500 text-white"
+                                  : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                              }`}
+                            >
+                              {u.toUpperCase()}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          placeholder={powerUnit === "kw" ? "z.B. 110" : "z.B. 150"}
+                          value={
+                            vehicle.powerFrom
+                              ? powerUnit === "kw"
+                                ? vehicle.powerFrom
+                                : Math.round(vehicle.powerFrom * 1.35962)
+                              : ""
+                          }
+                          onChange={(e) => {
+                            const val = e.target.value ? Number(e.target.value) : null;
+                            if (val === null) {
+                              update({ powerFrom: null });
+                            } else {
+                              // Always store as kW
+                              const kw = powerUnit === "kw" ? val : Math.round(val / 1.35962);
+                              update({ powerFrom: kw });
+                            }
+                          }}
+                          className="rounded-xl h-11 bg-slate-50 border-slate-200 text-base focus-visible:ring-blue-500 pr-16"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-medium">
+                          {powerUnit === "kw"
+                            ? vehicle.powerFrom ? `= ${Math.round(vehicle.powerFrom * 1.35962)} PS` : "kW"
+                            : vehicle.powerFrom ? `= ${vehicle.powerFrom} kW` : "PS"
+                          }
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {numInput("Hubraum", vehicle.displacementFrom, (v) => update({ displacementFrom: v }), { unit: "cm³", placeholder: "z.B. 1998" })}
+                      {numInput("Tankgröße", vehicle.tankSizeFrom, (v) => update({ tankSizeFrom: v }), { unit: "l", placeholder: "z.B. 55" })}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {sel("Zylinder", vehicle.cylinders, CYLINDER_OPTIONS, (v) => update({ cylinders: parseInt(v) }))}
+                      {sel("Antriebsart", vehicle.driveType, DRIVE_TYPE_OPTIONS, (v) => update({ driveType: v }))}
+                      {numInput("Verbrauch (komb.)", vehicle.fuelConsumption, (v) => update({ fuelConsumption: v }), { unit: "l/100km", placeholder: "z.B. 6.5", step: "0.1" })}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {rangeSel(
+                      "Leistung",
+                      vehicle.powerFrom,
+                      vehicle.powerTo,
+                      POWER_OPTIONS.map((p) => p.kw),
+                      (v) => update({ powerFrom: v }),
+                      (v) => update({ powerTo: v }),
+                      {
+                        fmt: (kw) => {
+                          const p = POWER_OPTIONS.find((po) => po.kw === kw);
+                          return p ? `${p.kw} kW (${p.ps} PS)` : `${kw} kW`;
+                        },
+                      },
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {rangeSel("Hubraum", vehicle.displacementFrom, vehicle.displacementTo, DISPLACEMENT_OPTIONS, (v) => update({ displacementFrom: v }), (v) => update({ displacementTo: v }), { unit: "cm³" })}
+                      {rangeSel("Tankgröße", vehicle.tankSizeFrom, vehicle.tankSizeTo, TANK_SIZE_OPTIONS, (v) => update({ tankSizeFrom: v }), (v) => update({ tankSizeTo: v }), { unit: "l" })}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {sel("Zylinder", vehicle.cylinders, CYLINDER_OPTIONS, (v) => update({ cylinders: parseInt(v) }))}
+                      {sel("Antriebsart", vehicle.driveType, DRIVE_TYPE_OPTIONS, (v) => update({ driveType: v }))}
+                      {sel("Verbrauch (komb.) bis", vehicle.fuelConsumption, FUEL_CONSUMPTION_OPTIONS, (v) => update({ fuelConsumption: parseInt(v) }), { fmt: (o) => `${o} l/100km` })}
+                    </div>
+                  </>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {rangeSel("Hubraum", vehicle.displacementFrom, vehicle.displacementTo, DISPLACEMENT_OPTIONS, (v) => update({ displacementFrom: v }), (v) => update({ displacementTo: v }), { unit: "cm³" })}
-                  {rangeSel("Tankgröße", vehicle.tankSizeFrom, vehicle.tankSizeTo, TANK_SIZE_OPTIONS, (v) => update({ tankSizeFrom: v }), (v) => update({ tankSizeTo: v }), { unit: "l" })}
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {sel("Zylinder", vehicle.cylinders, CYLINDER_OPTIONS, (v) => update({ cylinders: parseInt(v) }))}
-                  {sel("Antriebsart", vehicle.driveType, DRIVE_TYPE_OPTIONS, (v) => update({ driveType: v }))}
-                  {sel("Verbrauch (komb.) bis", vehicle.fuelConsumption, FUEL_CONSUMPTION_OPTIONS, (v) => update({ fuelConsumption: parseInt(v) }), { fmt: (o) => `${o} l/100km` })}
-                </div>
               </div>
             )}
           </div>
@@ -361,15 +455,31 @@ export function VehicleConfigForm({
             {sectionHeader(3)}
             {openSections.has(3) && (
               <div className="p-6 border-t border-slate-100 space-y-4">
-                {rangeSel("Gewicht", vehicle.weightFrom, vehicle.weightTo, WEIGHT_OPTIONS, (v) => update({ weightFrom: v }), (v) => update({ weightTo: v }), { unit: "kg" })}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {sel("Anhängerkupplung", vehicle.towBar, TOW_BAR_OPTIONS, (v) => update({ towBar: v }))}
-                  {sel("Anhängelast gebremst ab", vehicle.towCapacityBraked, TOW_CAPACITY_BRAKED_OPTIONS, (v) => update({ towCapacityBraked: parseInt(v) }), { fmt: (o) => `${Number(o).toLocaleString("de-DE")} kg` })}
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {sel("Anhängelast ungebremst ab", vehicle.towCapacityUnbraked, TOW_CAPACITY_UNBRAKED_OPTIONS, (v) => update({ towCapacityUnbraked: parseInt(v) }), { fmt: (o) => `${o} kg` })}
-                  {sel("Stützlast ab", vehicle.noseWeight, NOSE_WEIGHT_OPTIONS, (v) => update({ noseWeight: parseInt(v) }), { fmt: (o) => `${o} kg` })}
-                </div>
+                {mode === "instant-offer" ? (
+                  <>
+                    {numInput("Gewicht", vehicle.weightFrom, (v) => update({ weightFrom: v }), { unit: "kg", placeholder: "z.B. 1850" })}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {sel("Anhängerkupplung", vehicle.towBar, TOW_BAR_OPTIONS, (v) => update({ towBar: v }))}
+                      {numInput("Anhängelast gebremst", vehicle.towCapacityBraked, (v) => update({ towCapacityBraked: v }), { unit: "kg", placeholder: "z.B. 2000" })}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {numInput("Anhängelast ungebremst", vehicle.towCapacityUnbraked, (v) => update({ towCapacityUnbraked: v }), { unit: "kg", placeholder: "z.B. 750" })}
+                      {numInput("Stützlast", vehicle.noseWeight, (v) => update({ noseWeight: v }), { unit: "kg", placeholder: "z.B. 80" })}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {rangeSel("Gewicht", vehicle.weightFrom, vehicle.weightTo, WEIGHT_OPTIONS, (v) => update({ weightFrom: v }), (v) => update({ weightTo: v }), { unit: "kg" })}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {sel("Anhängerkupplung", vehicle.towBar, TOW_BAR_OPTIONS, (v) => update({ towBar: v }))}
+                      {sel("Anhängelast gebremst ab", vehicle.towCapacityBraked, TOW_CAPACITY_BRAKED_OPTIONS, (v) => update({ towCapacityBraked: parseInt(v) }), { fmt: (o) => `${Number(o).toLocaleString("de-DE")} kg` })}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {sel("Anhängelast ungebremst ab", vehicle.towCapacityUnbraked, TOW_CAPACITY_UNBRAKED_OPTIONS, (v) => update({ towCapacityUnbraked: parseInt(v) }), { fmt: (o) => `${o} kg` })}
+                      {sel("Stützlast ab", vehicle.noseWeight, NOSE_WEIGHT_OPTIONS, (v) => update({ noseWeight: parseInt(v) }), { fmt: (o) => `${o} kg` })}
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -496,81 +606,83 @@ export function VehicleConfigForm({
             )}
           </div>
 
-          {/* ---- Section 9: Leasing & Finanzierung ---- */}
-          <div className="border border-slate-200 rounded-2xl overflow-hidden">
-            {sectionHeader(9)}
-            {openSections.has(9) && (
-              <div className="p-6 border-t border-slate-100 space-y-5">
-                <p className="text-sm text-slate-500">Neben dem Barkauf-Angebot (Standard): Welche weiteren Angebotsarten sollen Händler für dieses Fahrzeug abgeben?</p>
+          {/* ---- Section 9: Leasing & Finanzierung (tender mode only) ---- */}
+          {mode === "tender" && (
+            <div className="border border-slate-200 rounded-2xl overflow-hidden">
+              {sectionHeader(9)}
+              {openSections.has(9) && (
+                <div className="p-6 border-t border-slate-100 space-y-5">
+                  <p className="text-sm text-slate-500">Neben dem Barkauf-Angebot (Standard): Welche weiteren Angebotsarten sollen Händler für dieses Fahrzeug abgeben?</p>
 
-                {/* Leasing */}
-                <div className={`p-4 rounded-xl border-2 transition-all ${vehicle.leasingRequested ? "border-blue-300 bg-blue-50/30" : "border-slate-200"}`}>
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      id={`leasing-${vehicle.id}`}
-                      checked={vehicle.leasingRequested}
-                      onCheckedChange={(c) => update({ leasingRequested: c === true })}
-                      className="scale-110"
-                    />
-                    <Label htmlFor={`leasing-${vehicle.id}`} className="font-bold text-navy-950 cursor-pointer">Leasing-Angebot einholen</Label>
-                  </div>
-                  {vehicle.leasingRequested && (
-                    <div className="mt-4 ml-7 grid grid-cols-2 gap-4 animate-in fade-in">
-                      <div className="space-y-1.5">
-                        <Label className="text-sm text-slate-600 font-semibold">Laufzeit</Label>
-                        <select value={vehicle.leasingDuration} onChange={(e) => update({ leasingDuration: e.target.value })} className={selectCls}>
-                          <option value="24">24 Monate</option>
-                          <option value="36">36 Monate</option>
-                          <option value="48">48 Monate</option>
-                        </select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-sm text-slate-600 font-semibold">Laufleistung / Jahr</Label>
-                        <select value={vehicle.leasingKmYear} onChange={(e) => update({ leasingKmYear: e.target.value })} className={selectCls}>
-                          <option value="10000">10.000 km</option>
-                          <option value="15000">15.000 km</option>
-                          <option value="20000">20.000 km</option>
-                          <option value="25000">25.000 km</option>
-                          <option value="30000">30.000 km</option>
-                        </select>
-                      </div>
+                  {/* Leasing */}
+                  <div className={`p-4 rounded-xl border-2 transition-all ${vehicle.leasingRequested ? "border-blue-300 bg-blue-50/30" : "border-slate-200"}`}>
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id={`leasing-${vehicle.id}`}
+                        checked={vehicle.leasingRequested}
+                        onCheckedChange={(c) => update({ leasingRequested: c === true })}
+                        className="scale-110"
+                      />
+                      <Label htmlFor={`leasing-${vehicle.id}`} className="font-bold text-navy-950 cursor-pointer">Leasing-Angebot einholen</Label>
                     </div>
-                  )}
-                </div>
+                    {vehicle.leasingRequested && (
+                      <div className="mt-4 ml-7 grid grid-cols-2 gap-4 animate-in fade-in">
+                        <div className="space-y-1.5">
+                          <Label className="text-sm text-slate-600 font-semibold">Laufzeit</Label>
+                          <select value={vehicle.leasingDuration} onChange={(e) => update({ leasingDuration: e.target.value })} className={selectCls}>
+                            <option value="24">24 Monate</option>
+                            <option value="36">36 Monate</option>
+                            <option value="48">48 Monate</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-sm text-slate-600 font-semibold">Laufleistung / Jahr</Label>
+                          <select value={vehicle.leasingKmYear} onChange={(e) => update({ leasingKmYear: e.target.value })} className={selectCls}>
+                            <option value="10000">10.000 km</option>
+                            <option value="15000">15.000 km</option>
+                            <option value="20000">20.000 km</option>
+                            <option value="25000">25.000 km</option>
+                            <option value="30000">30.000 km</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
-                {/* Financing */}
-                <div className={`p-4 rounded-xl border-2 transition-all ${vehicle.financingRequested ? "border-blue-300 bg-blue-50/30" : "border-slate-200"}`}>
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      id={`financing-${vehicle.id}`}
-                      checked={vehicle.financingRequested}
-                      onCheckedChange={(c) => update({ financingRequested: c === true })}
-                      className="scale-110"
-                    />
-                    <Label htmlFor={`financing-${vehicle.id}`} className="font-bold text-navy-950 cursor-pointer">Finanzierungs-Angebot einholen</Label>
-                  </div>
-                  {vehicle.financingRequested && (
-                    <div className="mt-4 ml-7 grid grid-cols-2 gap-4 animate-in fade-in">
-                      <div className="space-y-1.5">
-                        <Label className="text-sm text-slate-600 font-semibold">Laufzeit</Label>
-                        <select value={vehicle.financingDuration} onChange={(e) => update({ financingDuration: e.target.value })} className={selectCls}>
-                          <option value="36">36 Monate</option>
-                          <option value="48">48 Monate</option>
-                          <option value="60">60 Monate</option>
-                        </select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-sm text-slate-600 font-semibold">Anzahlung (€)</Label>
-                        <Input type="number" placeholder="z.B. 5000" value={vehicle.financingDownPayment}
-                          onChange={(e) => update({ financingDownPayment: e.target.value })}
-                          className="rounded-xl h-11 bg-slate-50 border-slate-200 text-base focus-visible:ring-blue-500" />
-                      </div>
+                  {/* Financing */}
+                  <div className={`p-4 rounded-xl border-2 transition-all ${vehicle.financingRequested ? "border-blue-300 bg-blue-50/30" : "border-slate-200"}`}>
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id={`financing-${vehicle.id}`}
+                        checked={vehicle.financingRequested}
+                        onCheckedChange={(c) => update({ financingRequested: c === true })}
+                        className="scale-110"
+                      />
+                      <Label htmlFor={`financing-${vehicle.id}`} className="font-bold text-navy-950 cursor-pointer">Finanzierungs-Angebot einholen</Label>
                     </div>
-                  )}
+                    {vehicle.financingRequested && (
+                      <div className="mt-4 ml-7 grid grid-cols-2 gap-4 animate-in fade-in">
+                        <div className="space-y-1.5">
+                          <Label className="text-sm text-slate-600 font-semibold">Laufzeit</Label>
+                          <select value={vehicle.financingDuration} onChange={(e) => update({ financingDuration: e.target.value })} className={selectCls}>
+                            <option value="36">36 Monate</option>
+                            <option value="48">48 Monate</option>
+                            <option value="60">60 Monate</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-sm text-slate-600 font-semibold">Anzahlung (€)</Label>
+                          <Input type="number" placeholder="z.B. 5000" value={vehicle.financingDownPayment}
+                            onChange={(e) => update({ financingDownPayment: e.target.value })}
+                            className="rounded-xl h-11 bg-slate-50 border-slate-200 text-base focus-visible:ring-blue-500" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

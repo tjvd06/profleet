@@ -50,7 +50,8 @@
       "Bash(npx tsc:*)",
       "Bash(grep -r phone.*city.*zip /c/Projekte/profleet --include=*.sql --include=*.ts --include=*.tsx)",
       "Bash(find /c/Projekte/profleet -name *.config.* -o -name constants*)",
-      "Bash(grep -r \"ChatWindow\\\\|StatusTracker\" /c/Projekte/profleet/src --include=*.ts --include=*.tsx)"
+      "Bash(grep -r \"ChatWindow\\\\|StatusTracker\" /c/Projekte/profleet/src --include=*.ts --include=*.tsx)",
+      "Bash(find /c/Projekte/profleet/src -type f -name *sofort* -o -type d -name *sofort*)"
     ]
   }
 }

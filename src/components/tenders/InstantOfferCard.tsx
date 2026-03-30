@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RatingBadge } from "@/components/ui-custom/RatingBadge";
 import { SavingsBadge } from "@/components/ui-custom/SavingsBadge";
-import { Bookmark, MapPin, Pencil, Phone, Trash2, Package } from "lucide-react";
+import { Bookmark, MapPin, Pencil, Send, Trash2, Package } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase";
@@ -21,6 +21,7 @@ export function InstantOfferCard({
   userId,
   onDelete,
   onBookmarkToggle,
+  onInquiry,
 }: {
   offer: InstantOfferRow;
   viewMode?: ViewMode;
@@ -29,6 +30,7 @@ export function InstantOfferCard({
   userId?: string | null;
   onDelete?: (id: string) => void;
   onBookmarkToggle?: () => void;
+  onInquiry?: (offerId: string, dealerId: string) => void;
 }) {
   const [bookmarked, setBookmarked] = useState(initialBookmarked);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -171,8 +173,15 @@ export function InstantOfferCard({
 
             {/* Buyer CTA */}
             {viewMode === "buyer" && (
-              <Button className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm mb-3 shadow-sm">
-                <Phone size={14} className="mr-2" /> Anfrage senden
+              <Button
+                className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm mb-3 shadow-sm"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onInquiry?.(offer.id, offer.dealer_id);
+                }}
+              >
+                <Send size={14} className="mr-2" /> Anfrage senden
               </Button>
             )}
 

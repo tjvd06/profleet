@@ -37,6 +37,7 @@ export interface InstantOfferRow {
   financing_duration: number | null;
   financing_downpayment: number | null;
   financing_conditions: string | null;
+  config_documents: { path: string; name: string }[];
   transfer_cost: number | null;
   registration_cost: number | null;
   total_price: number | null;
@@ -106,12 +107,11 @@ export function buildEquipmentDetails(row: InstantOfferRow): EquipmentDetail[] {
   if (eq.particleFilter) details.push({ label: "Partikelfilter", value: "Ja" });
   if (eq.parkingAid && (eq.parkingAid as string[]).length > 0) details.push({ label: "Einparkhilfe", value: (eq.parkingAid as string[]).join(", ") });
   if (eq.cruiseControl) details.push({ label: "Tempomat", value: eq.cruiseControl as string });
-  if (eq.exteriorExtras && (eq.exteriorExtras as string[]).length > 0) details.push({ label: "Exterieur-Extras", value: (eq.exteriorExtras as string[]).join(", ") });
+  // exteriorExtras & interiorExtras are rendered separately as grouped chips on the detail page
   if (eq.interiorColor) details.push({ label: "Innenfarbe", value: eq.interiorColor as string });
   if (eq.interiorMaterial) details.push({ label: "Innenmaterial", value: eq.interiorMaterial as string });
   if (eq.airbags) details.push({ label: "Airbags", value: eq.airbags as string });
   if (eq.climate) details.push({ label: "Klimaanlage", value: eq.climate as string });
-  if (eq.interiorExtras && (eq.interiorExtras as string[]).length > 0) details.push({ label: "Interieur-Extras", value: (eq.interiorExtras as string[]).join(", ") });
 
   return details;
 }
@@ -120,6 +120,12 @@ export function buildEquipmentDetails(row: InstantOfferRow): EquipmentDetail[] {
 export function getImageUrl(path: string): string {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   return `${supabaseUrl}/storage/v1/object/public/instant-offer-images/${path}`;
+}
+
+// ─── Helper: get public URL for a config document path ──────────────────────
+export function getConfigDocUrl(path: string): string {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  return `${supabaseUrl}/storage/v1/object/public/instant-offer-config-docs/${path}`;
 }
 
 // ─── Helper: calculate savings percent ──────────────────────────────────────

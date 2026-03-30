@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ChevronLeft, Plus, Minus, Loader2, CheckCircle, Camera,
-  MapPin, Euro, Clock, Truck,
+  MapPin, Euro, Clock, Truck, FileText, Trash2, UploadCloud,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -18,7 +18,7 @@ import { VehicleConfigForm } from "@/components/wizard/VehicleConfigForm";
 import { ImageUpload, type ImageItem } from "@/components/ui-custom/ImageUpload";
 import type { VehicleConfig } from "@/types/vehicle";
 import { buildEquipmentJson, dbRowToVehicleConfig } from "@/types/vehicle";
-import { type InstantOfferRow, getImageUrl } from "@/lib/instant-offers";
+import { type InstantOfferRow, getImageUrl, getConfigDocUrl } from "@/lib/instant-offers";
 
 const RADIUS_OPTIONS = [25, 50, 75, 100, 150, 200];
 
@@ -42,6 +42,10 @@ export default function EditInstantOfferPage() {
 
   // Images — mix of existing (storagePath set) and new (file set)
   const [images, setImages] = useState<ImageItem[]>([]);
+
+  // Config documents — existing entries from DB + new files
+  const [existingConfigDocs, setExistingConfigDocs] = useState<{ path: string; name: string }[]>([]);
+  const [newConfigDocs, setNewConfigDocs] = useState<File[]>([]);
 
   // Delivery
   const [deliveryPlz, setDeliveryPlz] = useState("");
@@ -123,6 +127,11 @@ export default function EditInstantOfferPage() {
         );
       }
 
+      // Config documents
+      if (offer.config_documents && offer.config_documents.length > 0) {
+        setExistingConfigDocs(offer.config_documents as { path: string; name: string }[]);
+      }
+
       // Delivery
       setDeliveryPlz(offer.delivery_plz || "");
       setDeliveryCity(offer.delivery_city || "");
@@ -194,6 +203,34 @@ export default function EditInstantOfferPage() {
   };
 
   /* -------------------------------------------------------------- */
+  /* Upload new config docs & merge with existing                    */
+  /* -------------------------------------------------------------- */
+  const resolveConfigDocs = async (userId: string): Promise<{ path: string; name: string }[]> => {
+    const results = [...existingConfigDocs];
+    for (const doc of newConfigDocs) {
+      const ext = doc.name.split(".").pop() || "pdf";
+      const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("instant-offer-config-docs")
+        .upload(path, doc, { contentType: doc.type });
+      if (uploadError) throw new Error(`Dokument-Upload fehlgeschlagen: ${uploadError.message}`);
+      results.push({ path, name: doc.name });
+    }
+    return results;
+  };
+
+  const deleteRemovedConfigDocs = async () => {
+    if (!existingOffer?.config_documents) return;
+    const currentPaths = new Set(existingConfigDocs.map((d) => d.path));
+    const removedPaths = (existingOffer.config_documents as { path: string; name: string }[])
+      .filter((d) => !currentPaths.has(d.path))
+      .map((d) => d.path);
+    if (removedPaths.length > 0) {
+      await supabase.storage.from("instant-offer-config-docs").remove(removedPaths);
+    }
+  };
+
+  /* -------------------------------------------------------------- */
   /* Save (UPDATE)                                                   */
   /* -------------------------------------------------------------- */
   const handleSave = async () => {
@@ -205,8 +242,12 @@ export default function EditInstantOfferPage() {
       // Upload new images & get all paths in order
       const imagePaths = await resolveImagePaths(user.id);
 
-      // Delete removed images from storage
+      // Upload new config docs & get all entries
+      const configDocPaths = await resolveConfigDocs(user.id);
+
+      // Delete removed images & config docs from storage
       await deleteRemovedImages();
+      await deleteRemovedConfigDocs();
 
       const payload = {
         // Vehicle
@@ -226,8 +267,9 @@ export default function EditInstantOfferPage() {
         list_price_gross: vehicle.listPriceGross,
         equipment: buildEquipmentJson(vehicle),
 
-        // Images
+        // Images & config documents
         images: imagePaths,
+        config_documents: configDocPaths,
 
         // Quantity
         quantity,
@@ -408,13 +450,110 @@ export default function EditInstantOfferPage() {
           <ImageUpload images={images} onChange={setImages} />
         </section>
 
-        {/* 4. Lieferung */}
+        {/* 4. Herstellerkonfiguration */}
+        <section className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="h-8 w-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+              <FileText size={16} className="text-indigo-600" />
+            </div>
+            <h2 className="text-xl font-bold text-navy-950">4. Herstellerkonfiguration</h2>
+            <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Optional</span>
+          </div>
+          <p className="text-sm text-slate-500 mb-4">
+            Laden Sie die genaue Herstellerkonfiguration des Fahrzeugs hoch (PDF, DOC, DOCX oder TXT). Max. 10 MB pro Datei.
+          </p>
+
+          {/* Existing docs */}
+          {existingConfigDocs.length > 0 && (
+            <div className="space-y-2 mb-4">
+              {existingConfigDocs.map((doc, idx) => (
+                <div key={doc.path} className="border border-slate-200 bg-white rounded-xl p-4 flex items-center justify-between gap-4">
+                  <a href={getConfigDocUrl(doc.path)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 min-w-0 hover:opacity-80">
+                    <div className="h-10 w-10 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                      <FileText size={18} className="text-indigo-600" />
+                    </div>
+                    <p className="font-semibold text-navy-950 text-sm truncate">{doc.name}</p>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setExistingConfigDocs((prev) => prev.filter((_, i) => i !== idx))}
+                    className="h-8 w-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-red-500 hover:bg-red-50 hover:border-red-200 transition-colors shrink-0"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* New docs */}
+          {newConfigDocs.length > 0 && (
+            <div className="space-y-2 mb-4">
+              {newConfigDocs.map((doc, idx) => (
+                <div key={idx} className="border border-slate-200 bg-white rounded-xl p-4 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-10 w-10 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                      <FileText size={18} className="text-indigo-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-navy-950 text-sm truncate">{doc.name}</p>
+                      <p className="text-xs text-slate-400">{(doc.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNewConfigDocs((prev) => prev.filter((_, i) => i !== idx))}
+                    className="h-8 w-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-red-500 hover:bg-red-50 hover:border-red-200 transition-colors shrink-0"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Drop zone */}
+          <div
+            className="border-2 border-dashed border-slate-300 bg-slate-50/50 rounded-2xl p-8 flex flex-col items-center justify-center text-slate-500 hover:bg-slate-50 hover:border-indigo-300 transition-colors cursor-pointer group relative"
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const files = Array.from(e.dataTransfer.files);
+              const ALLOWED = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain"];
+              const MAX_SIZE = 10 * 1024 * 1024;
+              const valid = files.filter((f) => ALLOWED.includes(f.type) && f.size <= MAX_SIZE);
+              if (valid.length > 0) setNewConfigDocs((prev) => [...prev, ...valid]);
+            }}
+            onClick={() => {
+              const input = document.createElement("input");
+              input.type = "file";
+              input.accept = ".pdf,.doc,.docx,.txt";
+              input.multiple = true;
+              input.onchange = () => {
+                const files = Array.from(input.files || []);
+                const MAX_SIZE = 10 * 1024 * 1024;
+                const valid = files.filter((f) => f.size <= MAX_SIZE);
+                if (valid.length > 0) setNewConfigDocs((prev) => [...prev, ...valid]);
+              };
+              input.click();
+            }}
+          >
+            <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mb-3 group-hover:bg-indigo-100 transition-colors">
+              <UploadCloud size={22} className="text-slate-400 group-hover:text-indigo-500 transition-colors" />
+            </div>
+            <p className="text-sm font-semibold text-navy-900 mb-1">Konfigurationsdokumente hochladen</p>
+            <p className="text-xs text-slate-400 text-center">PDF, DOC, DOCX oder TXT - Max. 10 MB pro Datei</p>
+          </div>
+        </section>
+
+        {/* 5. Lieferung */}
         <section className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center">
               <MapPin size={16} className="text-green-600" />
             </div>
-            <h2 className="text-xl font-bold text-navy-950">4. Lieferung</h2>
+            <h2 className="text-xl font-bold text-navy-950">5. Lieferung</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
@@ -450,13 +589,13 @@ export default function EditInstantOfferPage() {
           </div>
         </section>
 
-        {/* 5. Preise & Konditionen */}
+        {/* 6. Preise & Konditionen */}
         <section className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center">
               <Euro size={16} className="text-amber-600" />
             </div>
-            <h2 className="text-xl font-bold text-navy-950">5. Preise & Konditionen</h2>
+            <h2 className="text-xl font-bold text-navy-950">6. Preise & Konditionen</h2>
           </div>
 
           <div className="space-y-8">
@@ -610,13 +749,13 @@ export default function EditInstantOfferPage() {
           </div>
         </section>
 
-        {/* 6. Zusatzkosten */}
+        {/* 7. Zusatzkosten */}
         <section className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center">
               <Truck size={16} className="text-purple-600" />
             </div>
-            <h2 className="text-xl font-bold text-navy-950">6. Zusatzkosten</h2>
+            <h2 className="text-xl font-bold text-navy-950">7. Zusatzkosten</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div className="space-y-2">
@@ -650,13 +789,13 @@ export default function EditInstantOfferPage() {
           )}
         </section>
 
-        {/* 7. Sichtbarkeit */}
+        {/* 8. Sichtbarkeit */}
         <section className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-8 w-8 rounded-lg bg-cyan-100 flex items-center justify-center">
               <Clock size={16} className="text-cyan-600" />
             </div>
-            <h2 className="text-xl font-bold text-navy-950">7. Sichtbarkeit</h2>
+            <h2 className="text-xl font-bold text-navy-950">8. Sichtbarkeit</h2>
           </div>
           <Label className="text-sm font-semibold text-slate-700 mb-3 block">Wie lange soll das Angebot sichtbar sein?</Label>
           <div className="flex gap-3">

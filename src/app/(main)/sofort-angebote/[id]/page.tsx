@@ -7,16 +7,23 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SavingsBadge } from "@/components/ui-custom/SavingsBadge";
 import {
-  ChevronLeft, ChevronRight, Bookmark, Phone, MapPin, Package,
+  ChevronLeft, ChevronRight, Bookmark, Phone, MapPin, Package, MessageCircle,
   Calendar, Loader2, ShieldCheck, ChevronDown, ChevronUp, Info, Mail, Building2, Send,
+  FileText, Download, Lightbulb, Shield, Gauge, Eye, Disc, Zap, Wifi, Armchair, Check,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/components/providers/auth-provider";
+import { toast } from "sonner";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+  DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
 import {
   type InstantOfferRow,
   buildSpecsString,
   buildEquipmentDetails,
   getImageUrl,
+  getConfigDocUrl,
   calcSavingsPercent,
   buildLocationString,
 } from "@/lib/instant-offers";
@@ -52,6 +59,11 @@ export default function InstantOfferDetailPage() {
     created_at: string | null;
   } | null>(null);
 
+  // Inquiry
+  const [showContactConfirm, setShowContactConfirm] = useState(false);
+  const [contactLoading, setContactLoading] = useState(false);
+  const [existingContactId, setExistingContactId] = useState<string | null>(null);
+
   // Collapsible sections
   const [showEquipment, setShowEquipment] = useState(true);
   const [showLeasing, setShowLeasing] = useState(false);
@@ -86,17 +98,16 @@ export default function InstantOfferDetailPage() {
     })();
   }, [supabase, offerId]);
 
-  // Fetch bookmark state
+  // Fetch bookmark state + existing contact
   useEffect(() => {
     if (!user || !offerId) return;
     (async () => {
-      const { data } = await supabase
-        .from("bookmarks")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("instant_offer_id", offerId)
-        .maybeSingle();
-      setBookmarked(!!data);
+      const [bookmarkRes, contactRes] = await Promise.all([
+        supabase.from("bookmarks").select("id").eq("user_id", user.id).eq("instant_offer_id", offerId).maybeSingle(),
+        supabase.from("contacts").select("id").eq("buyer_id", user.id).eq("instant_offer_id", offerId).maybeSingle(),
+      ]);
+      setBookmarked(!!bookmarkRes.data);
+      setExistingContactId(contactRes.data?.id || null);
     })();
   }, [user, offerId, supabase]);
 
@@ -109,6 +120,42 @@ export default function InstantOfferDetailPage() {
     } else {
       await supabase.from("bookmarks").delete().eq("user_id", user.id).eq("instant_offer_id", offerId);
     }
+  };
+
+  const handleCreateContact = async () => {
+    if (!user || !offer) return;
+    setContactLoading(true);
+
+    // Check if contact already exists
+    const { data: existing } = await supabase
+      .from("contacts")
+      .select("id")
+      .eq("buyer_id", user.id)
+      .eq("instant_offer_id", offer.id)
+      .maybeSingle();
+
+    if (existing) {
+      router.push(`/dashboard/nachrichten?contact=${existing.id}`);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("contacts")
+      .insert({
+        instant_offer_id: offer.id,
+        buyer_id: user.id,
+        dealer_id: offer.dealer_id,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast.error("Fehler: " + error.message);
+      setContactLoading(false);
+    } else if (data) {
+      router.push(`/dashboard/nachrichten?contact=${data.id}`);
+    }
+    setShowContactConfirm(false);
   };
 
   if (loading) {
@@ -233,8 +280,9 @@ export default function InstantOfferDetailPage() {
                 {showEquipment ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
               </button>
               {showEquipment && (
-                <div className="px-6 pb-6">
-                  {equipmentDetails.length > 0 ? (
+                <div className="px-6 pb-6 space-y-6">
+                  {/* Technical specs table */}
+                  {equipmentDetails.length > 0 && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
                       {equipmentDetails.map((d, i) => (
                         <div key={i} className="flex justify-between py-2 border-b border-slate-100 last:border-0">
@@ -243,12 +291,200 @@ export default function InstantOfferDetailPage() {
                         </div>
                       ))}
                     </div>
-                  ) : (
+                  )}
+
+                  {/* Grouped Exterieur-Extras */}
+                  {(() => {
+                    const ext = (offer.equipment as Record<string, unknown>)?.exteriorExtras as string[] | undefined;
+                    if (!ext || ext.length === 0) return null;
+
+                    const groups: { label: string; icon: React.ReactNode; items: string[] }[] = [
+                      { label: "Licht & Sicht", icon: <Lightbulb size={14} />, items: [
+                        "Adaptives Kurvenlicht", "Bi-Xenon Scheinwerfer", "Blendfreies Fernlicht", "Fernlichtassistent",
+                        "Kurvenlicht", "Laserlicht", "LED-Scheinwerfer", "LED-Tagfahrlicht", "Lichtsensor",
+                        "Nachtsicht-Assistent", "Nebelscheinwerfer", "Scheinwerferreinigung", "Tagfahrlicht", "Xenonscheinwerfer",
+                      ]},
+                      { label: "Sicherheit & Assistenz", icon: <Shield size={14} />, items: [
+                        "ABS", "Abstandswarner", "Berganfahrassistent", "ESP", "Notbremsassistent",
+                        "Spurhalteassistent", "Totwinkel-Assistent", "Traktionskontrolle", "Verkehrszeichenerkennung",
+                        "Geschwindigkeitsbegrenzer", "Reifendruckkontrolle", "Elektr. Wegfahrsperre",
+                      ]},
+                      { label: "Fahrwerk & Raeder", icon: <Disc size={14} />, items: [
+                        "Adaptives Fahrwerk", "Luftfederung", "Sportfahrwerk", "Leichtmetallfelgen", "Stahlfelgen",
+                        "Allwetterreifen", "Sommerreifen", "Winterreifen", "Winterpaket", "Sportpaket",
+                      ]},
+                      { label: "Komfort & Karosserie", icon: <Zap size={14} />, items: [
+                        "Abgedunkelte Scheiben", "Beheizbare Frontscheibe", "Dachreling", "Elektr. Heckklappe",
+                        "Faltdach", "Panorama-Dach", "Regensensor", "Schiebedach", "Schlüssellose Zentralverriegelung",
+                        "Servolenkung", "Start/Stopp-Automatik", "Zentralverriegelung",
+                        "Notrad", "Pannenkit", "Reserverad", "Behindertengerecht",
+                      ]},
+                    ];
+
+                    return (
+                      <div>
+                        <h3 className="text-sm font-bold text-navy-950 uppercase tracking-wider mb-3">Exterieur-Ausstattung</h3>
+                        <div className="space-y-4">
+                          {groups.map((g) => {
+                            const matched = ext.filter((e) => g.items.includes(e));
+                            if (matched.length === 0) return null;
+                            return (
+                              <div key={g.label}>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-slate-400">{g.icon}</span>
+                                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{g.label}</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {matched.map((item) => (
+                                    <span key={item} className="inline-flex items-center gap-1 text-xs font-medium bg-slate-100 text-slate-700 px-2.5 py-1.5 rounded-lg">
+                                      <Check size={12} className="text-green-500 shrink-0" />{item}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {/* Ungrouped extras */}
+                          {(() => {
+                            const allGrouped = groups.flatMap((g) => g.items);
+                            const ungrouped = ext.filter((e) => !allGrouped.includes(e));
+                            if (ungrouped.length === 0) return null;
+                            return (
+                              <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-slate-400"><Zap size={14} /></span>
+                                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Sonstiges</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {ungrouped.map((item) => (
+                                    <span key={item} className="inline-flex items-center gap-1 text-xs font-medium bg-slate-100 text-slate-700 px-2.5 py-1.5 rounded-lg">
+                                      <Check size={12} className="text-green-500 shrink-0" />{item}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Grouped Interieur-Extras */}
+                  {(() => {
+                    const int = (offer.equipment as Record<string, unknown>)?.interiorExtras as string[] | undefined;
+                    if (!int || int.length === 0) return null;
+
+                    const groups: { label: string; icon: React.ReactNode; items: string[] }[] = [
+                      { label: "Infotainment & Konnektivitaet", icon: <Wifi size={14} />, items: [
+                        "Android Auto", "Apple CarPlay", "Bluetooth", "CD-Spieler", "Freisprecheinrichtung",
+                        "Induktionsladen Smartphones", "Musikstreaming integriert", "Navigationssystem",
+                        "Radio DAB", "Soundsystem", "Sprachsteuerung", "Touchscreen", "Tuner/Radio", "TV", "USB",
+                        "Volldigitales Kombiinstrument", "WLAN/Wifi Hotspot", "Head-Up Display",
+                      ]},
+                      { label: "Sitze & Komfort", icon: <Armchair size={14} />, items: [
+                        "Armlehne", "Beheizbares Lenkrad", "Elektr. Sitzeinstellung", "Elektr. Sitzeinstellung mit Memory",
+                        "Elektr. Sitzeinstellung hinten", "Lederlenkrad", "Lordosenstütze", "Massagesitze",
+                        "Sitzbelüftung", "Sitzheizung", "Sitzheizung hinten", "Sportsitze",
+                        "Umklappbarer Beifahrersitz", "Multifunktionslenkrad", "Schaltwippen",
+                      ]},
+                      { label: "Sicherheit & Ueberwachung", icon: <Eye size={14} />, items: [
+                        "Alarmanlage", "Bordcomputer", "Elektr. Seitenspiegel", "Elektr. Seitenspiegel anklappbar",
+                        "Elektr. Fensterheber", "Innenspiegel autom. abblendend", "Isofix", "Isofix Beifahrersitz",
+                        "Müdigkeitswarner", "Notrufsystem", "Virtuelle Seitenspiegel",
+                      ]},
+                      { label: "Sonstiges", icon: <Zap size={14} />, items: [
+                        "Ambiente-Beleuchtung", "Gepäckraumabtrennung", "Raucherpaket", "Rechtslenker",
+                        "Skisack", "Standheizung",
+                      ]},
+                    ];
+
+                    return (
+                      <div>
+                        <h3 className="text-sm font-bold text-navy-950 uppercase tracking-wider mb-3">Interieur-Ausstattung</h3>
+                        <div className="space-y-4">
+                          {groups.map((g) => {
+                            const matched = int.filter((e) => g.items.includes(e));
+                            if (matched.length === 0) return null;
+                            return (
+                              <div key={g.label}>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-slate-400">{g.icon}</span>
+                                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{g.label}</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {matched.map((item) => (
+                                    <span key={item} className="inline-flex items-center gap-1 text-xs font-medium bg-slate-100 text-slate-700 px-2.5 py-1.5 rounded-lg">
+                                      <Check size={12} className="text-green-500 shrink-0" />{item}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {/* Ungrouped extras */}
+                          {(() => {
+                            const allGrouped = groups.flatMap((g) => g.items);
+                            const ungrouped = int.filter((e) => !allGrouped.includes(e));
+                            if (ungrouped.length === 0) return null;
+                            return (
+                              <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="text-slate-400"><Zap size={14} /></span>
+                                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Weitere</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {ungrouped.map((item) => (
+                                    <span key={item} className="inline-flex items-center gap-1 text-xs font-medium bg-slate-100 text-slate-700 px-2.5 py-1.5 rounded-lg">
+                                      <Check size={12} className="text-green-500 shrink-0" />{item}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {equipmentDetails.length === 0 && !(offer.equipment as Record<string, unknown>)?.exteriorExtras && !(offer.equipment as Record<string, unknown>)?.interiorExtras && (
                     <p className="text-slate-400 text-sm">Keine detaillierten Spezifikationen verfügbar.</p>
                   )}
                 </div>
               )}
             </div>
+
+            {/* Config Documents */}
+            {offer.config_documents && offer.config_documents.length > 0 && (
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden p-6">
+                <h2 className="text-xl font-bold text-navy-950 mb-4">Herstellerkonfiguration</h2>
+                <p className="text-sm text-slate-500 mb-4">Detaillierte Konfigurationsdokumente vom Hersteller</p>
+                <div className="space-y-2">
+                  {(offer.config_documents as { path: string; name: string }[]).map((doc, idx) => {
+                    const ext = doc.name.split(".").pop()?.toUpperCase() || "PDF";
+                    return (
+                      <a
+                        key={idx}
+                        href={getConfigDocUrl(doc.path)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-4 p-4 border border-slate-200 rounded-2xl hover:bg-slate-50 hover:border-blue-200 transition-all group"
+                      >
+                        <div className="h-11 w-11 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
+                          <FileText size={20} className="text-indigo-600" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-navy-950 text-sm truncate">{doc.name}</p>
+                          <p className="text-xs text-slate-400">{ext}-Dokument</p>
+                        </div>
+                        <Download size={18} className="text-slate-400 group-hover:text-blue-500 transition-colors shrink-0" />
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Leasing Conditions - Collapsible */}
             {offer.leasing_enabled && (
@@ -458,9 +694,24 @@ export default function InstantOfferDetailPage() {
             {/* Action Buttons */}
             <div className="space-y-3 sticky bottom-6">
               {user && isBuyer && (
-                <Button className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg shadow-lg shadow-blue-600/20">
-                  <Send size={18} className="mr-2" /> Anfrage senden
-                </Button>
+                existingContactId ? (
+                  <Button
+                    onClick={() => router.push(`/dashboard/nachrichten?contact=${existingContactId}`)}
+                    className="w-full h-14 rounded-2xl bg-green-600 hover:bg-green-700 text-white font-bold text-lg shadow-lg shadow-green-600/20"
+                  >
+                    <MessageCircle size={18} className="mr-2" />
+                    Zum Chat
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => setShowContactConfirm(true)}
+                    disabled={contactLoading}
+                    className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg shadow-lg shadow-blue-600/20"
+                  >
+                    {contactLoading ? <Loader2 className="animate-spin mr-2" size={18} /> : <Send size={18} className="mr-2" />}
+                    Anfrage senden
+                  </Button>
+                )
               )}
               {user ? (
                 <Button
@@ -486,6 +737,30 @@ export default function InstantOfferDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Contact confirmation dialog */}
+      <Dialog open={showContactConfirm} onOpenChange={setShowContactConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Anfrage senden</DialogTitle>
+            <DialogDescription>
+              Möchten Sie den Händler{dealerProfile?.company_name ? ` "${dealerProfile.company_name}"` : ""} zu diesem Sofort-Angebot kontaktieren?
+              Es wird eine Konversation erstellt, in der Sie direkt kommunizieren können.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" className="rounded-xl" onClick={() => setShowContactConfirm(false)}>Abbrechen</Button>
+            <Button
+              onClick={handleCreateContact}
+              disabled={contactLoading}
+              className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {contactLoading ? <Loader2 className="animate-spin mr-2" size={16} /> : <Send size={16} className="mr-2" />}
+              Kontakt aufnehmen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
