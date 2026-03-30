@@ -9,54 +9,48 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { HeroSection } from "@/components/ui-custom/HeroSection";
 
 export default function ForDealersLandingPage() {
   return (
     <div className="bg-slate-50 min-h-screen">
       
-      {/* 1. HERO SECTION (Navy Gradient) */}
-      <section className="relative bg-gradient-to-br from-navy-950 via-navy-900 to-blue-900 text-white pt-24 pb-32 overflow-hidden px-4 md:px-8">
-        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
+      {/* 1. HERO SECTION */}
+      <HeroSection
+        badge="Der B2B Leasing Marktplatz"
+        badgeIcon={<Building2 size={14} />}
+        title={<>Mehr Reichweite. <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">Null Risiko für Sie.</span></>}
+        subtitle="proFleet verbindet deutsche Vertragshändler mit einem gigantischen Netzwerk an B2B-Flottenmanagern und KMUs, die konkret nach Fahrzeugen suchen."
+      >
+        <div className="flex flex-col sm:flex-row gap-4 w-full justify-center mb-16">
+          <Button size="lg" className="bg-white text-navy-950 hover:bg-slate-100 font-black h-14 px-8 rounded-2xl shadow-xl shadow-black/20">
+            Jetzt als Anbieter registrieren
+          </Button>
+          <Button size="lg" variant="outline" className="border-blue-400/30 text-white hover:bg-blue-500/20 hover:text-white font-bold h-14 px-8 rounded-2xl bg-transparent backdrop-blur-md">
+            Pricing ansehen
+          </Button>
+        </div>
 
-        <div className="container mx-auto max-w-6xl relative z-10 flex flex-col items-center text-center">
-          <Badge className="bg-blue-500/20 text-blue-300 border-none font-bold mb-6 backdrop-blur-sm">Der b2B Leasing Marktplatz</Badge>
-          <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-8 leading-tight max-w-4xl">
-            Mehr Reichweite. <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">Null Risiko für Sie.</span>
-          </h1>
-          <p className="text-lg md:text-xl text-blue-100/80 max-w-2xl mb-10 leading-relaxed">
-            proFleet verbindet deutsche Vertragshändler mit einem gigantischen Netzwerk an B2B-Flottenmanagern und KMUs, die konkret nach Fahrzeugen suchen.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
-            <Button size="lg" className="bg-white text-navy-950 hover:bg-slate-100 font-black h-14 px-8 rounded-2xl shadow-xl shadow-black/20">
-              Jetzt als Anbieter registrieren
-            </Button>
-            <Button size="lg" variant="outline" className="border-blue-400/30 text-white hover:bg-blue-500/20 hover:text-white font-bold h-14 px-8 rounded-2xl bg-transparent backdrop-blur-md">
-              Pricing ansehen
-            </Button>
+        {/* Hero Sub-Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 border-t border-white/10 pt-12 w-full max-w-4xl text-left">
+          <div>
+            <div className="text-3xl font-black text-white mb-1">10.000+</div>
+            <div className="text-sm text-blue-200/70 font-bold uppercase tracking-widest">Kombinierte Leads/Monat</div>
           </div>
-
-          {/* Hero Sub-Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-24 border-t border-white/10 pt-12 w-full max-w-4xl text-left">
-            <div>
-              <div className="text-3xl font-black text-white mb-1">10.000+</div>
-              <div className="text-sm text-blue-200/70 font-bold uppercase tracking-widest">Kombinierte Leads/Monat</div>
-            </div>
-            <div>
-              <div className="text-3xl font-black text-white mb-1">~ 12h</div>
-              <div className="text-sm text-blue-200/70 font-bold uppercase tracking-widest">Ø Zeit für Gegengebot</div>
-            </div>
-            <div>
-              <div className="text-3xl font-black text-emerald-400 mb-1">0 €</div>
-              <div className="text-sm text-blue-200/70 font-bold uppercase tracking-widest">Starter kostenlos</div>
-            </div>
-            <div>
-              <div className="text-3xl font-black text-white mb-1">98%</div>
-              <div className="text-sm text-blue-200/70 font-bold uppercase tracking-widest">Händler Zufriedenheit</div>
-            </div>
+          <div>
+            <div className="text-3xl font-black text-white mb-1">~ 12h</div>
+            <div className="text-sm text-blue-200/70 font-bold uppercase tracking-widest">Ø Zeit für Gegengebot</div>
+          </div>
+          <div>
+            <div className="text-3xl font-black text-emerald-400 mb-1">0 €</div>
+            <div className="text-sm text-blue-200/70 font-bold uppercase tracking-widest">Starter kostenlos</div>
+          </div>
+          <div>
+            <div className="text-3xl font-black text-white mb-1">98%</div>
+            <div className="text-sm text-blue-200/70 font-bold uppercase tracking-widest">Händler Zufriedenheit</div>
           </div>
         </div>
-      </section>
+      </HeroSection>
 
       {/* 2. ADVANTAGES FEATURE GRID */}
       <section className="py-24 container mx-auto max-w-6xl px-4 md:px-8">

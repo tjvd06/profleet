@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { VehicleCard } from "@/components/tenders/VehicleCard";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import { HeroSection } from "@/components/ui-custom/HeroSection";
 import { ArrowRight, CheckCircle2, Star, Zap } from "lucide-react";
 
 const mockSavings = [
@@ -15,35 +16,26 @@ export default function HomePage() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* 1. Hero Section */}
-      <section className="relative overflow-hidden bg-navy-950 px-4 py-24 md:py-32">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-900/40 via-navy-950 to-navy-950" />
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
-
-        <div className="container relative mx-auto max-w-7xl flex flex-col items-center text-center">
-          <Badge className="bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 border border-blue-500/30 mb-8 px-4 py-1.5 text-sm">
-            Soon Coming<Zap size={14} className="inline ml-1 text-cyan-400" />
-          </Badge>
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-white mb-6 max-w-4xl" style={{ fontFamily: 'var(--font-heading)' }}>
-            Neuwagen einkaufen wie die Großen.
-          </h1>
-          <p className="text-xl text-slate-300 mb-10 max-w-2xl leading-relaxed">
-            Die Ausschreibungsplattform für Unternehmen. Konfigurieren Sie Ihr Wunschauto, erhalten Sie Top-Angebote von Händlern aus ganz Deutschland — kostenlos und transparent.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 mb-16">
-            <Button size="lg" className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-400 hover:opacity-90 text-white font-semibold px-8 h-14 text-lg">
-              Jetzt Ausschreibung starten
-            </Button>
-            <Button size="lg" variant="outline" className="rounded-xl border-white/20 bg-white/5 text-white hover:bg-white/10 h-14 px-8 text-lg backdrop-blur-sm">
-              So funktioniert's
-            </Button>
-          </div>
-          <div className="flex flex-wrap justify-center gap-6 md:gap-12 text-slate-400 text-sm font-medium">
-            <span className="flex items-center gap-2"><CheckCircle2 size={18} className="text-green-400" /> Kostenlos für Nachfrager</span>
-            <span className="flex items-center gap-2"><CheckCircle2 size={18} className="text-green-400" /> Über 2.500 verifizierte Händler</span>
-            <span className="flex items-center gap-2"><CheckCircle2 size={18} className="text-green-400" /> Ø 14% Ersparnis</span>
-          </div>
+      <HeroSection
+        badge="Soon Coming"
+        badgeIcon={<Zap size={14} className="text-cyan-400" />}
+        title="Neuwagen einkaufen wie die Großen."
+        subtitle="Die Ausschreibungsplattform für Unternehmen. Konfigurieren Sie Ihr Wunschauto, erhalten Sie Top-Angebote von Händlern aus ganz Deutschland — kostenlos und transparent."
+      >
+        <div className="flex flex-col sm:flex-row gap-4 mb-12">
+          <Button size="lg" className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-400 hover:opacity-90 text-white font-semibold px-8 h-14 text-lg">
+            Jetzt Ausschreibung starten
+          </Button>
+          <Button size="lg" variant="outline" className="rounded-xl border-white/20 bg-white/5 text-white hover:bg-white/10 h-14 px-8 text-lg backdrop-blur-sm">
+            So funktioniert's
+          </Button>
         </div>
-      </section>
+        <div className="flex flex-wrap justify-center gap-6 md:gap-12 text-slate-400 text-sm font-medium">
+          <span className="flex items-center gap-2"><CheckCircle2 size={18} className="text-green-400" /> Kostenlos für Nachfrager</span>
+          <span className="flex items-center gap-2"><CheckCircle2 size={18} className="text-green-400" /> Über 2.500 verifizierte Händler</span>
+          <span className="flex items-center gap-2"><CheckCircle2 size={18} className="text-green-400" /> Ø 14% Ersparnis</span>
+        </div>
+      </HeroSection>
 
       {/* 2. Logos/Social Proof */}
       <section className="bg-white py-12 border-b border-slate-100">

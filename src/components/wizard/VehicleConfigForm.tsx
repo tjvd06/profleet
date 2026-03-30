@@ -42,7 +42,7 @@ interface VehicleConfigFormProps {
 
 type SectionDef = {
   title: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: React.ElementType;
   required?: boolean;
 };
 

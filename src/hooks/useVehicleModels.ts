@@ -17,7 +17,7 @@ export function useVehicleModels(vehicleType: "PKW" | "NFZ") {
         .select("brand")
         .eq("vehicle_type", vehicleType);
       if (!cancelled && data) {
-        const unique = [...new Set(data.map((r: { brand: string }) => r.brand))].sort();
+        const unique = Array.from(new Set(data.map((r: { brand: string }) => r.brand))).sort();
         setBrands(unique);
       }
       if (!cancelled) setLoadingBrands(false);
@@ -44,7 +44,7 @@ export function useVehicleModelsByBrand(vehicleType: "PKW" | "NFZ", brand: strin
         .eq("vehicle_type", vehicleType)
         .eq("brand", brand);
       if (!cancelled && data) {
-        const unique = [...new Set(data.map((r: { model: string }) => r.model))].sort();
+        const unique = Array.from(new Set(data.map((r: { model: string }) => r.model))).sort();
         setModels(unique);
       }
       if (!cancelled) setLoadingModels(false);

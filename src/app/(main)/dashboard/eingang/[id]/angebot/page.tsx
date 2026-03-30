@@ -234,7 +234,7 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
         if (t.buyer_id) {
           const { data: buyerData } = await supabase
             .from("profiles")
-            .select("company_name, industry, zip, city, created_at")
+            .select("company_name, first_name, last_name, industry, zip, city, street, phone, email_public, subscription_tier, created_at")
             .eq("id", t.buyer_id).single();
           t.buyer = buyerData || null;
 

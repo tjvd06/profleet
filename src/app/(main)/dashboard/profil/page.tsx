@@ -46,12 +46,12 @@ type ProfileForm = {
   last_name: string;
   phone: string;
   company_name: string;
-  industry: string;
+  industry: string | null;
   street: string;
   zip: string;
   city: string;
   vat_id: string;
-  dealer_type: string;
+  dealer_type: string | null;
   brands: string[];
 };
 

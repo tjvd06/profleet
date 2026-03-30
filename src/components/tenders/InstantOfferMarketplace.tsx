@@ -40,12 +40,13 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useSubscription } from "@/components/providers/subscription-provider";
+import { HeroSection } from "@/components/ui-custom/HeroSection";
 import { type InstantOfferRow } from "@/lib/instant-offers";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 12;
-const PUBLIC_LIMIT = 5;
+const PUBLIC_LIMIT = 10;
 const VAT_RATE = 1.19;
 
 type MarketplaceTab = "all" | "bookmarked" | "mine";
@@ -1567,7 +1568,7 @@ export function InstantOfferMarketplace() {
               onValueChange={(v) =>
                 setDraft((d) => ({
                   ...d,
-                  radius: v === "__bw__" ? "" : v,
+                  radius: v === "__bw__" ? "" : (v ?? ""),
                 }))
               }
             >
@@ -1648,25 +1649,12 @@ export function InstantOfferMarketplace() {
     <div className="bg-slate-50 min-h-screen">
       {/* ── Hero Header (public only) ── */}
       {!isDashboard && (
-        <div className="relative bg-gradient-to-br from-navy-950 via-navy-900 to-blue-900 pt-16 pb-20 overflow-hidden">
-          <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
-          <div className="container mx-auto max-w-7xl px-4 md:px-8 relative z-10 text-center">
-            <div className="inline-flex items-center gap-2 bg-blue-500/20 text-blue-300 px-4 py-1.5 rounded-full text-sm font-semibold mb-6 border border-blue-500/30">
-              <Zap size={16} className="text-amber-400" />
-              {totalCount > 0
-                ? `${totalCount} sofort verfügbare Flottenfahrzeuge`
-                : "Sofort-Angebote Marktplatz"}
-            </div>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tight mb-4">
-              Sofort-Angebote Marktplatz
-            </h1>
-            <p className="text-lg md:text-xl text-blue-100/70 max-w-2xl mx-auto">
-              Entdecken Sie exklusive Lagerfahrzeuge und Tageszulassungen
-              deutscher Markenhändler.
-            </p>
-          </div>
-        </div>
+        <HeroSection
+          badge={totalCount > 0 ? `${totalCount} sofort verfügbare Flottenfahrzeuge` : "Sofort-Angebote Marktplatz"}
+          badgeIcon={<Zap size={14} className="text-amber-400" />}
+          title="Sofort-Angebote Marktplatz"
+          subtitle="Entdecken Sie exklusive Lagerfahrzeuge und Tageszulassungen deutscher Markenhändler."
+        />
       )}
 
       {/* ── Sticky Filter Bar ── */}

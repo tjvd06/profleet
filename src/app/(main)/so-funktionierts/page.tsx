@@ -9,6 +9,7 @@ import {
   Settings, Handshake, Zap, ArrowRight, ShieldCheck, CheckCircle2 
 } from "lucide-react";
 import Link from "next/link";
+import { HeroSection } from "@/components/ui-custom/HeroSection";
 
 const buyerSteps = [
   {
@@ -65,17 +66,15 @@ export default function HowItWorksPage() {
   const [activeTab, setActiveTab] = useState<"buyer" | "dealer">("buyer");
 
   return (
-    <div className="bg-slate-50 min-h-screen py-16 md:py-24">
-      <div className="container mx-auto max-w-5xl px-4 md:px-8">
-        
-        {/* Header */}
-        <div className="text-center mb-16">
-          <Badge className="bg-blue-100/50 text-blue-700 border-none font-bold mb-4">Der proFleet Prozess</Badge>
-          <h1 className="text-4xl md:text-5xl font-black text-navy-950 tracking-tight mb-4">So einfach funktioniert's</h1>
-          <p className="text-lg text-slate-500 font-medium max-w-2xl mx-auto">
-            Von der Konfiguration bis zum abgeschlossenen Leasingvertrag. Entdecken Sie den perfekten Ablauf für Einkäufer und Händler.
-          </p>
-        </div>
+    <div className="bg-slate-50 min-h-screen">
+      <HeroSection
+        badge="Der proFleet Prozess"
+        badgeIcon={<Settings size={14} />}
+        title="So einfach funktioniert's"
+        subtitle="Von der Konfiguration bis zum abgeschlossenen Leasingvertrag. Entdecken Sie den perfekten Ablauf für Einkäufer und Händler."
+      />
+
+      <div className="container mx-auto max-w-5xl px-4 md:px-8 -mt-8 relative z-10">
 
         {/* Tabs */}
         <div className="w-full">

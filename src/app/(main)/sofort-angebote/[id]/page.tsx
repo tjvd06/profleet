@@ -84,8 +84,8 @@ export default function InstantOfferDetailPage() {
         const offerData = data as InstantOfferRow;
         setOffer(offerData);
 
-        // Load dealer profile
-        if (offerData.dealer_id) {
+        // Load dealer profile — only for logged-in users
+        if (offerData.dealer_id && user) {
           const { data: dp } = await supabase
             .from("profiles")
             .select("company_name, first_name, last_name, dealer_type, zip, city, street, phone, email_public, subscription_tier, created_at")
@@ -96,7 +96,7 @@ export default function InstantOfferDetailPage() {
       }
       setLoading(false);
     })();
-  }, [supabase, offerId]);
+  }, [supabase, offerId, user]);
 
   // Fetch bookmark state + existing contact
   useEffect(() => {
@@ -652,44 +652,53 @@ export default function InstantOfferDetailPage() {
               </div>
             </div>
 
-            {/* Dealer Info Card */}
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-              <h2 className="text-lg font-bold text-navy-950 mb-4">Anbieter</h2>
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-center">
-                  <Building2 size={24} className="text-blue-600" />
-                </div>
-                <div>
-                  <div className="font-bold text-navy-950 text-lg">{dealerProfile?.company_name || "Anbieter"}</div>
-                </div>
-              </div>
-              {dealerProfile && (
-                <div className="space-y-2 mb-4">
-                  {dealerProfile.dealer_type && (
-                    <div className="text-sm text-slate-500">
-                      <span className="font-semibold text-slate-400 text-xs uppercase tracking-wider">Händlertyp:</span>{" "}
-                      <span className="font-medium text-slate-700">{dealerProfile.dealer_type}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-1.5 text-sm text-slate-600">
-                    <MapPin size={14} className="shrink-0 text-slate-400" />
-                    {dealerProfile.street && <span>{dealerProfile.street}, </span>}
-                    {dealerProfile.zip || ""} {dealerProfile.city || location}
+            {/* Dealer Info Card — only for logged-in users */}
+            {user ? (
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+                <h2 className="text-lg font-bold text-navy-950 mb-4">Anbieter</h2>
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-center">
+                    <Building2 size={24} className="text-blue-600" />
                   </div>
-                  {dealerProfile.created_at && (
-                    <div className="text-xs text-slate-400 mt-1">
-                      Mitglied seit {new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" }).format(new Date(dealerProfile.created_at))}
+                  <div>
+                    <div className="font-bold text-navy-950 text-lg">{dealerProfile?.company_name || "Anbieter"}</div>
+                  </div>
+                </div>
+                {dealerProfile && (
+                  <div className="space-y-2 mb-4">
+                    {dealerProfile.dealer_type && (
+                      <div className="text-sm text-slate-500">
+                        <span className="font-semibold text-slate-400 text-xs uppercase tracking-wider">Händlertyp:</span>{" "}
+                        <span className="font-medium text-slate-700">{dealerProfile.dealer_type}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5 text-sm text-slate-600">
+                      <MapPin size={14} className="shrink-0 text-slate-400" />
+                      {dealerProfile.street && <span>{dealerProfile.street}, </span>}
+                      {dealerProfile.zip || ""} {dealerProfile.city || location}
                     </div>
-                  )}
+                    {dealerProfile.created_at && (
+                      <div className="text-xs text-slate-400 mt-1">
+                        Mitglied seit {new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" }).format(new Date(dealerProfile.created_at))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {offer.delivery_radius && (
+                  <div className="flex items-center gap-2 text-sm text-slate-500 bg-slate-50 rounded-xl p-3 border border-slate-100">
+                    <Info size={14} className="text-slate-400 shrink-0" />
+                    Lieferung im Umkreis von {offer.delivery_radius} km möglich
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 text-center">
+                <div className="w-12 h-12 bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center mx-auto mb-3">
+                  <Building2 size={24} className="text-slate-400" />
                 </div>
-              )}
-              {offer.delivery_radius && (
-                <div className="flex items-center gap-2 text-sm text-slate-500 bg-slate-50 rounded-xl p-3 border border-slate-100">
-                  <Info size={14} className="text-slate-400 shrink-0" />
-                  Lieferung im Umkreis von {offer.delivery_radius} km möglich
-                </div>
-              )}
-            </div>
+                <p className="text-sm text-slate-500 font-medium">Anbieter-Details sind nur für angemeldete Nutzer sichtbar.</p>
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="space-y-3 sticky bottom-6">
