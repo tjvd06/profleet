@@ -4,7 +4,7 @@ import { VehicleCard } from "@/components/tenders/VehicleCard";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { HeroSection } from "@/components/ui-custom/HeroSection";
-import { ArrowRight, CheckCircle2, Star, Zap } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock, Gavel, Package, Search, ShieldCheck, ShoppingCart, Star, TrendingDown, Users, Zap } from "lucide-react";
 
 const mockSavings = [
   { brand: 'Audi', model: 'A4 Avant RS4', specs: '420 PS · shadowgrey metallic', listPrice: 89138, finalPrice: 75411, savings: 15.4, dealerRating: 0, location: 'München · 100 km' },
@@ -20,24 +20,208 @@ export default function HomePage() {
         badge="Soon Coming"
         badgeIcon={<Zap size={14} className="text-cyan-400" />}
         title="Neuwagen einkaufen wie die Großen."
-        subtitle="Die Ausschreibungsplattform für Unternehmen. Konfigurieren Sie Ihr Wunschauto, erhalten Sie Top-Angebote von Händlern aus ganz Deutschland — kostenlos und transparent."
+        subtitle="Zwei Wege zum Bestpreis: Stöbern Sie in Sofort-Angeboten von Händlern oder starten Sie eine Ausschreibung und lassen Sie Händler um Ihren Auftrag bieten."
       >
         <div className="flex flex-col sm:flex-row gap-4 mb-12">
-          <Button size="lg" className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-400 hover:opacity-90 text-white font-semibold px-8 h-14 text-lg">
-            Jetzt Ausschreibung starten
-          </Button>
-          <Button size="lg" variant="outline" className="rounded-xl border-white/20 bg-white/5 text-white hover:bg-white/10 h-14 px-8 text-lg backdrop-blur-sm">
-            So funktioniert's
-          </Button>
+          <Link href="/sofort-angebote">
+            <Button size="lg" className="rounded-xl bg-white text-navy-900 hover:bg-slate-100 font-semibold px-8 h-14 text-lg shadow-lg w-full">
+              <ShoppingCart size={20} className="mr-2" />
+              Sofort-Angebote entdecken
+            </Button>
+          </Link>
+          <Link href="/dashboard/ausschreibung/neu">
+            <Button size="lg" className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-400 hover:opacity-90 text-white font-semibold px-8 h-14 text-lg w-full">
+              <Gavel size={20} className="mr-2" />
+              Ausschreibung starten
+            </Button>
+          </Link>
         </div>
         <div className="flex flex-wrap justify-center gap-6 md:gap-12 text-slate-400 text-sm font-medium">
-          <span className="flex items-center gap-2"><CheckCircle2 size={18} className="text-green-400" /> Kostenlos für Nachfrager</span>
-          <span className="flex items-center gap-2"><CheckCircle2 size={18} className="text-green-400" /> Über 2.500 verifizierte Händler</span>
-          <span className="flex items-center gap-2"><CheckCircle2 size={18} className="text-green-400" /> Ø 14% Ersparnis</span>
+          <span className="flex items-center gap-2"><CheckCircle2 size={18} className="text-green-400" /> Kostenlos für Unternehmen</span>
+          <span className="flex items-center gap-2"><CheckCircle2 size={18} className="text-green-400" /> Nur verifizierte User</span>
+          <span className="flex items-center gap-2"><CheckCircle2 size={18} className="text-green-400" /> Reine B2B Plattform</span>
         </div>
       </HeroSection>
 
-      {/* 2. Logos/Social Proof */}
+      {/* 2. Zwei Wege – Sofort-Angebote vs. Ausschreibung */}
+      <section className="bg-white py-24">
+        <div className="container mx-auto max-w-7xl px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold text-navy-950 mb-4">Zwei Wege zum besten Deal</h2>
+            <p className="text-lg text-slate-500 max-w-3xl mx-auto">Ob Sie sofort zuschlagen oder Händler gegeneinander bieten lassen — proFleet gibt Ihnen die Wahl.</p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* Sofort-Angebote */}
+            <div className="relative bg-gradient-to-br from-emerald-50 to-white rounded-3xl p-8 md:p-10 border-2 border-emerald-200 group hover:shadow-lg transition-all">
+              <div className="absolute top-6 right-6">
+                <Badge className="bg-emerald-100 text-emerald-700 border-none font-semibold text-sm px-3 py-1">Sofort verfügbar</Badge>
+              </div>
+              <div className="h-16 w-16 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-6">
+                <ShoppingCart size={28} />
+              </div>
+              <h3 className="text-2xl md:text-3xl font-bold text-navy-950 mb-3">Sofort-Angebote</h3>
+              <p className="text-lg text-slate-600 mb-8 leading-relaxed">
+                Händler stellen fertig konfigurierte Fahrzeuge mit Festpreis ein. Sie stöbern, vergleichen und schlagen sofort zu — ohne Wartezeit.
+              </p>
+
+              <div className="space-y-4 mb-8">
+                <div className="flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Clock size={16} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-navy-950">Sofort verfügbar</p>
+                    <p className="text-sm text-slate-500">Fahrzeuge ab Lager oder kurzfristig lieferbar</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Package size={16} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-navy-950">Festpreis</p>
+                    <p className="text-sm text-slate-500">Transparente Preise mit Ersparnis zur UVP</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Search size={16} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-navy-950">Marktplatz durchsuchen</p>
+                    <p className="text-sm text-slate-500">Filtern nach Marke, Modell, Preis und Ausstattung</p>
+                  </div>
+                </div>
+              </div>
+
+              <Link href="/sofort-angebote">
+                <Button size="lg" className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold h-14 text-lg">
+                  Angebote durchstöbern <ArrowRight size={18} className="ml-2" />
+                </Button>
+              </Link>
+            </div>
+
+            {/* Ausschreibung / Reverse-Auction */}
+            <div className="relative bg-gradient-to-br from-blue-50 to-white rounded-3xl p-8 md:p-10 border-2 border-blue-200 group hover:shadow-lg transition-all">
+              <div className="absolute top-6 right-6">
+                <Badge className="bg-blue-100 text-blue-700 border-none font-semibold text-sm px-3 py-1">Reverse-Auction</Badge>
+              </div>
+              <div className="h-16 w-16 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center mb-6">
+                <Gavel size={28} />
+              </div>
+              <h3 className="text-2xl md:text-3xl font-bold text-navy-950 mb-3">Ausschreibung</h3>
+              <p className="text-lg text-slate-600 mb-8 leading-relaxed">
+                Sie beschreiben Ihr Wunschfahrzeug — Händler unterbieten sich gegenseitig um Ihren Auftrag. Je mehr bieten, desto besser Ihr Preis.
+              </p>
+
+              <div className="space-y-4 mb-8">
+                <div className="flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <TrendingDown size={16} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-navy-950">Händler unterbieten sich</p>
+                    <p className="text-sm text-slate-500">Wettbewerb sorgt für den bestmöglichen Preis</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Users size={16} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-navy-950">Mehrere Angebote</p>
+                    <p className="text-sm text-slate-500">Durchschnittlich 5+ Händler bieten pro Ausschreibung</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <ShieldCheck size={16} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-navy-950">Ihre Konfiguration</p>
+                    <p className="text-sm text-slate-500">Exakt das Fahrzeug, das Sie brauchen — individuell konfiguriert</p>
+                  </div>
+                </div>
+              </div>
+
+              <Link href="/dashboard/ausschreibung/neu">
+                <Button size="lg" className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-90 text-white font-semibold h-14 text-lg">
+                  Ausschreibung starten <ArrowRight size={18} className="ml-2" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. So funktioniert's – beide Wege */}
+      <section className="bg-slate-50 py-24">
+        <div className="container mx-auto max-w-7xl px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold text-navy-950 mb-4">So funktioniert's</h2>
+            <p className="text-lg text-slate-500 max-w-2xl mx-auto">Einfach, transparent und unverbindlich — egal welchen Weg Sie wählen.</p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-12">
+            {/* Sofort-Angebote Steps */}
+            <div>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                  <ShoppingCart size={20} />
+                </div>
+                <h3 className="text-xl font-bold text-navy-950">Sofort-Angebote</h3>
+              </div>
+              <div className="space-y-6">
+                {[
+                  { step: 1, title: 'Marktplatz durchsuchen', desc: 'Filtern Sie nach Marke, Modell, Preis und Region — alle Angebote sind sofort sichtbar.' },
+                  { step: 2, title: 'Angebot vergleichen', desc: 'Sehen Sie Festpreise, Leasing-Raten und Ersparnisse gegenüber der UVP auf einen Blick.' },
+                  { step: 3, title: 'Händler kontaktieren', desc: 'Gefällt Ihnen ein Angebot? Kontaktieren Sie den Händler direkt und schließen Sie den Deal.' },
+                ].map((item) => (
+                  <div key={item.step} className="flex gap-4">
+                    <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg font-bold flex-shrink-0 border border-emerald-200">
+                      {item.step}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-navy-950 mb-1">{item.title}</h4>
+                      <p className="text-slate-500 text-sm leading-relaxed">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Ausschreibung Steps */}
+            <div>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="h-10 w-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                  <Gavel size={20} />
+                </div>
+                <h3 className="text-xl font-bold text-navy-950">Ausschreibung <span className="text-sm font-normal text-slate-500">(Reverse-Auction)</span></h3>
+              </div>
+              <div className="space-y-6">
+                {[
+                  { step: 1, title: 'Fahrzeug konfigurieren', desc: 'Wählen Sie Marke, Modell und Ausstattung — oder laden Sie eine fertige Konfiguration hoch.' },
+                  { step: 2, title: 'Händler bieten gegeneinander', desc: 'Händler sehen Ihre Ausschreibung und unterbieten sich. Sie sehen alle Gebote in Echtzeit.' },
+                  { step: 3, title: 'Bestes Angebot wählen', desc: 'Nach Ablauf der Frist wählen Sie das beste Angebot aus Preis, Leasing und Bewertungen.' },
+                ].map((item) => (
+                  <div key={item.step} className="flex gap-4">
+                    <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg font-bold flex-shrink-0 border border-blue-200">
+                      {item.step}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-navy-950 mb-1">{item.title}</h4>
+                      <p className="text-slate-500 text-sm leading-relaxed">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Logos/Social Proof */}
       <section className="bg-white py-12 border-b border-slate-100">
         <div className="container mx-auto max-w-7xl text-center px-4">
           <p className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-8">Vertraut von innovativen Unternehmen</p>
@@ -51,34 +235,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 3. So funktioniert's */}
+      {/* 5. Aktuelle Ersparnisse */}
       <section className="bg-slate-50 py-24">
-        <div className="container mx-auto max-w-7xl px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-bold text-navy-950 mb-4">In 3 Schritten zum Bestpreis</h2>
-            <p className="text-lg text-slate-500 max-w-2xl mx-auto">Einfach, transparent und unverbindlich. So beschaffen clevere Flottenmanager heute Fahrzeuge.</p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              { step: 1, title: 'Fahrzeug konfigurieren', desc: 'Wählen Sie Marke, Modell und Ausstattung — oder laden Sie eine fertige Konfiguration hoch.' },
-              { step: 2, title: 'Angebote erhalten', desc: 'Händler aus ganz Deutschland bieten auf Ihre Ausschreibung. Alle Daten sind sofort sichtbar.' },
-              { step: 3, title: 'Bestes Angebot wählen', desc: 'Vergleichen Sie Preise, Leasing- und Finanzierungsraten. Kontaktieren Sie Ihren Wunschhändler.' }
-            ].map((item) => (
-              <div key={item.step} className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 relative group hover:shadow-md transition-shadow">
-                <div className="h-16 w-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl font-bold mb-6 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                  {item.step}
-                </div>
-                <h3 className="text-xl font-bold text-navy-950 mb-3">{item.title}</h3>
-                <p className="text-slate-500 leading-relaxed">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 4. Aktuelle Ersparnisse */}
-      <section className="bg-white py-24">
         <div className="container mx-auto max-w-7xl px-4">
           <div className="flex flex-col md:flex-row justify-between items-end mb-12">
             <div>
