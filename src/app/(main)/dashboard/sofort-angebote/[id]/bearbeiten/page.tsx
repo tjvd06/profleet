@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { uuid } from "@/types/vehicle";
 import {
   ChevronLeft, Plus, Minus, Loader2, CheckCircle, Camera,
   MapPin, Euro, Clock, Truck, FileText, Trash2, UploadCloud,
@@ -120,7 +121,7 @@ export default function EditInstantOfferPage() {
       if (offer.images && offer.images.length > 0) {
         setImages(
           offer.images.map((path) => ({
-            id: crypto.randomUUID(),
+            id: uuid(),
             preview: getImageUrl(path),
             storagePath: path,
           }))
@@ -179,7 +180,7 @@ export default function EditInstantOfferPage() {
       } else if (img.file) {
         // New image — upload to storage
         const ext = img.file.name.split(".").pop() || "jpg";
-        const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+        const path = `${userId}/${uuid()}.${ext}`;
         const { error: uploadError } = await supabase.storage
           .from("instant-offer-images")
           .upload(path, img.file, { contentType: img.file.type });
@@ -209,7 +210,7 @@ export default function EditInstantOfferPage() {
     const results = [...existingConfigDocs];
     for (const doc of newConfigDocs) {
       const ext = doc.name.split(".").pop() || "pdf";
-      const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+      const path = `${userId}/${uuid()}.${ext}`;
       const { error: uploadError } = await supabase.storage
         .from("instant-offer-config-docs")
         .upload(path, doc, { contentType: doc.type });

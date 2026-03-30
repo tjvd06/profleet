@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { uuid } from "@/types/vehicle";
 import {
   ChevronLeft, Plus, Minus, Loader2, PartyPopper, Camera,
   MapPin, Euro, Clock, Truck, FileText, Trash2, UploadCloud,
@@ -92,7 +93,7 @@ export default function CreateInstantOfferPage() {
     for (const img of images) {
       if (!img.file) continue;
       const ext = img.file.name.split(".").pop() || "jpg";
-      const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+      const path = `${userId}/${uuid()}.${ext}`;
       const { error } = await supabase.storage
         .from("instant-offer-images")
         .upload(path, img.file, { contentType: img.file.type });
@@ -109,7 +110,7 @@ export default function CreateInstantOfferPage() {
     const results: { path: string; name: string }[] = [];
     for (const doc of configDocs) {
       const ext = doc.name.split(".").pop() || "pdf";
-      const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+      const path = `${userId}/${uuid()}.${ext}`;
       const { error } = await supabase.storage
         .from("instant-offer-config-docs")
         .upload(path, doc, { contentType: doc.type });

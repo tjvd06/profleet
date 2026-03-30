@@ -74,7 +74,7 @@ export default function HowItWorksPage() {
         subtitle="Von der Konfiguration bis zum abgeschlossenen Leasingvertrag. Entdecken Sie den perfekten Ablauf für Einkäufer und Händler."
       />
 
-      <div className="container mx-auto max-w-5xl px-4 md:px-8 -mt-8 relative z-10">
+      <div className="container mx-auto max-w-5xl px-4 md:px-8 pt-12">
 
         {/* Tabs */}
         <div className="w-full">

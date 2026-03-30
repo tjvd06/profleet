@@ -77,9 +77,20 @@ export interface VehicleConfig {
   configFilePath?: string | null;
 }
 
+export function uuid(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  // Fallback for environments without crypto.randomUUID
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 export function createEmptyVehicleConfig(): VehicleConfig {
   return {
-    id: crypto.randomUUID(),
+    id: uuid(),
     method: "configurator",
     vehicleType: "PKW",
     brand: null,
@@ -171,7 +182,7 @@ export function buildEquipmentJson(v: VehicleConfig): Record<string, unknown> | 
 export function dbRowToVehicleConfig(v: Record<string, unknown>): VehicleConfig {
   const eq = (v.equipment || {}) as Record<string, unknown>;
   return {
-    id: (v.id as string) || crypto.randomUUID(),
+    id: (v.id as string) || uuid(),
     method: ((v.config_method as string) === "upload" ? "upload" : "configurator") as VehicleConfig["method"],
     vehicleType: ((v.vehicle_type as string) || "PKW") as "PKW" | "NFZ",
     brand: (v.brand as string) || null,

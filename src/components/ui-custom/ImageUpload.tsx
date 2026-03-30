@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { ImagePlus, X, GripVertical } from "lucide-react";
+import { uuid } from "@/types/vehicle";
 
 const MAX_IMAGES = 30;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/gif"];
@@ -35,7 +36,7 @@ export function ImageUpload({ images, onChange }: ImageUploadProps) {
         .slice(0, remaining);
 
       const newItems: ImageItem[] = validFiles.map((file) => ({
-        id: crypto.randomUUID(),
+        id: uuid(),
         file,
         preview: URL.createObjectURL(file),
       }));
