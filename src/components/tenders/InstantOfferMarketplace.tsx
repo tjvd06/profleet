@@ -36,6 +36,7 @@ import {
   Sparkles,
   Info,
 } from "lucide-react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useSubscription } from "@/components/providers/subscription-provider";
@@ -841,6 +842,39 @@ export function InstantOfferMarketplace() {
       else next.add(offerId);
       return next;
     });
+  };
+
+  const handleInquiry = async (offerId: string, dealerId: string) => {
+    if (!user) return;
+
+    // Check if contact already exists
+    const { data: existing } = await supabase
+      .from("contacts")
+      .select("id")
+      .eq("buyer_id", user.id)
+      .eq("instant_offer_id", offerId)
+      .maybeSingle();
+
+    if (existing) {
+      router.push(`/dashboard/nachrichten?contact=${existing.id}`);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("contacts")
+      .insert({
+        instant_offer_id: offerId,
+        buyer_id: user.id,
+        dealer_id: dealerId,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast.error("Fehler: " + error.message);
+    } else if (data) {
+      router.push(`/dashboard/nachrichten?contact=${data.id}`);
+    }
   };
 
   const handleCreateClick = () => {
@@ -2006,6 +2040,7 @@ export function InstantOfferMarketplace() {
                         ? () => handleBookmarkToggle(offer.id)
                         : undefined
                     }
+                    onInquiry={isBuyer ? handleInquiry : undefined}
                   />
                 )
               )}
