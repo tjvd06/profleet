@@ -326,7 +326,7 @@ export default function NewTenderWizard() {
                   <CheckCircle2 size={24} className="text-green-600 shrink-0" />
                   <div>
                     <h4 className="font-bold text-green-900 text-lg mb-1">Inklusivleistungen sind Standard</h4>
-                    <p className="text-base text-green-800/80 leading-relaxed">Alle Preise auf unserer Plattform verstehen sich als garantierte Abholpreise für das fertig zugelassene Fahrzeug (inklusive Überführung, Übergabeinspektion und amtlichen Zulassungskosten).</p>
+                    <p className="text-base text-green-800/80 leading-relaxed">Alle Preise auf unserer Plattform verstehen sich als garantierte Gesamtpreise für das fertig zugelassene Fahrzeug (inklusive Überführung, Übergabeinspektion und amtlichen Zulassungskosten).</p>
                   </div>
                 </CardContent>
               </Card>

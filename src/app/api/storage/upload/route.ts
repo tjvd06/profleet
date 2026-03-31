@@ -23,6 +23,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Bad request" }, { status: 400 });
     }
 
+    // Reject path traversal
+    if (storagePath.includes("..")) {
+      return NextResponse.json({ error: "Bad request" }, { status: 400 });
+    }
+
+    // Max 20 MB
+    if (file.size > 20 * 1024 * 1024) {
+      return NextResponse.json({ error: "File too large (max 20 MB)" }, { status: 413 });
+    }
+
     // Only allow known buckets
     const allowedBuckets = ["tender-config-files"];
     if (!allowedBuckets.includes(bucket)) {

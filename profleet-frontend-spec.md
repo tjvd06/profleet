@@ -441,10 +441,7 @@ Section "Wunschhändler" (collapsible card):
 - "Möchten Sie einen bestimmten Händler einbeziehen?"
 - Toggle — if yes: Name, PLZ, Ort, Straße inputs
 
-Section "Zusätzliche Angaben" (card with checkboxes):
-- ✓ Überführungskosten inkl. Übergabeinspektion
-- ✓ Zulassungskosten am Auslieferungsort
-- ✓ Gesamtpreis (Abholpreis zugelassenes Fahrzeug)
+
 
 #### Step 5: Veröffentlichen
 
@@ -650,7 +647,7 @@ Each card:
 **Section 5: Zusatzkosten**
 - Überführungskosten netto: currency
 - Zulassungskosten netto: currency
-- Netto-Gesamtpreis (Abholpreis): currency (auto-calculated or manual)
+- Netto-Gesamtpreis: currency (auto-calculated or manual)
 
 **For multi-vehicle tenders**: "Weiter zu Fahrzeug 2 →" button (paginated within the form)
 

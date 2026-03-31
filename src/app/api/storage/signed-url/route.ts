@@ -25,6 +25,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Bad request" }, { status: 400 });
     }
 
+    // Reject path traversal
+    if (filePath.includes("..")) {
+      return NextResponse.json({ error: "Bad request" }, { status: 400 });
+    }
+
     // Only allow known buckets
     const allowedBuckets = ["tender-config-files"];
     if (!allowedBuckets.includes(bucket)) {

@@ -245,177 +245,177 @@ function OfferRow({ offer, offerIdx, isMultiVehicle, vehicleLabel, vehicle, d, h
             </div>
           )}
 
-              {/* Kosten */}
-              {(hasCosts || offer.total_price) && (
-                <div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Kosten</div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
-                    {offer.purchase_price && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Kaufpreis netto</span>
-                        <span className="font-semibold text-navy-950">{offer.purchase_price.toLocaleString("de-DE")} €</span>
-                      </div>
-                    )}
-                    {offer.transfer_cost != null && offer.transfer_cost > 0 && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Überführung</span>
-                        <span className="font-semibold text-navy-950">{offer.transfer_cost.toLocaleString("de-DE")} €</span>
-                      </div>
-                    )}
-                    {offer.registration_cost != null && offer.registration_cost > 0 && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Zulassung</span>
-                        <span className="font-semibold text-navy-950">{offer.registration_cost.toLocaleString("de-DE")} €</span>
-                      </div>
-                    )}
-                    {offer.total_price && (
-                      <div className="flex justify-between text-xs col-span-full pt-1 border-t border-slate-200 mt-1">
-                        <span className="text-slate-500 font-semibold">Abholpreis netto</span>
-                        <span className="font-bold text-navy-950">{offer.total_price.toLocaleString("de-DE")} €</span>
-                      </div>
-                    )}
+          {/* Kosten */}
+          {(hasCosts || offer.total_price) && (
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Kosten</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                {offer.purchase_price && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Kaufpreis netto</span>
+                    <span className="font-semibold text-navy-950">{offer.purchase_price.toLocaleString("de-DE")} €</span>
                   </div>
-                </div>
-              )}
-
-              {/* Leasing */}
-              {hasLeasing && (
-                <div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Leasing</div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
-                    {offer.lease_rate && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Rate / Monat netto</span>
-                        <span className="font-semibold text-navy-950">{offer.lease_rate.toLocaleString("de-DE")} €</span>
-                      </div>
-                    )}
-                    {d?.leasingDuration && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Laufzeit</span>
-                        <span className="font-semibold text-navy-950">{d.leasingDuration} Monate</span>
-                      </div>
-                    )}
-                    {d?.leasingKmYear && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">km / Jahr</span>
-                        <span className="font-semibold text-navy-950">{Number(d.leasingKmYear).toLocaleString("de-DE")} km</span>
-                      </div>
-                    )}
-                    {d?.leasingDownPayment != null && d.leasingDownPayment !== "" && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Anzahlung netto</span>
-                        <span className="font-semibold text-navy-950">{Number(d.leasingDownPayment).toLocaleString("de-DE")} €</span>
-                      </div>
-                    )}
+                )}
+                {offer.transfer_cost != null && offer.transfer_cost > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Überführung</span>
+                    <span className="font-semibold text-navy-950">{offer.transfer_cost.toLocaleString("de-DE")} €</span>
                   </div>
-                </div>
-              )}
-
-              {/* Finanzierung */}
-              {hasFinancing && (
-                <div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Finanzierung</div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
-                    {d?.financingRate && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Rate / Monat</span>
-                        <span className="font-semibold text-navy-950">{d.financingRate.toLocaleString("de-DE")} €</span>
-                      </div>
-                    )}
-                    {d?.financingDuration && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Laufzeit</span>
-                        <span className="font-semibold text-navy-950">{d.financingDuration} Monate</span>
-                      </div>
-                    )}
-                    {d?.financingDownPayment != null && d.financingDownPayment !== "" && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Anzahlung</span>
-                        <span className="font-semibold text-navy-950">{Number(d.financingDownPayment).toLocaleString("de-DE")} €</span>
-                      </div>
-                    )}
-                    {d?.financingResidual != null && d.financingResidual !== "" && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Restwert</span>
-                        <span className="font-semibold text-navy-950">{Number(d.financingResidual).toLocaleString("de-DE")} €</span>
-                      </div>
-                    )}
+                )}
+                {offer.registration_cost != null && offer.registration_cost > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Zulassung</span>
+                    <span className="font-semibold text-navy-950">{offer.registration_cost.toLocaleString("de-DE")} €</span>
                   </div>
-                </div>
-              )}
-
-              {/* Lieferung */}
-              {hasDelivery && (
-                <div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Lieferung</div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
-                    {(offer.delivery_plz || offer.delivery_city) && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Abholort</span>
-                        <span className="font-semibold text-navy-950">{offer.delivery_plz || ""} {offer.delivery_city || ""}</span>
-                      </div>
-                    )}
-                    {offer.delivery_date && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Liefertermin</span>
-                        <span className="font-semibold text-navy-950">{formatDate(offer.delivery_date)}</span>
-                      </div>
-                    )}
+                )}
+                {offer.total_price && (
+                  <div className="flex justify-between text-xs col-span-full pt-1 border-t border-slate-200 mt-1">
+                    <span className="text-slate-500 font-semibold">Gesamtpreis netto</span>
+                    <span className="font-bold text-navy-950">{offer.total_price.toLocaleString("de-DE")} €</span>
                   </div>
-                </div>
-              )}
-
-              {/* Rabatte */}
-              {hasDiscounts && (
-                <div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Rabatte</div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
-                    {d?.hasFleetContract && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Großkundenrabatt</span>
-                        <span className="font-semibold text-green-700">{d.fleetContractDiscount ? `${d.fleetContractDiscount}%` : "Ja"}</span>
-                      </div>
-                    )}
-                    {d?.hasSpecialAgreement && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Sondervereinbarung</span>
-                        <span className="font-semibold text-green-700">{d.specialAgreementDiscount ? `${d.specialAgreementDiscount}%` : "Ja"}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Tageszulassung */}
-              {hasDayReg && (
-                <div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Tageszulassung</div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
-                    {d?.dayRegistrationDate && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">Datum</span>
-                        <span className="font-semibold text-navy-950">{formatDate(d.dayRegistrationDate)}</span>
-                      </div>
-                    )}
-                    {d?.dayRegistrationKm && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-500">km-Stand</span>
-                        <span className="font-semibold text-navy-950">{Number(d.dayRegistrationKm).toLocaleString("de-DE")} km</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* UVP Bestätigung */}
-              {d?.listPriceNetConfirm && (
-                <div className="flex justify-between text-xs pt-1 border-t border-slate-200">
-                  <span className="text-slate-500">UVP netto (Händler bestätigt)</span>
-                  <span className="font-semibold text-navy-950">{d.listPriceNetConfirm.toLocaleString("de-DE")} €</span>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
+
+          {/* Leasing */}
+          {hasLeasing && (
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Leasing</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                {offer.lease_rate && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Rate / Monat netto</span>
+                    <span className="font-semibold text-navy-950">{offer.lease_rate.toLocaleString("de-DE")} €</span>
+                  </div>
+                )}
+                {d?.leasingDuration && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Laufzeit</span>
+                    <span className="font-semibold text-navy-950">{d.leasingDuration} Monate</span>
+                  </div>
+                )}
+                {d?.leasingKmYear && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">km / Jahr</span>
+                    <span className="font-semibold text-navy-950">{Number(d.leasingKmYear).toLocaleString("de-DE")} km</span>
+                  </div>
+                )}
+                {d?.leasingDownPayment != null && d.leasingDownPayment !== "" && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Anzahlung netto</span>
+                    <span className="font-semibold text-navy-950">{Number(d.leasingDownPayment).toLocaleString("de-DE")} €</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Finanzierung */}
+          {hasFinancing && (
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Finanzierung</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                {d?.financingRate && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Rate / Monat</span>
+                    <span className="font-semibold text-navy-950">{d.financingRate.toLocaleString("de-DE")} €</span>
+                  </div>
+                )}
+                {d?.financingDuration && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Laufzeit</span>
+                    <span className="font-semibold text-navy-950">{d.financingDuration} Monate</span>
+                  </div>
+                )}
+                {d?.financingDownPayment != null && d.financingDownPayment !== "" && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Anzahlung</span>
+                    <span className="font-semibold text-navy-950">{Number(d.financingDownPayment).toLocaleString("de-DE")} €</span>
+                  </div>
+                )}
+                {d?.financingResidual != null && d.financingResidual !== "" && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Restwert</span>
+                    <span className="font-semibold text-navy-950">{Number(d.financingResidual).toLocaleString("de-DE")} €</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Lieferung */}
+          {hasDelivery && (
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Lieferung</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                {(offer.delivery_plz || offer.delivery_city) && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Abholort</span>
+                    <span className="font-semibold text-navy-950">{offer.delivery_plz || ""} {offer.delivery_city || ""}</span>
+                  </div>
+                )}
+                {offer.delivery_date && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Liefertermin</span>
+                    <span className="font-semibold text-navy-950">{formatDate(offer.delivery_date)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Rabatte */}
+          {hasDiscounts && (
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Rabatte</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                {d?.hasFleetContract && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Großkundenrabatt</span>
+                    <span className="font-semibold text-green-700">{d.fleetContractDiscount ? `${d.fleetContractDiscount}%` : "Ja"}</span>
+                  </div>
+                )}
+                {d?.hasSpecialAgreement && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Sondervereinbarung</span>
+                    <span className="font-semibold text-green-700">{d.specialAgreementDiscount ? `${d.specialAgreementDiscount}%` : "Ja"}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Tageszulassung */}
+          {hasDayReg && (
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Tageszulassung</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+                {d?.dayRegistrationDate && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Datum</span>
+                    <span className="font-semibold text-navy-950">{formatDate(d.dayRegistrationDate)}</span>
+                  </div>
+                )}
+                {d?.dayRegistrationKm && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">km-Stand</span>
+                    <span className="font-semibold text-navy-950">{Number(d.dayRegistrationKm).toLocaleString("de-DE")} km</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* UVP Bestätigung */}
+          {d?.listPriceNetConfirm && (
+            <div className="flex justify-between text-xs pt-1 border-t border-slate-200">
+              <span className="text-slate-500">UVP netto (Händler bestätigt)</span>
+              <span className="font-semibold text-navy-950">{d.listPriceNetConfirm.toLocaleString("de-DE")} €</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -750,7 +750,7 @@ export default function MyTendersPage() {
                 <div className="flex items-center gap-4 shrink-0">
                   {/* Show grand total prominently */}
                   <div className="text-right">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase">{isMultiVehicle ? "Gesamt netto" : "Abholpreis netto"}</div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase">{isMultiVehicle ? "Gesamt netto" : "Gesamtpreis netto"}</div>
                     <div className="font-black text-blue-700">{grandTotal.toLocaleString("de-DE")} €</div>
                   </div>
                 </div>

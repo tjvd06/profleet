@@ -564,17 +564,15 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
         <div className="container mx-auto max-w-4xl px-4 md:px-8 py-3 flex gap-2 overflow-x-auto">
           {vehicles.map((v, i) => (
             <button key={v.id} type="button" onClick={() => setStep(i)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${
-                step === i ? "bg-blue-600 text-white shadow-md" : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100"
-              }`}>
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${step === i ? "bg-blue-600 text-white shadow-md" : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100"
+                }`}>
               {isFormFilled(forms[i]) ? <Check size={16} className={step === i ? "text-white" : "text-green-500"} /> : <Circle size={16} className={step === i ? "text-blue-200" : "text-slate-300"} />}
               {vehicles.length > 1 ? `Fzg. ${i + 1}: ` : ""}{v.brand || "—"} {v.model_name || ""}
             </button>
           ))}
           <button type="button" onClick={() => setStep(vehicles.length)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
-              isSummary ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md" : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100"
-            }`}>
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${isSummary ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md" : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100"
+              }`}>
             <ClipboardList size={16} /> Zusammenfassung
           </button>
         </div>
@@ -905,7 +903,7 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
                 {/* Total */}
                 <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 flex items-center justify-between">
                   <div>
-                    <Label className="font-bold text-navy-950 block">Gesamtpreis netto (Abholpreis)</Label>
+                    <Label className="font-bold text-navy-950 block">Gesamtpreis nett</Label>
                     <span className="text-slate-400 text-xs">Kaufpreis + Überführung + Zulassung</span>
                   </div>
                   <Input type="number" min="0" step="0.01"

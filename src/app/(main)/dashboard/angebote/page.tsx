@@ -132,7 +132,7 @@ function OfferDetailsExpander({ offer }: { offer: any }) {
                 )}
                 {offer.total_price && (
                   <div className="flex justify-between text-xs col-span-full pt-1 border-t border-slate-200 mt-1">
-                    <span className="text-slate-500 font-semibold">Abholpreis netto</span>
+                    <span className="text-slate-500 font-semibold">Gesamtpreis netto</span>
                     <span className="font-bold text-navy-950">{offer.total_price.toLocaleString("de-DE")} €</span>
                   </div>
                 )}
@@ -808,9 +808,9 @@ export default function DealerOffersPage() {
                   {isMultiVehicle
                     ? `${allTenderVehicles.length} Konfigurationen · ${totalQtyTender} Fahrzeuge`
                     : (() => {
-                        const vehicle = allTenderVehicles[0];
-                        return vehicle ? `${vehicle.brand || "—"} ${vehicle.model_name || ""}${vehicle.trim_level ? ` ${vehicle.trim_level}` : ""}` : "Ausschreibung";
-                      })()}
+                      const vehicle = allTenderVehicles[0];
+                      return vehicle ? `${vehicle.brand || "—"} ${vehicle.model_name || ""}${vehicle.trim_level ? ` ${vehicle.trim_level}` : ""}` : "Ausschreibung";
+                    })()}
                 </h3>
                 <p className="text-sm text-slate-500 font-medium mt-1">
                   {buyer?.company_name && <><span className="text-navy-900 font-bold">{buyer.company_name}</span> · </>}
