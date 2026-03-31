@@ -98,12 +98,6 @@ export function PublicTenderCard({ id, endAt, location, requestedTypes, fleetDis
                         </div>
                       </div>
                     </div>
-                    {config.listPriceNet != null && (
-                      <div className="text-right shrink-0">
-                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">UVP netto</div>
-                        <div className="font-bold text-navy-950 text-sm">{config.listPriceNet.toLocaleString("de-DE")} €</div>
-                      </div>
-                    )}
                   </div>
                   {/* Expandable detail */}
                   {vehiclesExpanded && (

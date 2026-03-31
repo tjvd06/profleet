@@ -72,7 +72,7 @@ function timeLeft(endAt: string | null): string {
 function mapTenderToCardProps(
   tender: Tender,
   answeredTenderIds: Set<string>,
-  offerStats: Record<string, { count: number; bestPriceNet: number | null; bestTotalGross: number | null }>,
+  offerStats: Record<string, { count: number; bestPriceNet: number | null; bestTotalNet: number | null }>,
   myOffers: Record<string, { purchasePriceNet: number; totalPrice: number }>,
   buyerRatings: Record<string, { score: number; total: number }>,
 ) {
@@ -124,7 +124,7 @@ function mapTenderToCardProps(
     fleetDiscountPercent: fleetDiscountPercent,
     currentOffers: offerStats[tender.id]?.count ?? 0,
     bestPriceNet: offerStats[tender.id]?.bestPriceNet ?? null,
-    bestTotalGross: offerStats[tender.id]?.bestTotalGross ?? null,
+    bestTotalNet: offerStats[tender.id]?.bestTotalNet ?? null,
     myPriceNet: myOffers[tender.id]?.purchasePriceNet ?? null,
     myTotalPrice: myOffers[tender.id]?.totalPrice ?? null,
     vehicles,
@@ -148,7 +148,7 @@ export default function InboxPage() {
 
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [answeredTenderIds, setAnsweredTenderIds] = useState<Set<string>>(new Set());
-  const [offerStats, setOfferStats] = useState<Record<string, { count: number; bestPriceNet: number | null; bestTotalGross: number | null }>>({});
+  const [offerStats, setOfferStats] = useState<Record<string, { count: number; bestPriceNet: number | null; bestTotalNet: number | null }>>({});
   const [myOffers, setMyOffers] = useState<Record<string, { purchasePriceNet: number; totalPrice: number }>>({});
   const [buyerRatings, setBuyerRatings] = useState<Record<string, { score: number; total: number }>>({});
   const [loading, setLoading] = useState(true);
@@ -243,14 +243,14 @@ export default function InboxPage() {
 
           // Fetch aggregated competitor offer stats via RPC (excludes own offers)
           const tenderIds = (data as Tender[]).map((t) => t.id);
-          const stats: Record<string, { count: number; bestPriceNet: number | null; bestTotalGross: number | null }> = {};
+          const stats: Record<string, { count: number; bestPriceNet: number | null; bestTotalNet: number | null }> = {};
           if (tenderIds.length > 0) {
             const { data: statsData } = await supabase.rpc("get_tender_offer_stats", {
               tender_ids: tenderIds,
             });
             if (statsData) {
-              (statsData as { tender_id: string; offer_count: number; best_price_net: number | null; best_total_gross: number | null }[]).forEach((s) => {
-                stats[s.tender_id] = { count: s.offer_count, bestPriceNet: s.best_price_net, bestTotalGross: s.best_total_gross };
+              (statsData as { tender_id: string; offer_count: number; best_price_net: number | null; best_total_net: number | null }[]).forEach((s) => {
+                stats[s.tender_id] = { count: s.offer_count, bestPriceNet: s.best_price_net, bestTotalNet: s.best_total_net };
               });
             }
           }

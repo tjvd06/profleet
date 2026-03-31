@@ -395,9 +395,9 @@ export default function MessagesPage() {
 
   const filteredContacts = searchQuery
     ? visibleContacts.filter((c) =>
-        (c.partner?.company_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.tenderLabel.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      (c.partner?.company_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.tenderLabel.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : visibleContacts;
 
   const selectContact = (id: string) => {
@@ -500,22 +500,20 @@ export default function MessagesPage() {
                       )}
 
                       {/* Avatar */}
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-sm shrink-0 transition-colors ${
-                        isActive
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-sm shrink-0 transition-colors ${isActive
                           ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md shadow-blue-500/20"
                           : hasUnread
-                          ? "bg-gradient-to-br from-blue-100 to-blue-50 text-blue-600"
-                          : "bg-slate-100 text-slate-500"
-                      }`}>
+                            ? "bg-gradient-to-br from-blue-100 to-blue-50 text-blue-600"
+                            : "bg-slate-100 text-slate-500"
+                        }`}>
                         {initials}
                       </div>
 
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-0.5">
-                          <span className={`text-[13px] truncate flex items-center gap-1.5 ${
-                            hasUnread ? "font-bold text-navy-950" : "font-semibold text-navy-950"
-                          }`}>
+                          <span className={`text-[13px] truncate flex items-center gap-1.5 ${hasUnread ? "font-bold text-navy-950" : "font-semibold text-navy-950"
+                            }`}>
                             {companyName}
                           </span>
                           <span className={`text-[11px] shrink-0 ml-2 ${hasUnread ? "text-blue-600 font-semibold" : "text-slate-400"}`}>
@@ -755,11 +753,10 @@ export default function MessagesPage() {
                             )}
                             <div className={`flex ${isOwn ? "justify-end" : "justify-start"} ${sameSender && !showGap ? "mt-0.5" : "mt-3"}`}>
                               <div
-                                className={`max-w-[70%] px-4 py-2.5 ${
-                                  isOwn
+                                className={`max-w-[70%] px-4 py-2.5 ${isOwn
                                     ? "bg-gradient-to-br from-blue-600 to-blue-500 text-white rounded-2xl rounded-br-lg shadow-sm shadow-blue-500/10"
                                     : "bg-white text-slate-800 rounded-2xl rounded-bl-lg shadow-sm border border-slate-100"
-                                }`}
+                                  }`}
                               >
                                 <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
                                 <div className={`flex items-center gap-1 justify-end mt-1 ${isOwn ? "text-blue-200/80" : "text-slate-400"}`}>

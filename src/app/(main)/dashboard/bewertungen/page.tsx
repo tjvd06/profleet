@@ -349,29 +349,19 @@ export default function BewertungenPage() {
       <div className="container mx-auto max-w-7xl px-4 md:px-8 mt-8">
         <Tabs defaultValue="overview" className="w-full flex flex-col lg:flex-row gap-8 lg:gap-12">
           {/* Left Sidebar */}
-          <div className="w-full lg:w-72 shrink-0">
+          <div className="w-full lg:w-56 shrink-0">
             <div className="sticky top-28">
-              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 px-2">Kategorien</h3>
-              <TabsList className="flex flex-col h-auto bg-transparent w-full p-0 space-y-3">
-                <TabsTrigger value="overview" className="w-full justify-between items-center px-6 py-4 rounded-2xl bg-transparent hover:bg-slate-100 data-[state=active]:bg-white data-[state=active]:shadow-[0_8px_30px_rgb(0,0,0,0.04)] data-[state=active]:border data-[state=active]:border-slate-200 text-slate-500 data-[state=active]:text-navy-950 transition-all font-semibold">
-                  <div className="flex items-center gap-3">
-                    <BarChart3 size={20} className="text-blue-500" />
-                    Übersicht
-                  </div>
+              <TabsList className="flex flex-col h-auto bg-transparent w-full p-0 space-y-1">
+                <TabsTrigger value="overview" className="w-full justify-between items-center px-4 py-2.5 !rounded-lg !bg-transparent hover:!bg-slate-50 data-[active]:!bg-blue-50 !border-0 !text-slate-400 data-[active]:!text-blue-700 data-[active]:!font-semibold !shadow-none transition-all text-sm font-medium">
+                  <span>Übersicht</span>
                 </TabsTrigger>
-                <TabsTrigger value="received" className="w-full justify-between items-center px-6 py-4 rounded-2xl bg-transparent hover:bg-slate-100 data-[state=active]:bg-white data-[state=active]:shadow-[0_8px_30px_rgb(0,0,0,0.04)] data-[state=active]:border data-[state=active]:border-slate-200 text-slate-500 data-[state=active]:text-navy-950 transition-all font-semibold">
-                  <div className="flex items-center gap-3">
-                    <Star size={20} className="text-amber-500" />
-                    Erhaltene
-                  </div>
-                  <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-xs font-bold">{receivedReviews.length}</span>
+                <TabsTrigger value="received" className="w-full justify-between items-center px-4 py-2.5 !rounded-lg !bg-transparent hover:!bg-slate-50 data-[active]:!bg-blue-50 !border-0 !text-slate-400 data-[active]:!text-blue-700 data-[active]:!font-semibold !shadow-none transition-all text-sm font-medium">
+                  <span>Erhaltene</span>
+                  <span className="text-xs text-slate-400 font-normal">{receivedReviews.length}</span>
                 </TabsTrigger>
-                <TabsTrigger value="given" className="w-full justify-between items-center px-6 py-4 rounded-2xl bg-transparent hover:bg-slate-100 data-[state=active]:bg-white data-[state=active]:shadow-[0_8px_30px_rgb(0,0,0,0.04)] data-[state=active]:border data-[state=active]:border-slate-200 text-slate-500 data-[state=active]:text-navy-950 transition-all font-semibold">
-                  <div className="flex items-center gap-3">
-                    <Send size={20} className="text-green-500" />
-                    Abgegebene
-                  </div>
-                  <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-xs font-bold">{givenReviews.length}</span>
+                <TabsTrigger value="given" className="w-full justify-between items-center px-4 py-2.5 !rounded-lg !bg-transparent hover:!bg-slate-50 data-[active]:!bg-blue-50 !border-0 !text-slate-400 data-[active]:!text-blue-700 data-[active]:!font-semibold !shadow-none transition-all text-sm font-medium">
+                  <span>Abgegebene</span>
+                  <span className="text-xs text-slate-400 font-normal">{givenReviews.length}</span>
                 </TabsTrigger>
               </TabsList>
             </div>

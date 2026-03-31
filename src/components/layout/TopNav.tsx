@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, User, LogOut, Settings } from "lucide-react";
+import { Logo } from "@/components/ui/Logo";
 import { useAuth } from "@/components/providers/auth-provider";
 import { createClient } from "@/lib/supabase";
 import {
@@ -64,7 +65,8 @@ export function TopNav() {
       <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-8">
         <div className="flex items-center gap-8">
           <Link href="/" className="flex items-center gap-2">
-            <span className="text-xl font-bold tracking-tight text-navy-950">proFleet</span>
+            <Logo size={32} className="rounded-lg" />
+            <span className="text-xl font-black tracking-tight text-navy-700">proFleet</span>
           </Link>
           <nav className="hidden md:flex gap-6 text-sm font-medium text-slate-600">
             <Link href="/" className="hover:text-blue-500 transition-colors">Startseite</Link>

@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Clock, ChevronDown, ChevronUp, CheckCircle2, FileEdit, Loader2, Plus,
-  MoreHorizontal, Pencil, Trash2, AlertTriangle, Globe, XCircle, Building2,
+  MoreHorizontal, Pencil, Trash2, AlertTriangle, Globe, XCircle,
   MessageCircle, ShieldAlert, Phone, Mail, MapPin, Send, StopCircle, Star,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -59,7 +59,6 @@ type Offer = {
     dayRegistration?: boolean;
     dayRegistrationDate?: string | null;
     dayRegistrationKm?: string | null;
-    listPriceNetConfirm?: number | null;
     hasFleetContract?: boolean;
     fleetContractDiscount?: number | null;
     hasSpecialAgreement?: boolean;
@@ -407,13 +406,6 @@ function OfferRow({ offer, offerIdx, isMultiVehicle, vehicleLabel, vehicle, d, h
             </div>
           )}
 
-          {/* UVP Bestätigung */}
-          {d?.listPriceNetConfirm && (
-            <div className="flex justify-between text-xs pt-1 border-t border-slate-200">
-              <span className="text-slate-500">UVP netto (Händler bestätigt)</span>
-              <span className="font-semibold text-navy-950">{d.listPriceNetConfirm.toLocaleString("de-DE")} €</span>
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -438,6 +430,9 @@ export default function MyTendersPage() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [expandedTender, setExpandedTender] = useState<string | null>(null);
+  const [vehicleDetailsOpen, setVehicleDetailsOpen] = useState<Record<string, boolean>>({});
+  const [offersOpen, setOffersOpen] = useState<Record<string, boolean>>({});
+  const [reviewsOpen, setReviewsOpen] = useState<Record<string, boolean>>({});
 
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
 
@@ -555,8 +550,7 @@ export default function MyTendersPage() {
         setDealerProfiles((prev) => ({ ...prev, [prof.id]: prof as DealerProfile }));
       }
 
-      router.push(`/dashboard/nachrichten?contact=${newContact.id}`);
-      return;
+      toast.success("Kontakt wurde erstellt. Sie sehen nun die Kontaktdaten des Händlers.");
     }
     setActionLoading(false);
     setContactConfirmOffer(null);
@@ -738,7 +732,6 @@ export default function MyTendersPage() {
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-navy-950 text-sm">{dealerProfile?.company_name || "Händler"}</span>
-                      {dealerProfile?.dealer_type && <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-400">{dealerProfile.dealer_type}</Badge>}
                     </div>
                     {dealerProfile?.city && (
                       <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-400">
@@ -755,14 +748,6 @@ export default function MyTendersPage() {
                   </div>
                 </div>
               </div>
-
-              {/* Contact info — only shown after contact is established */}
-              {hasContact && dealerProfile && (dealerProfile.email_public || dealerProfile.phone) && (
-                <div className="px-5 py-2 border-t border-slate-100 bg-blue-50/30 flex items-center gap-4 text-xs">
-                  {dealerProfile.email_public && <a href={`mailto:${dealerProfile.email_public}`} className="flex items-center gap-1 text-blue-600"><Mail size={10} /> {dealerProfile.email_public}</a>}
-                  {dealerProfile.phone && <a href={`tel:${dealerProfile.phone}`} className="flex items-center gap-1 text-blue-600"><Phone size={10} /> {dealerProfile.phone}</a>}
-                </div>
-              )}
 
               {/* Compact per-vehicle price rows */}
               {dealerOffers.map((offer, offerIdx) => {
@@ -807,11 +792,23 @@ export default function MyTendersPage() {
                     <Send size={12} className="mr-1.5" /> Kontakt aufnehmen
                   </Button>
                 ) : (
-                  <Link href={`/dashboard/nachrichten?contact=${contact!.id}`}>
-                    <Button size="sm" variant="outline" className="rounded-xl border-blue-200 text-blue-600 hover:bg-blue-50 text-xs font-bold h-8 px-4">
-                      <MessageCircle size={12} className="mr-1.5" /> Nachrichten öffnen
-                    </Button>
-                  </Link>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <Link href={`/dashboard/nachrichten?contact=${contact!.id}`}>
+                      <Button size="sm" variant="outline" className="rounded-xl border-blue-200 text-blue-600 hover:bg-blue-50 text-xs font-bold h-8 px-4">
+                        <MessageCircle size={12} className="mr-1.5" /> Nachrichten öffnen
+                      </Button>
+                    </Link>
+                    {dealerProfile?.email_public && (
+                      <a href={`mailto:${dealerProfile.email_public}`} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 transition-colors">
+                        <Mail size={12} /> {dealerProfile.email_public}
+                      </a>
+                    )}
+                    {dealerProfile?.phone && (
+                      <a href={`tel:${dealerProfile.phone}`} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 transition-colors">
+                        <Phone size={12} /> {dealerProfile.phone}
+                      </a>
+                    )}
+                  </div>
                 )}
                 <span className="text-[10px] text-slate-400">
                   {hasContact ? `Kontakt seit ${formatDate(contact!.created_at)}` : formatDate(firstOffer.created_at)}
@@ -837,45 +834,36 @@ export default function MyTendersPage() {
           className={`p-6 md:p-8 cursor-pointer transition-colors ${expandedTender === tender.id ? "bg-slate-50 border-b border-slate-200" : "bg-white hover:bg-slate-50/50"}`}
           onClick={() => setExpandedTender(expandedTender === tender.id ? null : tender.id)}
         >
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-            <div className="flex items-center gap-6">
-              <div className="w-16 h-16 bg-white border border-slate-200 rounded-2xl flex items-center justify-center shadow-sm text-navy-800">
-                <Building2 size={28} />
-              </div>
-              <div>
-                <div className="flex items-center gap-3 mb-1 flex-wrap">
-                  <Badge variant="outline" className="text-slate-500 bg-white font-mono text-xs">{tender.id.split("-")[0].toUpperCase()}</Badge>
-                  <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-none px-3">Aktiv</Badge>
-                  <Badge className={`${tender.offers.length > 0 ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"} border-none px-3 font-bold`}>
-                    {tender.offers.length} Angebot{tender.offers.length !== 1 ? "e" : ""}
-                  </Badge>
-                </div>
-                <h3 className="text-2xl font-bold text-navy-950">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <h3 className="text-base font-bold text-navy-950 truncate">
                   {isMulti
                     ? `${vehicleConfigs.length} Konfigurationen · ${totalQty} Fahrzeuge`
                     : `${vehicle?.brand || "Fahrzeug"} ${vehicle?.model_name || ""}`}
                 </h3>
-                <p className="text-sm text-slate-500 font-medium mt-1">
-                  Erstellt: {createdAgo(tender.created_at)}
-                </p>
-                {isMulti && (
-                  <p className="text-xs text-slate-400 mt-1">
-                    {vehicleConfigs.map((c: any) => `${c.quantity}x ${c.brand || "—"} ${c.model || ""}`).join(" · ")}
-                  </p>
-                )}
+                <Badge variant="outline" className="text-slate-400 font-mono text-[10px] px-1.5 py-0">{tender.id.split("-")[0].toUpperCase()}</Badge>
               </div>
+              <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+                <span>Erstellt {createdAgo(tender.created_at)}</span>
+                <span className="text-slate-300">|</span>
+                <span className="flex items-center gap-1 text-amber-600 font-semibold"><Clock size={12} /> Noch {timeLeft(tender.end_at)}</span>
+                <span className="text-slate-300">|</span>
+                <span className={`font-semibold ${tender.offers.length > 0 ? "text-green-600" : "text-slate-400"}`}>
+                  {tender.offers.length} Angebot{tender.offers.length !== 1 ? "e" : ""}
+                </span>
+              </div>
+              {isMulti && (
+                <p className="text-xs text-slate-400 mt-1">
+                  {vehicleConfigs.map((c: any) => `${c.quantity}x ${c.brand || "—"} ${c.model || ""}`).join(" · ")}
+                </p>
+              )}
             </div>
 
-            <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-              <div className="text-right">
-                <div className="text-sm font-semibold text-slate-500 mb-1">Endet in</div>
-                <div className="flex items-center gap-1.5 text-amber-600 font-bold bg-amber-50 px-3 py-1 rounded-full border border-amber-200/50">
-                  <Clock size={16} /> {timeLeft(tender.end_at)}
-                </div>
-              </div>
+            <div className="flex items-center gap-2 shrink-0">
               <TenderMenu tender={tender} />
-              <Button variant="ghost" size="icon" className="rounded-full bg-white border border-slate-200 shadow-sm text-slate-400 hover:text-navy-900 h-10 w-10 shrink-0">
-                {expandedTender === tender.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              <Button variant="ghost" size="icon" className="rounded-full bg-white border border-slate-200 shadow-sm text-slate-400 hover:text-navy-900 h-9 w-9">
+                {expandedTender === tender.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
               </Button>
             </div>
           </div>
@@ -883,46 +871,66 @@ export default function MyTendersPage() {
 
         {expandedTender === tender.id && (
           <div className="bg-white p-6 md:p-8 animate-in slide-in-from-top-4 duration-300">
-            {/* Per-vehicle detail cards – same as DealerTenderCard */}
-            <div className="space-y-4 mb-8">
-              {vehicleConfigs.map((config: any, i: number) => {
-                const raw = vehicles[i];
-                return (
-                  <div key={config.id || i} className="bg-slate-50 border border-slate-200 rounded-2xl p-5 relative overflow-hidden">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-bold text-navy-950 text-base">
-                        {isMulti && <span className="text-blue-600 mr-1">Fahrzeug {i + 1}:</span>}
-                        {config.brand || "—"} {config.model || ""} {raw?.trim_level || ""}
-                        <span className="text-slate-500 font-normal ml-2">· {config.quantity} Stück</span>
-                      </h3>
-                      <div className="flex items-center gap-3 shrink-0">
-                        {config.method === "upload" && raw?.config_file_path && (
-                          <ConfigFileDownload filePath={raw.config_file_path} />
-                        )}
-                        {config.listPriceGross != null && (
-                          <span className="text-sm font-bold text-navy-900 bg-white px-3 py-1 rounded-lg border border-slate-200">
-                            {config.listPriceNet ? `${config.listPriceNet.toLocaleString("de-DE")} € netto` : "—"}
-                          </span>
-                        )}
+            {/* Collapsible Fahrzeugdetails */}
+            <div className="mb-8">
+              <button
+                onClick={() => setVehicleDetailsOpen(prev => ({ ...prev, [tender.id]: !prev[tender.id] }))}
+                className="flex items-center justify-between w-full text-left group"
+              >
+                <h3 className="text-lg font-bold text-navy-950">Fahrzeugdetails</h3>
+                <ChevronDown size={20} className={`text-slate-400 transition-transform duration-200 ${vehicleDetailsOpen[tender.id] ? "rotate-180" : ""}`} />
+              </button>
+              {vehicleDetailsOpen[tender.id] && (
+                <div className="space-y-4 mt-4 animate-in slide-in-from-top-2 duration-200">
+                  {vehicleConfigs.map((config: any, i: number) => {
+                    const raw = vehicles[i];
+                    return (
+                      <div key={config.id || i} className="bg-slate-50 border border-slate-200 rounded-2xl p-5 relative overflow-hidden">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="font-bold text-navy-950 text-base">
+                            {isMulti && <span className="text-blue-600 mr-1">Fahrzeug {i + 1}:</span>}
+                            {config.brand || "—"} {config.model || ""} {raw?.trim_level || ""}
+                            <span className="text-slate-500 font-normal ml-2">· {config.quantity} Stück</span>
+                          </h3>
+                          <div className="flex items-center gap-3 shrink-0">
+                            {config.method === "upload" && raw?.config_file_path && (
+                              <ConfigFileDownload filePath={raw.config_file_path} />
+                            )}
+                          </div>
+                        </div>
+                        <VehicleDetailSections vehicle={config} viewerRole="nachfrager" />
                       </div>
+                    );
+                  })}
+
+                  {/* Summary row for multi-vehicle */}
+                  {isMulti && (
+                    <div className="flex items-center justify-between bg-navy-950 text-white px-5 py-3 rounded-xl text-sm">
+                      <span className="font-bold">Gesamt: {totalQty} Fahrzeug{totalQty !== 1 ? "e" : ""}</span>
+                      <span className="font-bold text-amber-400">
+                        Gesamt: {vehicles.reduce((s: number, v: TenderVehicle) => s + (v.quantity || 1), 0)} Fahrzeuge
+                      </span>
                     </div>
-                    <VehicleDetailSections vehicle={config} viewerRole="nachfrager" />
-                  </div>
-                );
-              })}
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Summary row for multi-vehicle */}
-            {isMulti && (
-              <div className="flex items-center justify-between bg-navy-950 text-white px-5 py-3 rounded-xl mb-8 text-sm">
-                <span className="font-bold">Gesamt: {totalQty} Fahrzeug{totalQty !== 1 ? "e" : ""}</span>
-                <span className="font-bold text-amber-400">
-                  Gesamt: {vehicles.reduce((s: number, v: TenderVehicle) => s + (v.quantity || 1), 0)} Fahrzeuge
-                </span>
-              </div>
-            )}
-
-            {renderOffersTable(tender)}
+            {/* Collapsible Angebote */}
+            <div>
+              <button
+                onClick={() => setOffersOpen(prev => ({ ...prev, [tender.id]: prev[tender.id] === false ? true : prev[tender.id] === undefined ? false : !prev[tender.id] }))}
+                className="flex items-center justify-between w-full text-left group mb-4"
+              >
+                <h3 className="text-lg font-bold text-navy-950">Angebote</h3>
+                <ChevronDown size={20} className={`text-slate-400 transition-transform duration-200 ${offersOpen[tender.id] === false ? "" : "rotate-180"}`} />
+              </button>
+              {offersOpen[tender.id] !== false && (
+                <div className="animate-in slide-in-from-top-2 duration-200">
+                  {renderOffersTable(tender)}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </Card>
@@ -1030,30 +1038,20 @@ export default function MyTendersPage() {
         ) : (
           <Tabs defaultValue="active" className="w-full flex flex-col lg:flex-row gap-8 lg:gap-12">
             {/* Left Sidebar */}
-            <div className="w-full lg:w-72 shrink-0">
+            <div className="w-full lg:w-56 shrink-0">
               <div className="sticky top-28">
-                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 px-2">Kategorien</h3>
-                <TabsList className="flex flex-col h-auto bg-transparent w-full p-0 space-y-3">
-                  <TabsTrigger value="active" className="w-full justify-between items-center px-6 py-4 rounded-2xl bg-transparent hover:bg-slate-100 data-[state=active]:bg-white data-[state=active]:shadow-[0_8px_30px_rgb(0,0,0,0.04)] data-[state=active]:border data-[state=active]:border-slate-200 text-slate-500 data-[state=active]:text-navy-950 transition-all font-semibold">
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 size={20} className="text-blue-500" />
-                      Laufende
-                    </div>
-                    <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-xs font-bold">{activeTenders.length}</span>
+                <TabsList className="flex flex-col h-auto bg-transparent w-full p-0 space-y-1">
+                  <TabsTrigger value="active" className="w-full justify-between items-center px-4 py-2.5 !rounded-lg !bg-transparent hover:!bg-slate-50 data-[active]:!bg-blue-50 !border-0 !text-slate-400 data-[active]:!text-blue-700 data-[active]:!font-semibold !shadow-none transition-all text-sm font-medium">
+                    <span>Laufende</span>
+                    <span className="text-xs text-slate-400 font-normal">{activeTenders.length}</span>
                   </TabsTrigger>
-                  <TabsTrigger value="completed" className="w-full justify-between items-center px-6 py-4 rounded-2xl bg-transparent hover:bg-slate-100 data-[state=active]:bg-white data-[state=active]:shadow-[0_8px_30px_rgb(0,0,0,0.04)] data-[state=active]:border data-[state=active]:border-slate-200 text-slate-500 data-[state=active]:text-navy-950 transition-all font-semibold">
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 size={20} className="text-green-500" />
-                      Abgeschlossene
-                    </div>
-                    <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-xs font-bold">{completedTenders.length}</span>
+                  <TabsTrigger value="completed" className="w-full justify-between items-center px-4 py-2.5 !rounded-lg !bg-transparent hover:!bg-slate-50 data-[active]:!bg-blue-50 !border-0 !text-slate-400 data-[active]:!text-blue-700 data-[active]:!font-semibold !shadow-none transition-all text-sm font-medium">
+                    <span>Abgeschlossene</span>
+                    <span className="text-xs text-slate-400 font-normal">{completedTenders.length}</span>
                   </TabsTrigger>
-                  <TabsTrigger value="drafts" className="w-full justify-between items-center px-6 py-4 rounded-2xl bg-transparent hover:bg-slate-100 data-[state=active]:bg-white data-[state=active]:shadow-[0_8px_30px_rgb(0,0,0,0.04)] data-[state=active]:border data-[state=active]:border-slate-200 text-slate-500 data-[state=active]:text-navy-950 transition-all font-semibold">
-                    <div className="flex items-center gap-3">
-                      <FileEdit size={20} className="text-amber-500" />
-                      Entwürfe
-                    </div>
-                    <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-xs font-bold">{draftTenders.length}</span>
+                  <TabsTrigger value="drafts" className="w-full justify-between items-center px-4 py-2.5 !rounded-lg !bg-transparent hover:!bg-slate-50 data-[active]:!bg-blue-50 !border-0 !text-slate-400 data-[active]:!text-blue-700 data-[active]:!font-semibold !shadow-none transition-all text-sm font-medium">
+                    <span>Entwürfe</span>
+                    <span className="text-xs text-slate-400 font-normal">{draftTenders.length}</span>
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -1101,106 +1099,153 @@ export default function MyTendersPage() {
                         className={`p-6 md:p-8 cursor-pointer transition-colors ${expandedTender === tender.id ? "bg-slate-50 border-b border-slate-200" : "bg-white hover:bg-slate-50/50"}`}
                         onClick={() => setExpandedTender(expandedTender === tender.id ? null : tender.id)}
                       >
-                        <div className="flex justify-between items-start gap-4">
-                          <div>
-                            <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <Badge variant="outline" className="font-mono text-slate-500 bg-slate-50 text-xs">{tender.id.split("-")[0].toUpperCase()}</Badge>
-                              <Badge className={tender.status === "cancelled" ? "bg-red-100 text-red-700 border-none" : "bg-green-100 text-green-700 border-none"}>
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <h3 className="text-base font-bold text-navy-950 truncate">
+                                {isMulti
+                                  ? `${vehicleConfigs.length} Konfigurationen · ${totalQty} Fahrzeuge`
+                                  : `${vehicle?.brand || "—"} ${vehicle?.model_name || ""}`}
+                              </h3>
+                              <Badge variant="outline" className="text-slate-400 font-mono text-[10px] px-1.5 py-0">{tender.id.split("-")[0].toUpperCase()}</Badge>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+                              <Badge className={`${tender.status === "cancelled" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"} border-none text-xs px-2 py-0`}>
                                 {tender.status === "cancelled" ? "Zurückgezogen" : "Abgeschlossen"}
                               </Badge>
+                              <span className="text-slate-300">|</span>
+                              <span>{tender.status === "cancelled" ? "Zurückgezogen" : "Abgeschlossen"} am {formatDate(tender.end_at)}</span>
+                              <span className="text-slate-300">|</span>
+                              <span className={`font-semibold ${tender.offers.length > 0 ? "text-green-600" : "text-slate-400"}`}>
+                                {tender.offers.length} Angebot{tender.offers.length !== 1 ? "e" : ""}
+                              </span>
                             </div>
-                            <h3 className="text-2xl font-bold text-navy-950 mb-1">
-                              {isMulti
-                                ? `${vehicleConfigs.length} Konfigurationen · ${totalQty} Fahrzeuge`
-                                : `${vehicle?.brand || "—"} ${vehicle?.model_name || ""}`}
-                            </h3>
-                            <p className="text-sm font-medium text-slate-500">
-                              {tender.status === "cancelled" ? "Zurückgezogen" : "Abgeschlossen"} am: {formatDate(tender.end_at)}
-                            </p>
                             {isMulti && (
                               <p className="text-xs text-slate-400 mt-1">
                                 {vehicleConfigs.map((c: any) => `${c.quantity}x ${c.brand || "—"} ${c.model || ""}`).join(" · ")}
                               </p>
                             )}
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 shrink-0">
                             <TenderMenu tender={tender} />
-                            <Button variant="ghost" size="icon" className="rounded-full bg-white border border-slate-200 shadow-sm text-slate-400 hover:text-navy-900 h-10 w-10 shrink-0">
-                              {expandedTender === tender.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                            <Button variant="ghost" size="icon" className="rounded-full bg-white border border-slate-200 shadow-sm text-slate-400 hover:text-navy-900 h-9 w-9">
+                              {expandedTender === tender.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                             </Button>
                           </div>
                         </div>
                       </div>
                       {expandedTender === tender.id && (
                         <div className="bg-white p-6 md:p-8 animate-in slide-in-from-top-4 duration-300">
-                          <div className="space-y-4 mb-6">
-                            {vehicleConfigs.map((config: any, i: number) => {
-                              const raw = vehicles[i];
-                              return (
-                                <div key={config.id || i} className="bg-slate-50 border border-slate-200 rounded-2xl p-5 relative overflow-hidden">
-                                  <div className="flex items-center justify-between mb-3">
-                                    <h3 className="font-bold text-navy-950 text-base">
-                                      {isMulti && <span className="text-blue-600 mr-1">Fahrzeug {i + 1}:</span>}
-                                      {config.brand || "—"} {config.model || ""} {raw?.trim_level || ""}
-                                      <span className="text-slate-500 font-normal ml-2">· {config.quantity} Stück</span>
-                                    </h3>
-                                    {config.listPriceGross != null && (
-                                      <span className="text-sm font-bold text-navy-900 bg-white px-3 py-1 rounded-lg border border-slate-200 shrink-0">
-                                        {config.listPriceNet ? `${config.listPriceNet.toLocaleString("de-DE")} € netto` : "—"}
-                                      </span>
-                                    )}
+                          {/* Collapsible Fahrzeugdetails */}
+                          <div className="mb-8">
+                            <button
+                              onClick={() => setVehicleDetailsOpen(prev => ({ ...prev, [tender.id]: !prev[tender.id] }))}
+                              className="flex items-center justify-between w-full text-left group"
+                            >
+                              <h3 className="text-lg font-bold text-navy-950">Fahrzeugdetails</h3>
+                              <ChevronDown size={20} className={`text-slate-400 transition-transform duration-200 ${vehicleDetailsOpen[tender.id] ? "rotate-180" : ""}`} />
+                            </button>
+                            {vehicleDetailsOpen[tender.id] && (
+                              <div className="space-y-4 mt-4 animate-in slide-in-from-top-2 duration-200">
+                                {vehicleConfigs.map((config: any, i: number) => {
+                                  const raw = vehicles[i];
+                                  return (
+                                    <div key={config.id || i} className="bg-slate-50 border border-slate-200 rounded-2xl p-5 relative overflow-hidden">
+                                      <div className="flex items-center justify-between mb-3">
+                                        <h3 className="font-bold text-navy-950 text-base">
+                                          {isMulti && <span className="text-blue-600 mr-1">Fahrzeug {i + 1}:</span>}
+                                          {config.brand || "—"} {config.model || ""} {raw?.trim_level || ""}
+                                          <span className="text-slate-500 font-normal ml-2">· {config.quantity} Stück</span>
+                                        </h3>
+                                        <div className="flex items-center gap-3 shrink-0">
+                                          {config.method === "upload" && raw?.config_file_path && (
+                                            <ConfigFileDownload filePath={raw.config_file_path} />
+                                          )}
+                                        </div>
+                                      </div>
+                                      <VehicleDetailSections vehicle={config} viewerRole="nachfrager" />
+                                    </div>
+                                  );
+                                })}
+
+                                {/* Summary row for multi-vehicle */}
+                                {isMulti && (
+                                  <div className="flex items-center justify-between bg-navy-950 text-white px-5 py-3 rounded-xl text-sm">
+                                    <span className="font-bold">Gesamt: {totalQty} Fahrzeug{totalQty !== 1 ? "e" : ""}</span>
+                                    <span className="font-bold text-amber-400">
+                                      Gesamt: {vehicles.reduce((s: number, v: TenderVehicle) => s + (v.quantity || 1), 0)} Fahrzeuge
+                                    </span>
                                   </div>
-                                  <VehicleDetailSections vehicle={config} viewerRole="nachfrager" />
-                                </div>
-                              );
-                            })}
+                                )}
+                              </div>
+                            )}
                           </div>
-                          {isMulti && (
-                            <div className="flex items-center justify-between bg-navy-950 text-white px-5 py-3 rounded-xl mb-6 text-sm">
-                              <span className="font-bold">Gesamt: {totalQty} Fahrzeug{totalQty !== 1 ? "e" : ""}</span>
-                              <span className="font-bold text-amber-400">
-                                Gesamt: {vehicles.reduce((s: number, v: TenderVehicle) => s + (v.quantity || 1), 0)} Fahrzeuge
-                              </span>
+
+                          {/* Collapsible Angebote */}
+                          {tender.offers.length > 0 && (
+                            <div className="mb-6">
+                              <button
+                                onClick={() => setOffersOpen(prev => ({ ...prev, [tender.id]: prev[tender.id] === false ? true : prev[tender.id] === undefined ? false : !prev[tender.id] }))}
+                                className="flex items-center justify-between w-full text-left group mb-4"
+                              >
+                                <h3 className="text-lg font-bold text-navy-950">Angebote</h3>
+                                <ChevronDown size={20} className={`text-slate-400 transition-transform duration-200 ${offersOpen[tender.id] === false ? "" : "rotate-180"}`} />
+                              </button>
+                              {offersOpen[tender.id] !== false && (
+                                <div className="animate-in slide-in-from-top-2 duration-200">
+                                  {renderOffersTable(tender)}
+                                </div>
+                              )}
                             </div>
                           )}
 
-                          {/* Review Steppers for each contact */}
+                          {/* Collapsible Bewertungen */}
                           {(() => {
                             const tenderContacts = contacts.filter(c => c.tender_id === tender.id);
                             if (tenderContacts.length === 0) return null;
                             return (
-                              <div className="space-y-6">
-                                <h4 className="text-lg font-bold text-navy-950 flex items-center gap-2">
-                                  <Star size={18} className="text-amber-500" /> Bewertungen abgeben
-                                </h4>
-                                {tenderContacts.map((contact) => {
-                                  const dealer = dealerProfiles[contact.dealer_id];
-                                  const existingReview = reviews.find(r => r.contact_id === contact.id);
-                                  return (
-                                    <div key={contact.id} className="border border-slate-200 rounded-2xl p-5 bg-slate-50/30">
-                                      <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm shrink-0">
-                                          {(dealer?.company_name?.[0] || "H")}
-                                        </div>
-                                        <div>
-                                          <span className="font-bold text-navy-950">{dealer?.company_name || "Händler"}</span>
-                                          {dealer && (
-                                            <div className="text-xs text-slate-500">
-                                              {dealer.city ? `${dealer.zip} ${dealer.city}` : ""}
+                              <div>
+                                <button
+                                  onClick={() => setReviewsOpen(prev => ({ ...prev, [tender.id]: !prev[tender.id] }))}
+                                  className="flex items-center justify-between w-full text-left group mb-4"
+                                >
+                                  <h4 className="text-lg font-bold text-navy-950 flex items-center gap-2">
+                                    <Star size={18} className="text-amber-500" /> Bewertungen abgeben
+                                  </h4>
+                                  <ChevronDown size={20} className={`text-slate-400 transition-transform duration-200 ${reviewsOpen[tender.id] ? "rotate-180" : ""}`} />
+                                </button>
+                                {reviewsOpen[tender.id] && (
+                                  <div className="space-y-6 animate-in slide-in-from-top-2 duration-200">
+                                    {tenderContacts.map((contact) => {
+                                      const dealer = dealerProfiles[contact.dealer_id];
+                                      const existingReview = reviews.find(r => r.contact_id === contact.id);
+                                      return (
+                                        <div key={contact.id} className="border border-slate-200 rounded-2xl p-5 bg-slate-50/30">
+                                          <div className="flex items-center gap-3 mb-4">
+                                            <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm shrink-0">
+                                              {(dealer?.company_name?.[0] || "H")}
                                             </div>
-                                          )}
+                                            <div>
+                                              <span className="font-bold text-navy-950">{dealer?.company_name || "Händler"}</span>
+                                              {dealer && (
+                                                <div className="text-xs text-slate-500">
+                                                  {dealer.city ? `${dealer.zip} ${dealer.city}` : ""}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                          <ReviewStepper
+                                            contactId={contact.id}
+                                            counterpartName={dealer?.company_name || "Händler"}
+                                            existingReview={existingReview ? { id: existingReview.id, type: existingReview.type, contract_concluded: existingReview.contract_concluded, comment: existingReview.comment } : null}
+                                            onSubmitReview={handleSubmitReview}
+                                            onUpdateReview={handleUpdateReview}
+                                          />
                                         </div>
-                                      </div>
-                                      <ReviewStepper
-                                        contactId={contact.id}
-                                        counterpartName={dealer?.company_name || "Händler"}
-                                        existingReview={existingReview ? { id: existingReview.id, type: existingReview.type, contract_concluded: existingReview.contract_concluded, comment: existingReview.comment } : null}
-                                        onSubmitReview={handleSubmitReview}
-                                        onUpdateReview={handleUpdateReview}
-                                      />
-                                    </div>
-                                  );
-                                })}
+                                      );
+                                    })}
+                                  </div>
+                                )}
                               </div>
                             );
                           })()}
@@ -1233,38 +1278,46 @@ export default function MyTendersPage() {
                             className={`p-6 md:p-8 cursor-pointer transition-colors ${expandedTender === draft.id ? "bg-slate-50 border-b border-slate-200" : "bg-white hover:bg-slate-50/50"}`}
                             onClick={() => setExpandedTender(expandedTender === draft.id ? null : draft.id)}
                           >
-                            <div className="flex justify-between items-start mb-4">
-                              <Badge variant="outline" className="font-mono text-slate-500 bg-slate-50 text-xs">{draft.id.split("-")[0].toUpperCase()}</Badge>
-                              <div className="flex items-center gap-2">
-                                <Badge className="bg-amber-100 text-amber-700 border-none">Entwurf</Badge>
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                  <h3 className="text-base font-bold text-navy-950 truncate">
+                                    {isMulti
+                                      ? `${vehicleConfigs.length} Konfigurationen · ${totalQty} Fahrzeuge`
+                                      : `${vehicle?.brand || "—"} ${vehicle?.model_name || ""}`}
+                                  </h3>
+                                  <Badge variant="outline" className="text-slate-400 font-mono text-[10px] px-1.5 py-0">{draft.id.split("-")[0].toUpperCase()}</Badge>
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+                                  <Badge className="bg-amber-100 text-amber-700 border-none text-xs px-2 py-0">Entwurf</Badge>
+                                  <span className="text-slate-300">|</span>
+                                  <span>Gespeichert {createdAgo(draft.created_at)}</span>
+                                </div>
+                                {isMulti && (
+                                  <p className="text-xs text-slate-400 mt-1">
+                                    {vehicleConfigs.map((c: any) => `${c.quantity}x ${c.brand || "—"} ${c.model || ""}`).join(" · ")}
+                                  </p>
+                                )}
+                                <div className="flex flex-wrap gap-2 mt-3">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="rounded-lg text-slate-600 hover:text-navy-900 border-slate-300"
+                                    onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/ausschreibung/${draft.id}/bearbeiten`); }}
+                                  >
+                                    <Pencil size={14} className="mr-1.5" /> Bearbeiten
+                                  </Button>
+                                  <Button size="sm" className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold" onClick={(e) => e.stopPropagation()}>
+                                    <Globe size={14} className="mr-1.5" /> Veröffentlichen
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
                                 <TenderMenu tender={draft} />
-                                <Button variant="ghost" size="icon" className="rounded-full bg-white border border-slate-200 shadow-sm text-slate-400 hover:text-navy-900 h-10 w-10 shrink-0">
-                                  {expandedTender === draft.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                                <Button variant="ghost" size="icon" className="rounded-full bg-white border border-slate-200 shadow-sm text-slate-400 hover:text-navy-900 h-9 w-9">
+                                  {expandedTender === draft.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                                 </Button>
                               </div>
-                            </div>
-                            <h3 className="text-2xl font-bold text-navy-950 mb-2">
-                              {isMulti
-                                ? `${vehicleConfigs.length} Konfigurationen · ${totalQty} Fahrzeuge`
-                                : `${vehicle?.brand || "—"} ${vehicle?.model_name || ""}`}
-                            </h3>
-                            <p className="text-sm font-medium text-slate-500">Zuletzt gespeichert: {createdAgo(draft.created_at)}</p>
-                            {isMulti && (
-                              <p className="text-xs text-slate-400 mt-1">
-                                {vehicleConfigs.map((c: any) => `${c.quantity}x ${c.brand || "—"} ${c.model || ""}`).join(" · ")}
-                              </p>
-                            )}
-                            <div className="flex flex-wrap gap-3 mt-6">
-                              <Button
-                                variant="outline"
-                                className="rounded-xl shadow-sm text-slate-600 hover:text-navy-900 border-slate-300"
-                                onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/ausschreibung/${draft.id}/bearbeiten`); }}
-                              >
-                                <Pencil size={16} className="mr-2" /> Bearbeiten
-                              </Button>
-                              <Button className="rounded-xl shadow-md bg-blue-600 hover:bg-blue-700 text-white font-bold" onClick={(e) => e.stopPropagation()}>
-                                <Globe size={16} className="mr-2" /> Veröffentlichen
-                              </Button>
                             </div>
                           </div>
                           {expandedTender === draft.id && (
@@ -1280,11 +1333,6 @@ export default function MyTendersPage() {
                                           {config.brand || "—"} {config.model || ""} {raw?.trim_level || ""}
                                           <span className="text-slate-500 font-normal ml-2">· {config.quantity} Stück</span>
                                         </h3>
-                                        {config.listPriceGross != null && (
-                                          <span className="text-sm font-bold text-navy-900 bg-white px-3 py-1 rounded-lg border border-slate-200 shrink-0">
-                                            {config.listPriceNet ? `${config.listPriceNet.toLocaleString("de-DE")} € netto` : "—"}
-                                          </span>
-                                        )}
                                       </div>
                                       <VehicleDetailSections vehicle={config} viewerRole="nachfrager" />
                                     </div>

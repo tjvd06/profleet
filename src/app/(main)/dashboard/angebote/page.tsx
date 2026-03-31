@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Activity, Handshake, Clock, ExternalLink, Loader2, MessageCircle,
-  Phone, Building2, Mail, MapPin, CheckCircle2, Star, ChevronDown, ChevronUp,
+  Phone, Mail, MapPin, CheckCircle2, Star, ChevronDown, ChevronUp,
   ThumbsUp, Minus, ThumbsDown, X, ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -269,13 +269,6 @@ function OfferDetailsExpander({ offer }: { offer: any }) {
             </div>
           )}
 
-          {/* UVP Bestätigung */}
-          {d.listPriceNetConfirm && (
-            <div className="flex justify-between text-xs pt-1 border-t border-slate-200">
-              <span className="text-slate-500">UVP netto (bestätigt)</span>
-              <span className="font-semibold text-navy-950">{d.listPriceNetConfirm.toLocaleString("de-DE")} €</span>
-            </div>
-          )}
         </div>
       )}
     </>
@@ -442,6 +435,8 @@ export default function DealerOffersPage() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [expandedTender, setExpandedTender] = useState<string | null>(null);
+  const [vehicleDetailsOpen, setVehicleDetailsOpen] = useState<Record<string, boolean>>({});
+  const [offersOpen, setOffersOpen] = useState<Record<string, boolean>>({});
   const [reviewTenderId, setReviewTenderId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -609,10 +604,6 @@ export default function DealerOffersPage() {
   const negotiatingGroups = groupByTender(negotiatingOffers);
   const completedGroups = groupByTender(completedOffers);
 
-  const openReviewCount = completedGroups.filter(g => {
-    const contact = getContactForTender(g[0].tender_id);
-    return contact && !reviews.find(r => r.contact_id === contact.id);
-  }).length;
 
   /* ── Render Offer Group Card ── */
   const renderOfferGroup = (groupOffers: any[], showContact = false) => {
@@ -629,43 +620,30 @@ export default function DealerOffersPage() {
     return (
       <Card key={tenderId} className="border-slate-200 shadow-sm rounded-3xl overflow-hidden">
         <div className="p-6 md:p-8">
-          {/* Buyer info */}
-          {buyer && (
-            <div className="flex items-center gap-3 mb-4 pb-4 border-b border-slate-100">
-              <div className="w-10 h-10 bg-purple-50 border border-purple-100 rounded-xl flex items-center justify-center text-purple-600 shrink-0">
-                <Building2 size={18} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-navy-950 text-sm">{buyer.company_name || "Nachfrager"}</div>
-                <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
-                  {(buyer.zip || buyer.city) && <span className="flex items-center gap-1"><MapPin size={10} /> {buyer.zip || ""} {buyer.city || ""}</span>}
-                  {buyer.industry && <span>{buyer.industry}</span>}
-                  {/* Email/Phone only after contact */}
-                  {contact && buyer.email_public && <a href={`mailto:${buyer.email_public}`} className="flex items-center gap-1 text-blue-600"><Mail size={10} /> {buyer.email_public}</a>}
-                  {contact && buyer.phone && <a href={`tel:${buyer.phone}`} className="flex items-center gap-1 text-blue-600"><Phone size={10} /> {buyer.phone}</a>}
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Header */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="outline" className="font-mono text-slate-500 bg-slate-50 text-xs">{tenderId?.split("-")[0].toUpperCase()}</Badge>
-              {tenderStatus === "active" && <Badge className="bg-blue-100 text-blue-700 border-none">Aktiv</Badge>}
-              {tenderStatus === "completed" && <Badge className="bg-green-100 text-green-700 border-none">Abgeschlossen</Badge>}
-              {tenderStatus === "cancelled" && <Badge className="bg-red-100 text-red-700 border-none">Zurückgezogen</Badge>}
-              {isMulti && <Badge className="bg-blue-50 text-blue-700 border border-blue-100 text-xs font-bold">{groupOffers.length} Fahrzeuge</Badge>}
-              {contact && tenderStatus === "active" && <Badge className="bg-purple-100 text-purple-700 border-none text-xs">Kontakt hergestellt</Badge>}
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <h3 className="text-base font-bold text-navy-950 truncate">
+                  {(() => {
+                    const vehicle = firstOffer.tender_vehicles || null;
+                    return isMulti
+                      ? `${groupOffers.length} Fahrzeuge`
+                      : vehicle ? `${vehicle.brand || "—"} ${vehicle.model_name || ""}`.trim() : "Ausschreibung";
+                  })()}
+                </h3>
+                <Badge variant="outline" className="text-slate-400 font-mono text-[10px] px-1.5 py-0">{tenderId?.split("-")[0].toUpperCase()}</Badge>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+                {buyer && <span className="font-semibold text-navy-900">{buyer.company_name || "Nachfrager"}</span>}
+                {buyer && (buyer.zip || buyer.city) && <><span className="text-slate-300">|</span><span className="flex items-center gap-1"><MapPin size={10} /> {buyer.zip || ""} {buyer.city || ""}</span></>}
+                {firstOffer.tenders?.end_at && tenderStatus === "active" && (
+                  <><span className="text-slate-300">|</span><span className="flex items-center gap-1 text-amber-600 font-semibold"><Clock size={12} /> Noch {timeLeft(firstOffer.tenders.end_at)}</span></>
+                )}
+                {contact && tenderStatus === "active" && <><span className="text-slate-300">|</span><span className="text-purple-600 font-semibold">Kontakt hergestellt</span></>}
+              </div>
             </div>
-            <div className="flex items-center gap-4 shrink-0">
-              {firstOffer.tenders?.end_at && tenderStatus === "active" && (
-                <div className="text-right hidden md:block">
-                  <div className="flex items-center gap-1 text-amber-600 font-bold bg-amber-50 px-3 py-1 rounded-full border border-amber-200/50 text-sm">
-                    <Clock size={14} /> {timeLeft(firstOffer.tenders.end_at)}
-                  </div>
-                </div>
-              )}
+            <div className="flex items-center gap-2 shrink-0">
               <Link href={`/dashboard/eingang/${tenderId}/angebot`}>
                 <Button variant="outline" size="sm" className="rounded-xl border-slate-200 text-slate-600 hover:text-navy-900">
                   <ExternalLink size={14} className="mr-1.5" /> {tenderStatus === "active" ? "Bearbeiten" : "Ansehen"}
@@ -691,8 +669,8 @@ export default function DealerOffersPage() {
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase">{isMulti ? "Zwischensumme" : "Gesamt"}</div>
-                    <div className="font-bold text-blue-700">{offer.total_price ? `${offer.total_price.toLocaleString("de-DE")} €` : "—"}</div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase">{isMulti ? "Zwischensumme" : "Gesamt netto"}</div>
+                    <div className="font-bold text-blue-700">{offer.total_price ? `${((offer.total_price ?? 0) * (offer.offered_quantity ?? 1)).toLocaleString("de-DE")} €` : "—"}</div>
                   </div>
                 </div>
                 <OfferDetailsExpander offer={offer} />
@@ -722,8 +700,8 @@ export default function DealerOffersPage() {
                 </div>
               )}
               <div>
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Gesamtpreis</div>
-                <div className="font-bold text-navy-950">{firstOffer.total_price ? `${firstOffer.total_price.toLocaleString("de-DE")} €` : "—"}</div>
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Gesamtpreis netto</div>
+                <div className="font-bold text-navy-950">{firstOffer.total_price ? `${((firstOffer.total_price ?? 0) * (firstOffer.offered_quantity ?? 1)).toLocaleString("de-DE")} €` : "—"}</div>
               </div>
             </div>
           )}
@@ -731,16 +709,28 @@ export default function DealerOffersPage() {
           {/* Contact / Chat section */}
           {showContact && contact && (
             <div className="mt-5 pt-5 border-t border-slate-100">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-2 text-sm font-semibold text-green-700">
                   <CheckCircle2 size={16} className="text-green-500" />
-                  Nachfrager hat Kontakt aufgenommen · {formatDate(contact.created_at)}
+                  Kontakt seit {formatDate(contact.created_at)}
                 </div>
-                <Link href={`/dashboard/nachrichten?contact=${contact.id}`}>
-                  <Button size="sm" className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 px-4">
-                    <MessageCircle size={14} className="mr-1.5" /> Chat öffnen
-                  </Button>
-                </Link>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <Link href={`/dashboard/nachrichten?contact=${contact.id}`}>
+                    <Button size="sm" variant="outline" className="rounded-xl border-blue-200 text-blue-600 hover:bg-blue-50 text-xs font-bold h-8 px-4">
+                      <MessageCircle size={12} className="mr-1.5" /> Nachrichten öffnen
+                    </Button>
+                  </Link>
+                  {buyer?.email_public && (
+                    <a href={`mailto:${buyer.email_public}`} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 transition-colors">
+                      <Mail size={12} /> {buyer.email_public}
+                    </a>
+                  )}
+                  {buyer?.phone && (
+                    <a href={`tel:${buyer.phone}`} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 transition-colors">
+                      <Phone size={12} /> {buyer.phone}
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -772,7 +762,6 @@ export default function DealerOffersPage() {
     const offerByVehicleId: Record<string, any> = {};
     groupOffers.forEach((o: any) => { if (o.tender_vehicle_id) offerByVehicleId[o.tender_vehicle_id] = o; });
     const grandTotal = groupOffers.reduce((s: number, o: any) => s + ((o.total_price ?? 0) * (o.offered_quantity ?? 1)), 0);
-    const totalOfferedQty = groupOffers.reduce((s: number, o: any) => s + (o.offered_quantity ?? 1), 0);
 
     // Delivery location from tender
     const deliveryLocation = tender?.delivery_plz
@@ -786,25 +775,10 @@ export default function DealerOffersPage() {
           className={`p-6 md:p-8 cursor-pointer transition-colors ${isExpanded ? "bg-slate-50 border-b border-slate-200" : "bg-white hover:bg-slate-50/50"}`}
           onClick={() => setExpandedTender(isExpanded ? null : tenderId)}
         >
-          <div className="flex justify-between items-start gap-4">
-            <div className="flex items-center gap-6">
-              <div className="w-16 h-16 bg-white border border-slate-200 rounded-2xl flex items-center justify-center shadow-sm text-navy-800 shrink-0 hidden md:flex">
-                <Building2 size={28} />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <Badge variant="outline" className="font-mono text-slate-500 bg-slate-50 text-xs">{tenderId?.split("-")[0].toUpperCase()}</Badge>
-                  <Badge className={tenderStatus === "cancelled" ? "bg-red-100 text-red-700 border-none" : "bg-green-100 text-green-700 border-none"}>
-                    {tenderStatus === "cancelled" ? "Zurückgezogen" : "Abgeschlossen"}
-                  </Badge>
-                  {contact && <Badge className="bg-purple-100 text-purple-700 border-none text-xs">Kontakt hergestellt</Badge>}
-                  {existingReview && (
-                    <Badge className="bg-amber-100 text-amber-700 border-none text-xs">
-                      <Star size={10} className="mr-0.5" /> Bewertet
-                    </Badge>
-                  )}
-                </div>
-                <h3 className="text-2xl font-bold text-navy-950 mb-1">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <h3 className="text-base font-bold text-navy-950 truncate">
                   {isMultiVehicle
                     ? `${allTenderVehicles.length} Konfigurationen · ${totalQtyTender} Fahrzeuge`
                     : (() => {
@@ -812,27 +786,28 @@ export default function DealerOffersPage() {
                       return vehicle ? `${vehicle.brand || "—"} ${vehicle.model_name || ""}${vehicle.trim_level ? ` ${vehicle.trim_level}` : ""}` : "Ausschreibung";
                     })()}
                 </h3>
-                <p className="text-sm text-slate-500 font-medium mt-1">
-                  {buyer?.company_name && <><span className="text-navy-900 font-bold">{buyer.company_name}</span> · </>}
-                  {buyer?.industry && <>{buyer.industry} · </>}
-                  {(buyer?.zip || buyer?.city) && <>{buyer.zip || ""} {buyer.city || ""} · </>}
-                  {tenderStatus === "cancelled" ? "Zurückgezogen" : "Abgeschlossen"} am: {formatDate(endDate)}
-                </p>
+                <Badge variant="outline" className="text-slate-400 font-mono text-[10px] px-1.5 py-0">{tenderId?.split("-")[0].toUpperCase()}</Badge>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+                <Badge className={`${tenderStatus === "cancelled" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"} border-none text-xs px-2 py-0`}>
+                  {tenderStatus === "cancelled" ? "Zurückgezogen" : "Abgeschlossen"}
+                </Badge>
+                {buyer && <><span className="text-slate-300">|</span><span className="font-semibold text-navy-900">{buyer.company_name || "Nachfrager"}</span></>}
+                {buyer && (buyer.zip || buyer.city) && <><span className="text-slate-300">|</span><span className="flex items-center gap-1"><MapPin size={10} /> {buyer.zip || ""} {buyer.city || ""}</span></>}
+                <span className="text-slate-300">|</span>
+                <span>{tenderStatus === "cancelled" ? "Zurückgezogen" : "Abgeschlossen"} am {formatDate(endDate)}</span>
                 {grandTotal > 0 && (
-                  <p className="text-sm font-bold text-green-600 mt-1">
-                    Ihr Angebot: {grandTotal.toLocaleString("de-DE")} € netto
-                    {isMultiVehicle && ` (${totalOfferedQty} Fahrzeuge)`}
-                  </p>
-                )}
-                {isMultiVehicle && (
-                  <p className="text-xs text-slate-400 mt-1">
-                    {allTenderVehicles.map((v: any) => `${v.quantity || 1}x ${v.brand || "—"} ${v.model_name || ""}`).join(" · ")}
-                  </p>
+                  <><span className="text-slate-300">|</span><span className="font-semibold text-green-600">{grandTotal.toLocaleString("de-DE")} € netto</span></>
                 )}
               </div>
+              {isMultiVehicle && (
+                <p className="text-xs text-slate-400 mt-1">
+                  {allTenderVehicles.map((v: any) => `${v.quantity || 1}x ${v.brand || "—"} ${v.model_name || ""}`).join(" · ")}
+                </p>
+              )}
             </div>
-            <Button variant="ghost" size="icon" className="rounded-full bg-white border border-slate-200 shadow-sm text-slate-400 hover:text-navy-900 h-10 w-10 shrink-0">
-              {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+            <Button variant="ghost" size="icon" className="rounded-full bg-white border border-slate-200 shadow-sm text-slate-400 hover:text-navy-900 h-9 w-9 shrink-0">
+              {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
             </Button>
           </div>
         </div>
@@ -865,92 +840,124 @@ export default function DealerOffersPage() {
               </div>
             )}
 
-            {/* All vehicle detail cards from the tender */}
-            <div className="space-y-4 mb-6">
-              {allTenderVehicles.length > 0 ? vehicleConfigs.map((config: any, idx: number) => {
-                const raw = allTenderVehicles[idx];
-                const offer = offerByVehicleId[raw.id];
-                return (
-                  <div key={raw.id || idx} className="bg-slate-50 border border-slate-200 rounded-2xl p-5 relative overflow-hidden">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-bold text-navy-950 text-base">
-                        {isMultiVehicle && <span className="text-blue-600 mr-1">Fahrzeug {idx + 1}:</span>}
-                        {config.brand || "—"} {config.model || ""} {raw?.trim_level || ""}
-                        <span className="text-slate-500 font-normal ml-2">· {raw?.quantity || config.quantity || 1} Stück</span>
-                      </h3>
-                      {raw?.list_price_net != null && (
-                        <span className="text-sm font-bold text-navy-900 bg-white px-3 py-1 rounded-lg border border-slate-200 shrink-0">
-                          {raw.list_price_net.toLocaleString("de-DE")} € netto
-                        </span>
-                      )}
-                    </div>
-                    {/* Full vehicle details (same component as Nachfrager) */}
-                    <VehicleDetailSections vehicle={config} viewerRole="haendler" />
+            {/* Collapsible Fahrzeugdetails */}
+            <div className="mb-8">
+              <button
+                onClick={() => setVehicleDetailsOpen(prev => ({ ...prev, [tenderId]: !prev[tenderId] }))}
+                className="flex items-center justify-between w-full text-left group"
+              >
+                <h3 className="text-lg font-bold text-navy-950">Fahrzeugdetails</h3>
+                <ChevronDown size={20} className={`text-slate-400 transition-transform duration-200 ${vehicleDetailsOpen[tenderId] ? "rotate-180" : ""}`} />
+              </button>
+              {vehicleDetailsOpen[tenderId] && (
+                <div className="space-y-4 mt-4 animate-in slide-in-from-top-2 duration-200">
+                  {allTenderVehicles.length > 0 ? vehicleConfigs.map((config: any, idx: number) => {
+                    const raw = allTenderVehicles[idx];
+                    return (
+                      <div key={raw.id || idx} className="bg-slate-50 border border-slate-200 rounded-2xl p-5 relative overflow-hidden">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="font-bold text-navy-950 text-base">
+                            {isMultiVehicle && <span className="text-blue-600 mr-1">Fahrzeug {idx + 1}:</span>}
+                            {config.brand || "—"} {config.model || ""} {raw?.trim_level || ""}
+                            <span className="text-slate-500 font-normal ml-2">· {raw?.quantity || config.quantity || 1} Stück</span>
+                          </h3>
+                        </div>
+                        <VehicleDetailSections vehicle={config} viewerRole="haendler" />
+                      </div>
+                    );
+                  }) : groupOffers.map((offer: any, idx: number) => {
+                    const vehicle = offer.tender_vehicles || null;
+                    const vehicleConfig = vehicle ? dbRowToVehicleConfig(vehicle) : null;
+                    const vehicleLabel = vehicle ? `${vehicle.brand || ""} ${vehicle.model_name || ""}${vehicle.trim_level ? ` ${vehicle.trim_level}` : ""}`.trim() || "Fahrzeug" : "Ausschreibung";
+                    return (
+                      <div key={offer.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-5 relative overflow-hidden">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="font-bold text-navy-950 text-base">
+                            {groupOffers.length > 1 && <span className="text-blue-600 mr-1">Fahrzeug {idx + 1}:</span>}
+                            {vehicleLabel}
+                            <span className="text-slate-500 font-normal ml-2">· {offer.offered_quantity || vehicle?.quantity || 1} Stück</span>
+                          </h3>
+                        </div>
+                        {vehicleConfig && <VehicleDetailSections vehicle={vehicleConfig} viewerRole="haendler" />}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
-                    {/* Dealer's offer for this vehicle */}
-                    {offer ? (
-                      <div className="mt-3 pt-3 border-t border-slate-200">
-                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Ihr Angebot</div>
-                        <div className="flex flex-wrap gap-1.5">
-                          <Badge className="bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-bold">
-                            Gesamtpreis: {offer.total_price ? `${offer.total_price.toLocaleString("de-DE")} €` : "—"}
-                          </Badge>
-                          {offer.purchase_price && (
-                            <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500">Kaufpreis: {offer.purchase_price.toLocaleString("de-DE")} €</Badge>
-                          )}
-                          {offer.lease_rate && (
-                            <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500">Leasing: {offer.lease_rate.toLocaleString("de-DE")} €/Mon.</Badge>
-                          )}
-                          {offer.delivery_date && (
-                            <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500">Lieferung: {formatDate(offer.delivery_date)}</Badge>
-                          )}
-                          {raw?.list_price_net && offer.purchase_price && (
-                            <Badge className="bg-green-50 text-green-700 border border-green-100 text-[10px]">
-                              -{((1 - offer.purchase_price / raw.list_price_net) * 100).toFixed(1)}% Rabatt
-                            </Badge>
-                          )}
+            {/* Collapsible Ihr Angebot */}
+            <div className="mb-8">
+              <button
+                onClick={() => setOffersOpen(prev => ({ ...prev, [tenderId]: prev[tenderId] === false ? true : prev[tenderId] === undefined ? false : !prev[tenderId] }))}
+                className="flex items-center justify-between w-full text-left group"
+              >
+                <div className="flex items-center gap-3">
+                  <h3 className="text-lg font-bold text-navy-950">Ihr Angebot</h3>
+                  {grandTotal > 0 && <span className="text-sm font-bold text-blue-700">{grandTotal.toLocaleString("de-DE")} € netto</span>}
+                </div>
+                <ChevronDown size={20} className={`text-slate-400 transition-transform duration-200 ${offersOpen[tenderId] === false ? "" : "rotate-180"}`} />
+              </button>
+              {offersOpen[tenderId] !== false && (
+                <div className="mt-4 border border-slate-200 rounded-2xl overflow-hidden animate-in slide-in-from-top-2 duration-200">
+                  {(allTenderVehicles.length > 0 ? vehicleConfigs.map((config: any, idx: number) => {
+                    const raw = allTenderVehicles[idx];
+                    const offer = offerByVehicleId[raw.id];
+                    if (!offer) return (
+                      <div key={raw.id || idx} className="px-5 py-3 border-t border-slate-100 first:border-t-0">
+                        <span className="text-xs text-slate-400 italic">
+                          {isMultiVehicle && <span className="text-blue-600 font-bold mr-1">Fahrzeug {idx + 1}:</span>}
+                          Kein Angebot abgegeben
+                        </span>
+                      </div>
+                    );
+                    return (
+                      <div key={raw.id || idx} className="px-5 py-3 border-t border-slate-100 first:border-t-0">
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {isMultiVehicle && <div className="w-5 h-5 rounded bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold shrink-0">{idx + 1}</div>}
+                            <span className="font-bold text-navy-950 text-sm truncate">{config.brand || "—"} {config.model || ""}</span>
+                            <span className="text-[10px] text-slate-400 shrink-0">{raw?.quantity || config.quantity || 1}x</span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="font-bold text-navy-950">{offer.purchase_price ? `${offer.purchase_price.toLocaleString("de-DE")} €` : "—"}</span>
+                            <span className="text-[10px] text-slate-400 ml-1">Kaufpreis</span>
+                          </div>
                         </div>
                         <OfferDetailsExpander offer={offer} />
                       </div>
-                    ) : (
-                      <div className="mt-3 pt-3 border-t border-slate-200">
-                        <span className="text-xs text-slate-400 italic">Kein Angebot für dieses Fahrzeug abgegeben</span>
+                    );
+                  }) : groupOffers.map((offer: any, idx: number) => {
+                    const vehicle = offer.tender_vehicles || null;
+                    const vehicleLabel = vehicle ? `${vehicle.brand || ""} ${vehicle.model_name || ""}`.trim() || "Fahrzeug" : "Ausschreibung";
+                    return (
+                      <div key={offer.id} className="px-5 py-3 border-t border-slate-100 first:border-t-0">
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {groupOffers.length > 1 && <div className="w-5 h-5 rounded bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold shrink-0">{idx + 1}</div>}
+                            <span className="font-bold text-navy-950 text-sm truncate">{vehicleLabel}</span>
+                            <span className="text-[10px] text-slate-400 shrink-0">{offer.offered_quantity || vehicle?.quantity || 1}x</span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="font-bold text-navy-950">{offer.purchase_price ? `${offer.purchase_price.toLocaleString("de-DE")} €` : "—"}</span>
+                            <span className="text-[10px] text-slate-400 ml-1">Kaufpreis</span>
+                          </div>
+                        </div>
+                        <OfferDetailsExpander offer={offer} />
                       </div>
-                    )}
-                  </div>
-                );
-              }) : groupOffers.map((offer: any, idx: number) => {
-                const vehicle = offer.tender_vehicles || null;
-                const vehicleConfig = vehicle ? dbRowToVehicleConfig(vehicle) : null;
-                const vehicleLabel = vehicle ? `${vehicle.brand || ""} ${vehicle.model_name || ""}${vehicle.trim_level ? ` ${vehicle.trim_level}` : ""}`.trim() || "Fahrzeug" : "Ausschreibung";
-                return (
-                  <div key={offer.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-5 relative overflow-hidden">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-bold text-navy-950 text-base">
-                        {groupOffers.length > 1 && <span className="text-blue-600 mr-1">Fahrzeug {idx + 1}:</span>}
-                        {vehicleLabel}
-                        <span className="text-slate-500 font-normal ml-2">· {offer.offered_quantity || vehicle?.quantity || 1} Stück</span>
-                      </h3>
-                    </div>
-                    {vehicleConfig && <VehicleDetailSections vehicle={vehicleConfig} viewerRole="haendler" />}
-                    <div className="mt-3 pt-3 border-t border-slate-200 flex flex-wrap gap-1.5">
-                      <Badge className="bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-bold">
-                        Ihr Angebot: {offer.total_price ? `${offer.total_price.toLocaleString("de-DE")} €` : "—"}
-                      </Badge>
-                    </div>
-                    <OfferDetailsExpander offer={offer} />
-                  </div>
-                );
-              })}
-            </div>
+                    );
+                  }))}
 
-            {/* Grand total for multi-vehicle */}
-            {(isMultiVehicle || groupOffers.length > 1) && (
-              <div className="flex items-center justify-between bg-navy-950 text-white px-5 py-3 rounded-xl mb-6 text-sm">
-                <span className="font-bold">Gesamt: {totalQtyTender} Fahrzeug{totalQtyTender !== 1 ? "e" : ""}</span>
-                <span className="font-bold text-amber-400">Ihr Angebot: {grandTotal.toLocaleString("de-DE")} € netto</span>
-              </div>
-            )}
+                  {/* Grand total for multi-vehicle */}
+                  {(isMultiVehicle || groupOffers.length > 1) && (
+                    <div className="flex items-center justify-between bg-navy-950 text-white px-5 py-3 text-sm">
+                      <span className="font-bold">Gesamt: {totalQtyTender} Fahrzeug{totalQtyTender !== 1 ? "e" : ""}</span>
+                      <span className="font-bold text-amber-400">{grandTotal.toLocaleString("de-DE")} € netto</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Action bar */}
             <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
@@ -1036,44 +1043,21 @@ export default function DealerOffersPage() {
           </div>
         ) : (
           <Tabs defaultValue={defaultTab} className="w-full flex flex-col lg:flex-row gap-8 lg:gap-12">
-            <div className="w-full lg:w-72 shrink-0">
+            <div className="w-full lg:w-56 shrink-0">
               <div className="sticky top-28">
-                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 px-2">Status</h3>
-                <TabsList className="flex flex-col h-auto bg-transparent w-full p-0 space-y-3">
-
-                  <TabsTrigger value="active"
-                    className="w-full justify-between items-center px-6 py-4 rounded-2xl bg-transparent hover:bg-slate-100 data-[state=active]:bg-white data-[state=active]:shadow-[0_8px_30px_rgb(0,0,0,0.04)] data-[state=active]:border data-[state=active]:border-slate-200 text-slate-500 data-[state=active]:text-navy-950 transition-all font-semibold">
-                    <div className="flex items-center gap-3">
-                      <Activity size={20} className="text-blue-500" />
-                      Laufend
-                    </div>
-                    <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-xs font-bold">{activeGroups.length}</span>
+                <TabsList className="flex flex-col h-auto bg-transparent w-full p-0 space-y-1">
+                  <TabsTrigger value="active" className="w-full justify-between items-center px-4 py-2.5 !rounded-lg !bg-transparent hover:!bg-slate-50 data-[active]:!bg-blue-50 !border-0 !text-slate-400 data-[active]:!text-blue-700 data-[active]:!font-semibold !shadow-none transition-all text-sm font-medium">
+                    <span>Laufend</span>
+                    <span className="text-xs text-slate-400 font-normal">{activeGroups.length}</span>
                   </TabsTrigger>
-
-                  <TabsTrigger value="negotiating"
-                    className="w-full justify-between items-center px-6 py-4 rounded-2xl bg-transparent hover:bg-slate-100 data-[state=active]:bg-white data-[state=active]:shadow-[0_8px_30px_rgb(0,0,0,0.04)] data-[state=active]:border data-[state=active]:border-slate-200 text-slate-500 data-[state=active]:text-navy-950 transition-all font-semibold">
-                    <div className="flex items-center gap-3">
-                      <Handshake size={20} className="text-purple-500" />
-                      In Verhandlung
-                    </div>
-                    {negotiatingGroups.length > 0 ? (
-                      <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-lg text-xs font-bold">{negotiatingGroups.length}</span>
-                    ) : (
-                      <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-xs font-bold">0</span>
-                    )}
+                  <TabsTrigger value="negotiating" className="w-full justify-between items-center px-4 py-2.5 !rounded-lg !bg-transparent hover:!bg-slate-50 data-[active]:!bg-blue-50 !border-0 !text-slate-400 data-[active]:!text-blue-700 data-[active]:!font-semibold !shadow-none transition-all text-sm font-medium">
+                    <span>In Verhandlung</span>
+                    <span className="text-xs text-slate-400 font-normal">{negotiatingGroups.length}</span>
                   </TabsTrigger>
-
-                  <TabsTrigger value="completed"
-                    className="w-full justify-between items-center px-6 py-4 rounded-2xl bg-transparent hover:bg-slate-100 data-[state=active]:bg-white data-[state=active]:shadow-[0_8px_30px_rgb(0,0,0,0.04)] data-[state=active]:border data-[state=active]:border-slate-200 text-slate-500 data-[state=active]:text-navy-950 transition-all font-semibold">
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 size={20} className="text-green-500" />
-                      Abgeschlossen
-                    </div>
-                    <span className={`px-3 py-1 rounded-lg text-xs font-bold ${openReviewCount > 0 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}>
-                      {completedGroups.length}
-                    </span>
+                  <TabsTrigger value="completed" className="w-full justify-between items-center px-4 py-2.5 !rounded-lg !bg-transparent hover:!bg-slate-50 data-[active]:!bg-blue-50 !border-0 !text-slate-400 data-[active]:!text-blue-700 data-[active]:!font-semibold !shadow-none transition-all text-sm font-medium">
+                    <span>Abgeschlossen</span>
+                    <span className="text-xs text-slate-400 font-normal">{completedGroups.length}</span>
                   </TabsTrigger>
-
                 </TabsList>
               </div>
             </div>

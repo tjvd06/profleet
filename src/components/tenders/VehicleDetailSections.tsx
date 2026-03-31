@@ -103,10 +103,7 @@ function buildSections(v: VehicleConfig): Section[] {
   const intTags = v.interiorExtras.length > 0 ? v.interiorExtras : undefined;
   if (interieur.length > 0 || intTags) sections.push({ key: "interieur", title: "Interieur", icon: Sofa, fields: interieur, tags: intTags });
 
-  // 8. Preis
-  const preis: Field[] = [];
-  if (v.listPriceNet != null) preis.push({ label: "Listenpreis netto", value: `${v.listPriceNet.toLocaleString("de-DE")} €` });
-  if (preis.length > 0) sections.push({ key: "preis", title: "Preis", icon: Euro, fields: preis });
+  // 8. Preis (removed – listPriceNet is no longer user-facing)
 
   return sections;
 }

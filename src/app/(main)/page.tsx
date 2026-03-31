@@ -52,56 +52,6 @@ export default function HomePage() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
-            {/* Sofort-Angebote */}
-            <div className="relative bg-gradient-to-br from-emerald-50 to-white rounded-3xl p-8 md:p-10 border-2 border-emerald-200 group hover:shadow-lg transition-all">
-              <div className="absolute top-6 right-6">
-                <Badge className="bg-emerald-100 text-emerald-700 border-none font-semibold text-sm px-3 py-1">Sofort verfügbar</Badge>
-              </div>
-              <div className="h-16 w-16 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-6">
-                <ShoppingCart size={28} />
-              </div>
-              <h3 className="text-2xl md:text-3xl font-bold text-navy-950 mb-3">Sofort-Angebote</h3>
-              <p className="text-lg text-slate-600 mb-8 leading-relaxed">
-                Händler stellen fertig konfigurierte Fahrzeuge mit Festpreis ein. Sie stöbern, vergleichen und schlagen sofort zu — ohne Wartezeit.
-              </p>
-
-              <div className="space-y-4 mb-8">
-                <div className="flex items-start gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Clock size={16} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-navy-950">Sofort verfügbar</p>
-                    <p className="text-sm text-slate-500">Fahrzeuge ab Lager oder kurzfristig lieferbar</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Package size={16} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-navy-950">Festpreis</p>
-                    <p className="text-sm text-slate-500">Transparente Preise mit Ersparnis zur UVP</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Search size={16} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-navy-950">Marktplatz durchsuchen</p>
-                    <p className="text-sm text-slate-500">Filtern nach Marke, Modell, Preis und Ausstattung</p>
-                  </div>
-                </div>
-              </div>
-
-              <Link href="/sofort-angebote">
-                <Button size="lg" className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold h-14 text-lg">
-                  Angebote durchstöbern <ArrowRight size={18} className="ml-2" />
-                </Button>
-              </Link>
-            </div>
-
             {/* Ausschreibung / Reverse-Auction */}
             <div className="relative bg-gradient-to-br from-blue-50 to-white rounded-3xl p-8 md:p-10 border-2 border-blue-200 group hover:shadow-lg transition-all">
               <div className="absolute top-6 right-6">
@@ -148,6 +98,56 @@ export default function HomePage() {
               <Link href="/dashboard/ausschreibung/neu">
                 <Button size="lg" className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-90 text-white font-semibold h-14 text-lg">
                   Ausschreibung starten <ArrowRight size={18} className="ml-2" />
+                </Button>
+              </Link>
+            </div>
+
+            {/* Sofort-Angebote */}
+            <div className="relative bg-gradient-to-br from-emerald-50 to-white rounded-3xl p-8 md:p-10 border-2 border-emerald-200 group hover:shadow-lg transition-all">
+              <div className="absolute top-6 right-6">
+                <Badge className="bg-emerald-100 text-emerald-700 border-none font-semibold text-sm px-3 py-1">Sofort verfügbar</Badge>
+              </div>
+              <div className="h-16 w-16 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-6">
+                <ShoppingCart size={28} />
+              </div>
+              <h3 className="text-2xl md:text-3xl font-bold text-navy-950 mb-3">Sofort-Angebote</h3>
+              <p className="text-lg text-slate-600 mb-8 leading-relaxed">
+                Händler stellen fertig konfigurierte Fahrzeuge mit Festpreis ein. Sie stöbern, vergleichen und schlagen sofort zu — ohne Wartezeit.
+              </p>
+
+              <div className="space-y-4 mb-8">
+                <div className="flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Clock size={16} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-navy-950">Sofort verfügbar</p>
+                    <p className="text-sm text-slate-500">Fahrzeuge ab Lager oder kurzfristig lieferbar</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Package size={16} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-navy-950">Festpreis</p>
+                    <p className="text-sm text-slate-500">Transparente Preise mit Ersparnis zur UVP</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Search size={16} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-navy-950">Marktplatz durchsuchen</p>
+                    <p className="text-sm text-slate-500">Filtern nach Marke, Modell, Preis und Ausstattung</p>
+                  </div>
+                </div>
+              </div>
+
+              <Link href="/sofort-angebote">
+                <Button size="lg" className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold h-14 text-lg">
+                  Angebote durchstöbern <ArrowRight size={18} className="ml-2" />
                 </Button>
               </Link>
             </div>

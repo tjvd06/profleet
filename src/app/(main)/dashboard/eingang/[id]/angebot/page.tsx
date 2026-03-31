@@ -78,7 +78,6 @@ type VehicleOfferForm = {
   dayRegistration: boolean;
   dayRegistrationDate: string;
   dayRegistrationKm: string;
-  listPriceNetConfirm: string;
   deliveryZip: string;
   deliveryCity: string;
   deliveryDate: string;
@@ -123,7 +122,6 @@ function createEmptyOfferForm(vehicle: TenderVehicleRow): VehicleOfferForm {
     dayRegistration: false,
     dayRegistrationDate: "",
     dayRegistrationKm: "",
-    listPriceNetConfirm: vehicle.list_price_net ? String(vehicle.list_price_net) : "",
     deliveryZip: "",
     deliveryCity: "",
     deliveryDate: "",
@@ -284,7 +282,6 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
               dayRegistration: d.dayRegistration ?? false,
               dayRegistrationDate: d.dayRegistrationDate || "",
               dayRegistrationKm: d.dayRegistrationKm || "",
-              listPriceNetConfirm: d.listPriceNetConfirm ? String(d.listPriceNetConfirm) : (v.list_price_net ? String(v.list_price_net) : ""),
               deliveryZip: existing.delivery_plz || "",
               deliveryCity: existing.delivery_city || "",
               deliveryDate: existing.delivery_date || "",
@@ -419,7 +416,6 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
             dayRegistration: f.dayRegistration,
             dayRegistrationDate: f.dayRegistration ? (f.dayRegistrationDate || null) : null,
             dayRegistrationKm: f.dayRegistration ? (f.dayRegistrationKm || null) : null,
-            listPriceNetConfirm: parseFloat(f.listPriceNetConfirm) || null,
             hasFleetContract: f.hasFleetContract,
             fleetContractDiscount: f.hasFleetContract ? (parseFloat(f.fleetContractDiscount) || null) : null,
             hasSpecialAgreement: f.hasSpecialAgreement,
@@ -753,13 +749,6 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
 
                 {currentForm.exactMatch ? (
                   <div className="space-y-4">
-                    {currentVehicle.list_price_net != null && (
-                      <div className="space-y-2">
-                        <Label className="text-sm font-semibold text-slate-700">Netto-Listenpreis bestätigen (€)</Label>
-                        <Input type="number" value={currentForm.listPriceNetConfirm} onChange={(e) => updateForm({ listPriceNetConfirm: e.target.value })}
-                          className="rounded-xl h-12 bg-slate-50 border-slate-200 text-lg" placeholder="Listenpreis netto" />
-                      </div>
-                    )}
                     <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
                       <Switch checked={currentForm.dayRegistration} onCheckedChange={(c) => updateForm({ dayRegistration: c })} className="mt-1" />
                       <div className="flex-grow">

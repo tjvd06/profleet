@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 export function Footer() {
   return (
@@ -7,7 +8,10 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
           {/* Column 1 */}
           <div>
-            <span className="text-xl font-bold tracking-tight text-white mb-4 block">proFleet</span>
+            <div className="flex items-center gap-2 mb-4">
+              <Image src="/icon-light.svg" alt="proFleet Logo" width={32} height={32} className="rounded-lg" />
+              <span className="text-xl font-bold tracking-tight text-white">proFleet</span>
+            </div>
             <p className="mb-4">Die moderne Ausschreibungsplattform für Unternehmen. Fahrzeuge beschaffen wie die Großen.</p>
           </div>
           {/* Column 2 */}

@@ -135,12 +135,6 @@ export function DealerTenderCard({ tender }: { tender: any }) {
                       )}
                       </div>
                     </div>
-                    {config.listPriceNet != null && (
-                      <div className="text-right shrink-0">
-                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">UVP netto</div>
-                        <div className="font-bold text-navy-950 text-sm">{config.listPriceNet.toLocaleString("de-DE")} €</div>
-                      </div>
-                    )}
                   </div>
                   {/* Expandable detail */}
                   {vehiclesExpanded && (
@@ -186,12 +180,12 @@ export function DealerTenderCard({ tender }: { tender: any }) {
                 <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Angebote</div>
                 <div className="text-2xl font-black text-navy-950">{tender.currentOffers}</div>
               </div>
-              {tender.currentOffers > 0 && tender.bestTotalGross != null && (
+              {tender.currentOffers > 0 && tender.bestTotalNet != null && (
                 <div>
                   <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Bester Gesamtpreis</div>
                   <div className="font-bold text-green-600 text-sm flex items-center gap-1">
                     <TrendingDown size={14} />
-                    {tender.bestTotalGross.toLocaleString("de-DE", { maximumFractionDigits: 0 })} € netto
+                    {tender.bestTotalNet.toLocaleString("de-DE", { maximumFractionDigits: 0 })} € netto
                   </div>
                 </div>
               )}
@@ -200,7 +194,7 @@ export function DealerTenderCard({ tender }: { tender: any }) {
 
           {/* My offer stats (if answered) */}
           {tender.hasAnswered && tender.myTotalPrice != null && (() => {
-            const isBest = tender.bestTotalGross != null && tender.myTotalPrice <= tender.bestTotalGross;
+            const isBest = tender.bestTotalNet != null && tender.myTotalPrice <= tender.bestTotalNet;
             return (
               <div className={`rounded-2xl p-5 mb-5 ${isBest ? "bg-green-50 border border-green-200" : "bg-blue-50 border border-blue-200"}`}>
                 <div className="flex items-center gap-2 mb-4">
