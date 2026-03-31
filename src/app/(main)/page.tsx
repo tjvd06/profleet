@@ -20,7 +20,7 @@ export default function HomePage() {
         badge="Soon Coming"
         badgeIcon={<Zap size={14} className="text-cyan-400" />}
         title="Neuwagen einkaufen wie die Großen."
-        subtitle="Zwei Wege zum Bestpreis: Stöbern Sie in Sofort-Angeboten von Händlern oder starten Sie eine Ausschreibung und lassen Sie Händler um Ihren Auftrag bieten."
+        subtitle="Stöbern Sie in Sofort-Angeboten von Händlern oder starten Sie eine Ausschreibung und lassen Sie Händler um Ihren Auftrag bieten."
       >
         <div className="flex flex-col sm:flex-row gap-4 mb-12">
           <Link href="/sofort-angebote">
@@ -155,74 +155,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 3. So funktioniert's – beide Wege */}
-      <section className="bg-slate-50 py-24">
-        <div className="container mx-auto max-w-7xl px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-bold text-navy-950 mb-4">So funktioniert's</h2>
-            <p className="text-lg text-slate-500 max-w-2xl mx-auto">Einfach, transparent und unverbindlich — egal welchen Weg Sie wählen.</p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-12">
-            {/* Sofort-Angebote Steps */}
-            <div>
-              <div className="flex items-center gap-3 mb-8">
-                <div className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                  <ShoppingCart size={20} />
-                </div>
-                <h3 className="text-xl font-bold text-navy-950">Sofort-Angebote</h3>
-              </div>
-              <div className="space-y-6">
-                {[
-                  { step: 1, title: 'Marktplatz durchsuchen', desc: 'Filtern Sie nach Marke, Modell, Preis und Region — alle Angebote sind sofort sichtbar.' },
-                  { step: 2, title: 'Angebot vergleichen', desc: 'Sehen Sie Festpreise, Leasing-Raten und Ersparnisse gegenüber der UVP auf einen Blick.' },
-                  { step: 3, title: 'Händler kontaktieren', desc: 'Gefällt Ihnen ein Angebot? Kontaktieren Sie den Händler direkt und schließen Sie den Deal.' },
-                ].map((item) => (
-                  <div key={item.step} className="flex gap-4">
-                    <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg font-bold flex-shrink-0 border border-emerald-200">
-                      {item.step}
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-navy-950 mb-1">{item.title}</h4>
-                      <p className="text-slate-500 text-sm leading-relaxed">{item.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Ausschreibung Steps */}
-            <div>
-              <div className="flex items-center gap-3 mb-8">
-                <div className="h-10 w-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
-                  <Gavel size={20} />
-                </div>
-                <h3 className="text-xl font-bold text-navy-950">Ausschreibung <span className="text-sm font-normal text-slate-500">(Reverse-Auction)</span></h3>
-              </div>
-              <div className="space-y-6">
-                {[
-                  { step: 1, title: 'Fahrzeug konfigurieren', desc: 'Wählen Sie Marke, Modell und Ausstattung — oder laden Sie eine fertige Konfiguration hoch.' },
-                  { step: 2, title: 'Händler bieten gegeneinander', desc: 'Händler sehen Ihre Ausschreibung und unterbieten sich. Sie sehen alle Gebote in Echtzeit.' },
-                  { step: 3, title: 'Bestes Angebot wählen', desc: 'Nach Ablauf der Frist wählen Sie das beste Angebot aus Preis, Leasing und Bewertungen.' },
-                ].map((item) => (
-                  <div key={item.step} className="flex gap-4">
-                    <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg font-bold flex-shrink-0 border border-blue-200">
-                      {item.step}
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-navy-950 mb-1">{item.title}</h4>
-                      <p className="text-slate-500 text-sm leading-relaxed">{item.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* 4. Logos/Social Proof */}
-      <section className="bg-white py-12 border-b border-slate-100">
+      <section className=" hidden bg-white py-12 border-b border-slate-100">
         <div className="container mx-auto max-w-7xl text-center px-4">
           <p className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-8">Vertraut von innovativen Unternehmen</p>
           <div className="flex flex-wrap justify-center items-center gap-12 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
@@ -269,7 +203,7 @@ export default function HomePage() {
           <div className="md:w-1/2 text-left">
             <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">Sie sind Händler, Leasingfirma oder Bank?</h2>
             <p className="text-xl text-blue-100 mb-8 max-w-lg leading-relaxed">
-              Erreichen Sie kaufbereite Geschäftskunden aus ganz Deutschland. Sie zahlen nur bei erfolgreichem Kundenkontakt.
+              Erreichen Sie kaufbereite Geschäftskunden aus ganz Deutschland.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Button size="lg" className="bg-white text-navy-900 hover:bg-slate-100 text-lg h-14 px-8 rounded-xl font-bold shadow-lg">
@@ -277,9 +211,9 @@ export default function HomePage() {
               </Button>
             </div>
             <ul className="mt-8 space-y-3 text-blue-200">
-              <li className="flex items-center gap-2"><CheckCircle2 size={18} className="text-cyan-400" /> 30€ pro qualifiziertem Kontakt</li>
+              <li className="flex items-center gap-2"><CheckCircle2 size={18} className="text-cyan-400" /> Einfaches Abomodell, keine versteckten Kosten</li>
               <li className="flex items-center gap-2"><CheckCircle2 size={18} className="text-cyan-400" /> Bundesweite Reichweite</li>
-              <li className="flex items-center gap-2"><CheckCircle2 size={18} className="text-cyan-400" /> Keine Grundgebühr, kein Risiko</li>
+              <li className="flex items-center gap-2"><CheckCircle2 size={18} className="text-cyan-400" /> Nur verifizierte Unternehmen</li>
             </ul>
           </div>
           <div className="md:w-1/2 flex justify-center">
@@ -293,6 +227,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
 
       {/* 6. Erfahrungsberichte */}
       <section className="bg-slate-50 py-24">

@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CarFront, AlertCircle, Loader2, Building2, User } from "lucide-react";
+import { AlertCircle, Loader2, Building2, User } from "lucide-react";
+import { Logo } from "@/components/ui/Logo";
 import Link from "next/link";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -66,10 +67,8 @@ export default function RegisterPage() {
         
         <div className="relative z-10 flex flex-col items-center mb-8">
           <Link href="/" className="flex items-center gap-2 mb-6">
-            <div className="w-10 h-10 bg-navy-950 rounded-xl flex items-center justify-center shadow-md">
-              <CarFront className="text-white" size={24} />
-            </div>
-            <span className="text-xl font-black text-navy-950 tracking-tight">proFleet</span>
+            <Logo size={40} className="rounded-xl shadow-md" />
+            <span className="text-xl font-black text-navy-700 tracking-tight">proFleet</span>
           </Link>
           <h1 className="text-2xl font-bold text-navy-950 text-center">Konto erstellen</h1>
           <p className="text-sm text-slate-500 text-center mt-1">Registrieren Sie sich kostenlos auf der Plattform.</p>

@@ -126,11 +126,6 @@ function formatDate(dateStr: string | null): string {
   return new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(dateStr));
 }
 
-/** Count unique dealers who submitted offers on a tender */
-function uniqueDealerCount(offers: Offer[]): number {
-  return new Set(offers.map((o) => o.dealer_id)).size;
-}
-
 function createdAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const days = Math.floor(diff / 86400000);
@@ -212,42 +207,43 @@ function OfferRow({ offer, offerIdx, isMultiVehicle, vehicleLabel, vehicle, d, h
         </div>
       </div>
 
-      {/* Compact detail chips */}
-      <div className="flex flex-wrap gap-1.5">
-        {offer.total_price && offer.total_price !== offer.purchase_price && (
-          <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500">Abholpreis: {offer.total_price.toLocaleString("de-DE")} €</Badge>
-        )}
-        {offer.lease_rate && <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500">Leasing: {offer.lease_rate.toLocaleString("de-DE")} €/Mon.</Badge>}
-        {d?.financingRate && <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500">Finanz.: {d.financingRate.toLocaleString("de-DE")} €/Mon.</Badge>}
-        {d?.exactMatch ? (
-          <Badge className="bg-green-50 text-green-700 border border-green-100 text-[10px]"><CheckCircle2 size={10} className="mr-0.5" /> Exakt</Badge>
-        ) : (
-          <Badge className="bg-amber-50 text-amber-700 border border-amber-100 text-[10px]">Alternativ</Badge>
-        )}
-        {d?.dayRegistration && <Badge className="bg-slate-100 text-slate-500 border-none text-[10px]">Tageszulassung</Badge>}
-        {offer.delivery_date && <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-500">Lieferung: {formatDate(offer.delivery_date)}</Badge>}
-        {(offer as any).config_file_path && <ConfigFileDownload filePath={(offer as any).config_file_path} label="Konfig-PDF" />}
-      </div>
+      {/* Expandable details — always show toggle */}
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+      >
+        {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        {expanded ? "Weniger anzeigen" : "Alle Details anzeigen"}
+      </button>
 
-      {/* Deviation — only if present */}
-      {offer.deviation_type && offer.deviation_details?.description && (
-        <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-2 border border-amber-100">{offer.deviation_details.description}</p>
-      )}
+      {expanded && (
+        <div className="mt-3 bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
 
-      {/* Expandable details */}
-      {hasExtras && (
-        <>
-          <button
-            type="button"
-            onClick={() => setExpanded(!expanded)}
-            className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 transition-colors"
-          >
-            {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-            {expanded ? "Weniger anzeigen" : "Alle Details anzeigen"}
-          </button>
+          {/* Deviation — only if present */}
+          {offer.deviation_type && offer.deviation_details?.description && (
+            <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 border border-amber-100">{offer.deviation_details.description}</p>
+          )}
 
-          {expanded && (
-            <div className="mt-3 bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+          {/* Match type */}
+          <div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Konfiguration</div>
+            <div className="flex items-center gap-2 text-xs">
+              {d?.exactMatch ? (
+                <span className="flex items-center gap-1 text-green-700 font-semibold"><CheckCircle2 size={12} /> Exakte Übereinstimmung</span>
+              ) : (
+                <span className="text-amber-700 font-semibold">Alternatives Angebot</span>
+              )}
+              {d?.dayRegistration && <span className="text-slate-500">· Tageszulassung</span>}
+            </div>
+          </div>
+
+          {/* Konfig-PDF */}
+          {(offer as any).config_file_path && (
+            <div>
+              <ConfigFileDownload filePath={(offer as any).config_file_path} label="Konfig-PDF" />
+            </div>
+          )}
 
               {/* Kosten */}
               {(hasCosts || offer.total_price) && (
@@ -420,8 +416,6 @@ function OfferRow({ offer, offerIdx, isMultiVehicle, vehicleLabel, vehicle, d, h
               )}
             </div>
           )}
-        </>
-      )}
     </div>
   );
 }
@@ -745,7 +739,6 @@ export default function MyTendersPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-navy-950 text-sm">{dealerProfile?.company_name || "Händler"}</span>
                       {dealerProfile?.dealer_type && <Badge variant="outline" className="text-[10px] border-slate-200 text-slate-400">{dealerProfile.dealer_type}</Badge>}
-                      {groupIndex === 0 && <Badge className="bg-green-100 text-green-700 border-none text-[10px]">Bester Preis</Badge>}
                     </div>
                     {dealerProfile?.city && (
                       <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-400">
@@ -837,24 +830,6 @@ export default function MyTendersPage() {
     const vehicleConfigs = vehicles.map((v: Record<string, unknown>) => dbRowToVehicleConfig(v));
     const totalQty = vehicles.reduce((s: number, v: TenderVehicle) => s + (v.quantity || 1), 0);
     const isMulti = vehicleConfigs.length > 1;
-    // Best price: for multi-vehicle, use the lowest total per dealer; for single, use lowest purchase_price
-    const bestPrice = (() => {
-      if (tender.offers.length === 0) return null;
-      if (isMulti) {
-        // Group by dealer, sum total_price per dealer, take the min
-        const dealerTotals: Record<string, number> = {};
-        tender.offers.forEach(o => {
-          dealerTotals[o.dealer_id] = (dealerTotals[o.dealer_id] || 0) + ((o.total_price ?? 0) * (o.offered_quantity ?? 1));
-        });
-        const totals = Object.values(dealerTotals).filter(t => t > 0);
-        return totals.length > 0 ? Math.min(...totals) : null;
-      }
-      const prices = tender.offers.filter(o => o.purchase_price).map(o => o.purchase_price!);
-      return prices.length > 0 ? Math.min(...prices) : null;
-    })();
-    const savings = !isMulti && bestPrice && vehicle?.list_price_gross
-      ? ((1 - bestPrice / vehicle.list_price_gross) * 100).toFixed(1)
-      : null;
 
     return (
       <Card key={tender.id} className="border-slate-200 shadow-sm rounded-3xl overflow-hidden transition-all duration-300">
@@ -871,18 +846,9 @@ export default function MyTendersPage() {
                 <div className="flex items-center gap-3 mb-1 flex-wrap">
                   <Badge variant="outline" className="text-slate-500 bg-white font-mono text-xs">{tender.id.split("-")[0].toUpperCase()}</Badge>
                   <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-none px-3">Aktiv</Badge>
-                  {uniqueDealerCount(tender.offers) > 0 ? (
-                    <Badge className="bg-green-100 text-green-700 hover:bg-green-200 border-none px-3 font-bold">
-                      {uniqueDealerCount(tender.offers)} Angebot{uniqueDealerCount(tender.offers) > 1 ? "e" : ""}
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-slate-100 text-slate-500 hover:bg-slate-200 border-none px-3">Warten auf Angebote</Badge>
-                  )}
-                  {contacts.filter(c => c.tender_id === tender.id).length > 0 && (
-                    <Badge className="bg-purple-100 text-purple-700 border-none px-3">
-                      {contacts.filter(c => c.tender_id === tender.id).length} Kontakt{contacts.filter(c => c.tender_id === tender.id).length > 1 ? "e" : ""}
-                    </Badge>
-                  )}
+                  <Badge className={`${tender.offers.length > 0 ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"} border-none px-3 font-bold`}>
+                    {tender.offers.length} Angebot{tender.offers.length !== 1 ? "e" : ""}
+                  </Badge>
                 </div>
                 <h3 className="text-2xl font-bold text-navy-950">
                   {isMulti
@@ -891,9 +857,6 @@ export default function MyTendersPage() {
                 </h3>
                 <p className="text-sm text-slate-500 font-medium mt-1">
                   Erstellt: {createdAgo(tender.created_at)}
-                  {!isMulti && <> · Menge: <span className="text-navy-900 font-bold">{vehicle?.quantity ?? 1}x</span></>}
-                  {!isMulti && vehicle?.list_price_gross && <> · Listenpreis: <span className="text-navy-900 font-bold">{vehicle.list_price_gross.toLocaleString("de-DE")} €</span></>}
-                  {bestPrice && <> · {isMulti ? "Bestes Gesamtangebot" : "Bester Preis"}: <span className="text-green-600 font-bold">{bestPrice.toLocaleString("de-DE")} €</span>{savings && <span className="text-green-600 font-bold"> (-{savings}%)</span>}</>}
                 </p>
                 {isMulti && (
                   <p className="text-xs text-slate-400 mt-1">

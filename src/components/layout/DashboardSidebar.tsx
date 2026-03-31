@@ -6,8 +6,9 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Plus, FileText, Zap, Star, Inbox, Handshake,
   ReceiptText, UserCircle, MessageCircle, Settings, LogOut,
-  ChevronLeft, ChevronRight, X, CarFront,
+  ChevronLeft, ChevronRight, X,
 } from "lucide-react";
+import { Logo } from "@/components/ui/Logo";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/components/providers/auth-provider";
 
@@ -210,17 +211,13 @@ export function DashboardSidebar({
       <div className={`flex items-center shrink-0 border-b border-slate-100 ${collapsed ? "justify-center px-2 h-16" : "justify-between px-5 h-16"}`}>
         {!collapsed && (
           <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-navy-950 rounded-lg flex items-center justify-center">
-              <CarFront className="text-white" size={18} />
-            </div>
-            <span className="text-lg font-black text-navy-950 tracking-tight">proFleet</span>
+            <Logo size={32} className="rounded-lg" />
+            <span className="text-lg font-black text-navy-700 tracking-tight">proFleet</span>
           </Link>
         )}
         {collapsed && (
           <Link href="/dashboard">
-            <div className="w-8 h-8 bg-navy-950 rounded-lg flex items-center justify-center">
-              <CarFront className="text-white" size={18} />
-            </div>
+            <Logo size={32} className="rounded-lg" />
           </Link>
         )}
         <button

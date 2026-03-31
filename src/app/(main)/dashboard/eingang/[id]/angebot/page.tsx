@@ -141,8 +141,8 @@ function createEmptyOfferForm(vehicle: TenderVehicleRow): VehicleOfferForm {
     financingDuration: vehicle.financing?.duration || "48",
     financingDownPayment: vehicle.financing?.down_payment || "0",
     financingResidual: vehicle.financing?.residual || "",
-    transferCostNet: "",
-    registrationCostNet: "",
+    transferCostNet: "0",
+    registrationCostNet: "0",
     totalPriceNetOverride: "",
     configFile: null,
     existingConfigPath: null,
@@ -224,6 +224,7 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
   const [pageLoading, setPageLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [tosAccepted, setTosAccepted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [offerCount, setOfferCount] = useState(0);
   const [bestOfferPrice, setBestOfferPrice] = useState<number | null>(null);
@@ -273,7 +274,7 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
         if (existingOffers.length > 0) {
           setIsEdit(true);
           const formsByVehicle = new Map(existingOffers.map((o: any) => [o.tender_vehicle_id, o]));
-          setForms(t.tender_vehicles.map((v) => {
+          const builtForms = t.tender_vehicles.map((v) => {
             const existing = formsByVehicle.get(v.id);
             if (!existing) return createEmptyOfferForm(v);
             const d = existing.offer_details || {};
@@ -301,13 +302,33 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
               financingDuration: d.financingDuration || v.financing?.duration || "48",
               financingDownPayment: d.financingDownPayment || v.financing?.down_payment || "0",
               financingResidual: d.financingResidual || v.financing?.residual || "",
-              transferCostNet: existing.transfer_cost ? String(existing.transfer_cost) : "",
-              registrationCostNet: existing.registration_cost ? String(existing.registration_cost) : "",
+              transferCostNet: existing.transfer_cost != null ? String(existing.transfer_cost) : "0",
+              registrationCostNet: existing.registration_cost != null ? String(existing.registration_cost) : "0",
               totalPriceNetOverride: "",
               configFile: null,
               existingConfigPath: existing.config_file_path || null,
             };
+          });
+
+          // Verify that files referenced by existingConfigPath actually exist in storage
+          const verifiedForms = await Promise.all(builtForms.map(async (f) => {
+            if (!f.existingConfigPath) return f;
+            try {
+              const res = await fetch("/api/storage/exists", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filePath: f.existingConfigPath, bucket: "tender-config-files" }),
+              });
+              const { exists } = await res.json();
+              if (!exists) return { ...f, existingConfigPath: null };
+            } catch (err) {
+              console.error("[verify config] error:", err);
+              return { ...f, existingConfigPath: null };
+            }
+            return f;
           }));
+
+          setForms(verifiedForms);
         } else {
           setForms(t.tender_vehicles.map((v) => createEmptyOfferForm(v)));
         }
@@ -431,10 +452,15 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
         if (f.configFile) {
           const safeName = f.configFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
           const storagePath = `offers/${user.id}/${tender.id}/${vehicles[i].id}/${safeName}`;
-          await supabase.storage.from("tender-config-files").upload(storagePath, f.configFile, {
-            contentType: f.configFile.type,
-            upsert: true,
-          });
+          const formData = new FormData();
+          formData.append("file", f.configFile);
+          formData.append("storagePath", storagePath);
+          formData.append("bucket", "tender-config-files");
+          const uploadRes = await fetch("/api/storage/upload", { method: "POST", body: formData });
+          if (!uploadRes.ok) {
+            const err = await uploadRes.json().catch(() => ({}));
+            throw new Error(`Datei-Upload fehlgeschlagen: ${err.details || "Unbekannter Fehler"}`);
+          }
           await supabase.from("offers")
             .update({ config_file_path: storagePath })
             .eq("tender_id", tender.id)
@@ -631,7 +657,7 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
             </div>
 
             <div className="flex items-center gap-3">
-              <Checkbox id="tos" className="scale-125 border-slate-300" />
+              <Checkbox id="tos" checked={tosAccepted} onCheckedChange={(v) => setTosAccepted(!!v)} className="scale-125 border-slate-300" />
               <Label htmlFor="tos" className="text-sm text-slate-500 leading-relaxed cursor-pointer">
                 Ich bestätige die Vertragsbedingungen. Diese Angaben sind rechtlich bindend.
               </Label>
@@ -662,7 +688,7 @@ export default function OfferCreationPage({ params }: { params: { id: string } }
               <Button variant="outline" onClick={() => handleSubmitOffer(true)} disabled={submitting} className="w-full sm:w-auto rounded-xl h-12 px-6 text-slate-600 font-semibold border-slate-300">
                 <Save className="mr-2" size={18} /> Entwurf
               </Button>
-              <Button onClick={() => handleSubmitOffer(false)} disabled={submitting || !allFormsValid}
+              <Button onClick={() => handleSubmitOffer(false)} disabled={submitting || !allFormsValid || !tosAccepted}
                 className="w-full sm:w-auto rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg px-8 h-12 font-bold disabled:opacity-50 disabled:cursor-not-allowed">
                 {submitting ? <><Loader2 className="animate-spin mr-2" size={18} /> Wird gesendet…</> : <><Mail className="mr-2" size={18} /> Verbindlich abgeben</>}
               </Button>

@@ -160,10 +160,15 @@ export default function NewTenderWizard() {
             const ext = v.uploadFile.name.split(".").pop() || "pdf";
             const safeName = v.uploadFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
             const storagePath = `${user.id}/${vehicleId}/${safeName}`;
-            const { error: uploadError } = await supabase.storage
-              .from("tender-config-files")
-              .upload(storagePath, v.uploadFile, { contentType: v.uploadFile.type });
-            if (uploadError) throw new Error(`Datei-Upload fehlgeschlagen: ${uploadError.message}`);
+            const formData = new FormData();
+            formData.append("file", v.uploadFile);
+            formData.append("storagePath", storagePath);
+            formData.append("bucket", "tender-config-files");
+            const uploadRes = await fetch("/api/storage/upload", { method: "POST", body: formData });
+            if (!uploadRes.ok) {
+              const err = await uploadRes.json().catch(() => ({}));
+              throw new Error(`Datei-Upload fehlgeschlagen: ${err.details || "Unbekannter Fehler"}`);
+            }
             // Save the storage path to the tender_vehicle row
             const { error: updateError } = await supabase
               .from("tender_vehicles")

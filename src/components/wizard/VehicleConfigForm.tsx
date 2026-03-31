@@ -9,8 +9,8 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import {
   Settings2, UploadCloud, Check, X, Minus, Plus, ChevronDown,
-  Car, Cog, Gauge, Weight, Leaf, Paintbrush, Sparkles, Sofa, Star,
-  FileText, Trash2, Banknote,
+  Car, Cog, Gauge, Weight, Leaf, Paintbrush, Sparkles, Sofa,
+  FileText, Trash2, Banknote, Search,
 } from "lucide-react";
 import { useVehicleModels, useVehicleModelsByBrand } from "@/hooks/useVehicleModels";
 import type { VehicleConfig } from "@/types/vehicle";
@@ -20,9 +20,8 @@ import {
   CYLINDER_OPTIONS, TRANSMISSION_OPTIONS, DRIVE_TYPE_OPTIONS, FUEL_CONSUMPTION_OPTIONS,
   WEIGHT_OPTIONS, TOW_BAR_OPTIONS, TOW_CAPACITY_BRAKED_OPTIONS, TOW_CAPACITY_UNBRAKED_OPTIONS,
   NOSE_WEIGHT_OPTIONS, ENVIRONMENTAL_BADGE_OPTIONS, EMISSION_CLASS_OPTIONS,
-  EXTERIOR_COLOR_OPTIONS, PARKING_AID_OPTIONS, CRUISE_CONTROL_OPTIONS, EXTERIOR_EXTRAS,
+  EXTERIOR_COLOR_OPTIONS, PARKING_AID_OPTIONS, CRUISE_CONTROL_OPTIONS,
   INTERIOR_COLOR_OPTIONS, INTERIOR_MATERIAL_OPTIONS, AIRBAG_OPTIONS, CLIMATE_OPTIONS,
-  INTERIOR_EXTRAS,
 } from "@/lib/vehicle-options";
 
 /* ------------------------------------------------------------------ */
@@ -53,10 +52,101 @@ const SECTIONS: SectionDef[] = [
   { title: "Gewicht & Anhänger", icon: Weight },
   { title: "Umwelt & Emissionen", icon: Leaf },
   { title: "Exterieur", icon: Paintbrush },
-  { title: "Exterieur-Extras", icon: Sparkles },
   { title: "Interieur", icon: Sofa },
-  { title: "Interieur-Extras", icon: Star },
+  { title: "Ausstattung", icon: Sparkles },
   { title: "Leasing & Finanzierung", icon: Banknote },
+];
+
+type EquipmentCategoryDef = {
+  label: string;
+  field: "exteriorExtras" | "interiorExtras";
+  items: string[];
+};
+
+const EQUIPMENT_CATEGORIES: EquipmentCategoryDef[] = [
+  {
+    label: "Licht & Sicht",
+    field: "exteriorExtras",
+    items: [
+      "Adaptives Kurvenlicht", "Bi-Xenon Scheinwerfer", "Blendfreies Fernlicht",
+      "Fernlichtassistent", "Kurvenlicht", "Laserlicht", "LED-Scheinwerfer",
+      "LED-Tagfahrlicht", "Lichtsensor", "Nachtsicht-Assistent",
+      "Nebelscheinwerfer", "Scheinwerferreinigung", "Tagfahrlicht",
+      "Xenonscheinwerfer",
+    ],
+  },
+  {
+    label: "Sicherheit & Assistenz",
+    field: "exteriorExtras",
+    items: [
+      "ABS", "Abstandswarner", "Berganfahrassistent", "ESP",
+      "Notbremsassistent", "Spurhalteassistent", "Totwinkel-Assistent",
+      "Traktionskontrolle", "Verkehrszeichenerkennung",
+      "Geschwindigkeitsbegrenzer", "Reifendruckkontrolle",
+      "Elektr. Wegfahrsperre",
+    ],
+  },
+  {
+    label: "Fahrwerk & Räder",
+    field: "exteriorExtras",
+    items: [
+      "Adaptives Fahrwerk", "Luftfederung", "Sportfahrwerk",
+      "Leichtmetallfelgen", "Stahlfelgen", "Allwetterreifen",
+      "Sommerreifen", "Winterreifen", "Winterpaket", "Sportpaket",
+    ],
+  },
+  {
+    label: "Komfort & Karosserie",
+    field: "exteriorExtras",
+    items: [
+      "Abgedunkelte Scheiben", "Beheizbare Frontscheibe", "Dachreling",
+      "Elektr. Heckklappe", "Faltdach", "Panorama-Dach", "Regensensor",
+      "Schiebedach", "Schlüssellose Zentralverriegelung", "Servolenkung",
+      "Start/Stopp-Automatik", "Zentralverriegelung", "Notrad", "Pannenkit",
+      "Reserverad", "Behindertengerecht",
+    ],
+  },
+  {
+    label: "Infotainment & Konnektivität",
+    field: "interiorExtras",
+    items: [
+      "Android Auto", "Apple CarPlay", "Bluetooth", "CD-Spieler",
+      "Freisprecheinrichtung", "Induktionsladen Smartphones",
+      "Musikstreaming integriert", "Navigationssystem", "Radio DAB",
+      "Soundsystem", "Sprachsteuerung", "Touchscreen", "Tuner/Radio", "TV",
+      "USB", "Volldigitales Kombiinstrument", "WLAN/Wifi Hotspot",
+      "Head-Up Display",
+    ],
+  },
+  {
+    label: "Sitze & Komfort",
+    field: "interiorExtras",
+    items: [
+      "Armlehne", "Beheizbares Lenkrad", "Elektr. Sitzeinstellung",
+      "Elektr. Sitzeinstellung mit Memory", "Elektr. Sitzeinstellung hinten",
+      "Lederlenkrad", "Lordosenstütze", "Massagesitze", "Sitzbelüftung",
+      "Sitzheizung", "Sitzheizung hinten", "Sportsitze",
+      "Umklappbarer Beifahrersitz", "Multifunktionslenkrad", "Schaltwippen",
+    ],
+  },
+  {
+    label: "Sicherheit & Überwachung",
+    field: "interiorExtras",
+    items: [
+      "Alarmanlage", "Bordcomputer", "Elektr. Seitenspiegel",
+      "Elektr. Seitenspiegel anklappbar", "Elektr. Fensterheber",
+      "Innenspiegel autom. abblendend", "Isofix", "Isofix Beifahrersitz",
+      "Müdigkeitswarner", "Notrufsystem", "Virtuelle Seitenspiegel",
+    ],
+  },
+  {
+    label: "Sonstiges Interieur",
+    field: "interiorExtras",
+    items: [
+      "Ambiente-Beleuchtung", "Gepäckraumabtrennung", "Raucherpaket",
+      "Rechtslenker", "Skisack", "Standheizung",
+    ],
+  },
 ];
 
 const selectCls =
@@ -76,6 +166,7 @@ export function VehicleConfigForm({
 }: VehicleConfigFormProps) {
   const [openSections, setOpenSections] = useState<Set<number>>(new Set([0]));
   const [powerUnit, setPowerUnit] = useState<"kw" | "ps">("kw");
+  const [equipmentSearch, setEquipmentSearch] = useState("");
 
   const { brands, loadingBrands } = useVehicleModels(vehicle.vehicleType);
   const { models, loadingModels } = useVehicleModelsByBrand(vehicle.vehicleType, vehicle.brand);
@@ -569,20 +660,10 @@ export function VehicleConfigForm({
             )}
           </div>
 
-          {/* ---- Section 6: Exterieur-Extras ---- */}
+          {/* ---- Section 6: Interieur ---- */}
           <div className="border border-slate-200 rounded-2xl overflow-hidden">
             {sectionHeader(6)}
             {openSections.has(6) && (
-              <div className="p-6 border-t border-slate-100">
-                {checkGrid(EXTERIOR_EXTRAS, vehicle.exteriorExtras, "exteriorExtras")}
-              </div>
-            )}
-          </div>
-
-          {/* ---- Section 7: Interieur ---- */}
-          <div className="border border-slate-200 rounded-2xl overflow-hidden">
-            {sectionHeader(7)}
-            {openSections.has(7) && (
               <div className="p-6 border-t border-slate-100 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {sel("Farbe Innenausstattung", vehicle.interiorColor, INTERIOR_COLOR_OPTIONS, (v) => update({ interiorColor: v }))}
@@ -596,21 +677,64 @@ export function VehicleConfigForm({
             )}
           </div>
 
-          {/* ---- Section 8: Interieur-Extras ---- */}
+          {/* ---- Section 7: Ausstattung ---- */}
           <div className="border border-slate-200 rounded-2xl overflow-hidden">
-            {sectionHeader(8)}
-            {openSections.has(8) && (
-              <div className="p-6 border-t border-slate-100">
-                {checkGrid(INTERIOR_EXTRAS, vehicle.interiorExtras, "interiorExtras")}
+            {sectionHeader(7)}
+            {openSections.has(7) && (
+              <div className="p-6 border-t border-slate-100 space-y-6">
+                <div className="relative">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    type="text"
+                    placeholder="Ausstattung suchen…"
+                    value={equipmentSearch}
+                    onChange={(e) => setEquipmentSearch(e.target.value)}
+                    className="pl-9 rounded-xl h-11 bg-slate-50 border-slate-200 text-base focus-visible:ring-blue-500"
+                  />
+                  {equipmentSearch && (
+                    <button onClick={() => setEquipmentSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                {(() => {
+                  const q = equipmentSearch.toLowerCase();
+                  const filtered = EQUIPMENT_CATEGORIES.map((cat) => ({
+                    ...cat,
+                    items: q ? cat.items.filter((i) => i.toLowerCase().includes(q)) : cat.items,
+                  })).filter((cat) => cat.items.length > 0);
+
+                  if (filtered.length === 0) {
+                    return <p className="text-sm text-slate-400 text-center py-4">Keine Ausstattung gefunden.</p>;
+                  }
+
+                  return filtered.map((cat) => {
+                    const selected = cat.field === "exteriorExtras" ? vehicle.exteriorExtras : vehicle.interiorExtras;
+                    const count = cat.items.filter((i) => selected.includes(i)).length;
+                    return (
+                      <div key={cat.label} className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-bold text-navy-950">{cat.label}</h4>
+                          {count > 0 && (
+                            <span className="text-[10px] font-bold bg-blue-100 text-blue-700 rounded-full px-2 py-0.5">
+                              {count}
+                            </span>
+                          )}
+                        </div>
+                        {checkGrid(cat.items, selected, cat.field)}
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             )}
           </div>
 
-          {/* ---- Section 9: Leasing & Finanzierung (tender mode only) ---- */}
+          {/* ---- Section 8: Leasing & Finanzierung (tender mode only) ---- */}
           {mode === "tender" && (
             <div className="border border-slate-200 rounded-2xl overflow-hidden">
-              {sectionHeader(9)}
-              {openSections.has(9) && (
+              {sectionHeader(8)}
+              {openSections.has(8) && (
                 <div className="p-6 border-t border-slate-100 space-y-5">
                   <p className="text-sm text-slate-500">Neben dem Barkauf-Angebot (Standard): Welche weiteren Angebotsarten sollen Händler für dieses Fahrzeug abgeben?</p>
 

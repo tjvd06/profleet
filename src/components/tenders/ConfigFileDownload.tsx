@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { FileText, Download, Loader2 } from "lucide-react";
-import { createClient } from "@/lib/supabase";
 
 interface ConfigFileDownloadProps {
   filePath: string;
@@ -19,12 +18,14 @@ export function ConfigFileDownload({ filePath, className = "", label }: ConfigFi
     e.stopPropagation();
     setLoading(true);
     try {
-      const supabase = createClient();
-      const { data, error } = await supabase.storage
-        .from("tender-config-files")
-        .createSignedUrl(filePath, 60);
-      if (error) throw error;
-      window.open(data.signedUrl, "_blank");
+      const res = await fetch("/api/storage/signed-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filePath, bucket: "tender-config-files" }),
+      });
+      if (!res.ok) throw new Error("Signed URL request failed");
+      const { signedUrl } = await res.json();
+      window.open(signedUrl, "_blank");
     } catch (err) {
       console.error("Download error:", err);
       alert("Datei konnte nicht heruntergeladen werden.");
