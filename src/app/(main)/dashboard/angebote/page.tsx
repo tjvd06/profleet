@@ -1014,20 +1014,19 @@ export default function DealerOffersPage() {
   })();
 
   return (
-    <div className="bg-slate-50 min-h-[calc(100vh-80px)] pb-24">
+    <div className="min-h-[calc(100vh-80px)] pb-24">
       {reviewPopup}
-      <div className="relative bg-gradient-to-br from-navy-950 via-navy-900 to-blue-900 text-white py-12 overflow-hidden">
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
-        <div className="container mx-auto max-w-7xl px-4 md:px-8 relative z-10">
-          <h1 className="text-4xl font-black tracking-tight mb-4">Meine Angebote</h1>
-          <p className="text-lg text-blue-100/80 max-w-2xl leading-relaxed">
+      <div className="border-b border-slate-200 bg-white">
+        <div className="container mx-auto max-w-7xl px-4 md:px-8 py-6 md:py-8">
+          <p className="text-sm font-medium text-slate-500 mb-1">Dashboard</p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-navy-950">Meine Angebote</h1>
+          <p className="text-sm text-slate-500 mt-1">
             Übersicht über Ihre abgegebenen Angebote — von laufend bis abgeschlossen.
           </p>
         </div>
       </div>
 
-      <div className="container mx-auto max-w-7xl px-4 md:px-8 mt-8">
+      <div className="container mx-auto max-w-7xl px-4 md:px-8 mt-6 md:mt-8">
         {loading ? (
           <div className="flex items-center justify-center py-32 text-slate-400">
             <Loader2 className="animate-spin mr-3" size={28} />

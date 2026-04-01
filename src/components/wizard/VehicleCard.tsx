@@ -14,9 +14,6 @@ interface VehicleCardProps {
 
 export function VehicleCard({ vehicle, index, isActive, onEdit, onDelete, canDelete }: VehicleCardProps) {
   const label = [vehicle.brand, vehicle.model].filter(Boolean).join(" ") || "Fahrzeug";
-  const priceLabel = vehicle.listPriceGross
-    ? `${Math.round(vehicle.listPriceGross).toLocaleString("de-DE")} € brutto`
-    : null;
 
   return (
     <div
@@ -40,7 +37,6 @@ export function VehicleCard({ vehicle, index, isActive, onEdit, onDelete, canDel
           )}
         </div>
         <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
-          {priceLabel && <span>{priceLabel}</span>}
           {vehicle.exteriorColor && (
             <span>· {vehicle.exteriorColor}{vehicle.metallic ? " (M)" : ""}</span>
           )}

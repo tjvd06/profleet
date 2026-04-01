@@ -33,8 +33,6 @@ type TenderVehicleRow = Record<string, unknown> & {
   quantity: number;
   brand: string | null;
   model_name: string | null;
-  list_price_gross: number | null;
-  list_price_net: number | null;
   fleet_discount: number | null;
   leasing: any;
   financing: any;

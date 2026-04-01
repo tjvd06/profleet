@@ -24,7 +24,6 @@ import {
   buildEquipmentDetails,
   getImageUrl,
   getConfigDocUrl,
-  calcSavingsPercent,
   buildLocationString,
 } from "@/lib/instant-offers";
 
@@ -183,9 +182,8 @@ export default function InstantOfferDetailPage() {
   const specs = buildSpecsString(offer);
   const equipmentDetails = buildEquipmentDetails(offer);
   const location = buildLocationString(offer);
-  const listPrice = offer.list_price_gross ?? offer.list_price_net ?? 0;
   const offerPrice = offer.purchase_price_net ?? 0;
-  const savingsPercent = offer.discount_percent ?? calcSavingsPercent(listPrice, offerPrice);
+  const savingsPercent = offer.discount_percent ?? 0;
   const images = offer.images || [];
   const isBuyer = profile?.role === "nachfrager";
   const expiresAt = offer.expires_at ? new Date(offer.expires_at) : null;
@@ -597,11 +595,6 @@ export default function InstantOfferDetailPage() {
 
               {/* Purchase */}
               <div className="mb-4">
-                {listPrice > 0 && (
-                  <div className="text-slate-400 text-sm line-through decoration-slate-300 font-medium">
-                    UVP {listPrice.toLocaleString("de-DE")} €
-                  </div>
-                )}
                 <div className="flex items-end gap-3">
                   <span className="font-black text-navy-950 text-4xl tracking-tight">
                     {offerPrice > 0 ? `${offerPrice.toLocaleString("de-DE")} €` : "Auf Anfrage"}

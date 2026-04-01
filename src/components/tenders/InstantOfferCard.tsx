@@ -9,7 +9,7 @@ import { Bookmark, MapPin, Pencil, Send, Trash2, Package } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase";
-import { type InstantOfferRow, buildSpecsString, getImageUrl, calcSavingsPercent, buildLocationString } from "@/lib/instant-offers";
+import { type InstantOfferRow, buildSpecsString, getImageUrl, buildLocationString } from "@/lib/instant-offers";
 
 type ViewMode = "public" | "buyer" | "seller";
 
@@ -38,9 +38,8 @@ export function InstantOfferCard({
 
   const specs = buildSpecsString(offer);
   const location = buildLocationString(offer);
-  const listPrice = offer.list_price_gross ?? offer.list_price_net ?? 0;
   const offerPrice = offer.purchase_price_net ?? 0;
-  const savingsPercent = offer.discount_percent ?? calcSavingsPercent(listPrice, offerPrice);
+  const savingsPercent = offer.discount_percent ?? 0;
   const imageUrl = offer.images && offer.images.length > 0 ? getImageUrl(offer.images[0]) : null;
 
   const handleBookmark = async (e: React.MouseEvent) => {
@@ -141,11 +140,6 @@ export function InstantOfferCard({
           <div className="mt-auto pt-4 border-t border-slate-100">
             <div className="flex justify-between items-end mb-2">
               <div>
-                {listPrice > 0 && (
-                  <div className="text-slate-400 text-sm line-through decoration-slate-300 font-medium">
-                    UVP {listPrice.toLocaleString("de-DE")} €
-                  </div>
-                )}
                 <div className="font-black text-navy-950 text-3xl tracking-tight">
                   {offerPrice > 0 ? `${offerPrice.toLocaleString("de-DE")} €` : "Auf Anfrage"}
                 </div>

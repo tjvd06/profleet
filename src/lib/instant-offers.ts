@@ -17,8 +17,6 @@ export interface InstantOfferRow {
   color: string | null;
   metallic: boolean;
   doors: number | null;
-  list_price_net: number | null;
-  list_price_gross: number | null;
   equipment: Record<string, unknown> | null;
   images: string[];
   quantity: number;
@@ -126,12 +124,6 @@ export function getImageUrl(path: string): string {
 export function getConfigDocUrl(path: string): string {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   return `${supabaseUrl}/storage/v1/object/public/instant-offer-config-docs/${path}`;
-}
-
-// ─── Helper: calculate savings percent ──────────────────────────────────────
-export function calcSavingsPercent(listPrice: number | null, offerPrice: number | null): number {
-  if (!listPrice || !offerPrice || listPrice <= 0) return 0;
-  return Math.round(((listPrice - offerPrice) / listPrice) * 1000) / 10;
 }
 
 // ─── Helper: build location string ──────────────────────────────────────────

@@ -21,11 +21,10 @@ interface PublicTenderCardProps {
   offersCount: number;
   bestTotalPrice: number | null;
   totalVehicles: number;
-  totalListPrice: number;
   rawVehicles: Record<string, unknown>[];
 }
 
-export function PublicTenderCard({ id, endAt, location, requestedTypes, fleetDiscount, fleetDiscountPercent, offersCount, bestTotalPrice, totalVehicles, totalListPrice, rawVehicles }: PublicTenderCardProps) {
+export function PublicTenderCard({ id, endAt, location, requestedTypes, fleetDiscount, fleetDiscountPercent, offersCount, bestTotalPrice, totalVehicles, rawVehicles }: PublicTenderCardProps) {
   const [vehiclesExpanded, setVehiclesExpanded] = useState(false);
 
   const vehicleConfigs = useMemo(
@@ -125,7 +124,6 @@ export function PublicTenderCard({ id, endAt, location, requestedTypes, fleetDis
             <div className="flex items-center justify-center bg-navy-950 text-white px-5 py-2.5 rounded-xl mt-4 text-sm">
               <span className="font-bold">
                 Gesamt: {totalVehicles} Fahrzeug{totalVehicles !== 1 ? "e" : ""}
-                {totalListPrice > 0 && <> · UVP {totalListPrice.toLocaleString("de-DE")} € netto</>}
               </span>
             </div>
           )}

@@ -163,7 +163,6 @@ export default function AusschreibungenPage() {
                 const fleetDiscountPercent = (vehicles.find((v: Record<string, unknown>) => v.fleet_discount)?.fleet_discount as number) || 0;
 
                 const totalVehicles = vehicles.reduce((sum: number, v: Record<string, unknown>) => sum + ((v.quantity as number) || 1), 0);
-                const totalListPrice = vehicles.reduce((sum: number, v: Record<string, unknown>) => sum + (((v.list_price_net as number) || 0) * ((v.quantity as number) || 1)), 0);
 
                 // Location
                 const location = tender.delivery_city
@@ -182,7 +181,6 @@ export default function AusschreibungenPage() {
                     offersCount={tenderStats?.offer_count ?? 0}
                     bestTotalPrice={tenderStats?.best_total_price ?? null}
                     totalVehicles={totalVehicles}
-                    totalListPrice={totalListPrice}
                     rawVehicles={vehicles}
                   />
                 );

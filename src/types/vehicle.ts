@@ -60,10 +60,6 @@ export interface VehicleConfig {
   // Section 9: Interieur-Extras
   interiorExtras: string[];
 
-  // Preis (nur bei Upload-Modus relevant)
-  listPriceNet: number | null;
-  listPriceGross: number | null;
-
   // Leasing & Finanzierung (per vehicle)
   leasingRequested: boolean;
   leasingDuration: string;
@@ -132,8 +128,6 @@ export function createEmptyVehicleConfig(): VehicleConfig {
     airbags: null,
     climate: null,
     interiorExtras: [],
-    listPriceNet: null,
-    listPriceGross: null,
     leasingRequested: false,
     leasingDuration: "36",
     leasingKmYear: "15000",
@@ -224,8 +218,6 @@ export function dbRowToVehicleConfig(v: Record<string, unknown>): VehicleConfig 
     airbags: (eq.airbags as string) || null,
     climate: (eq.climate as string) || null,
     interiorExtras: (eq.interiorExtras as string[]) || [],
-    listPriceNet: (v.list_price_net as number) ?? null,
-    listPriceGross: (v.list_price_gross as number) ?? null,
     leasingRequested: !!(v.leasing as any)?.requested,
     leasingDuration: (v.leasing as any)?.duration || "36",
     leasingKmYear: (v.leasing as any)?.km_year || "15000",

@@ -126,8 +126,6 @@ export default function NewTenderWizard() {
         awd: v.driveType === "Allrad",
         color: v.exteriorColor,
         metallic: v.metallic,
-        list_price_net: v.listPriceNet,
-        list_price_gross: v.listPriceGross,
         doors: v.doors,
         quantity: v.quantity,
         equipment: buildEquipmentJson(v),

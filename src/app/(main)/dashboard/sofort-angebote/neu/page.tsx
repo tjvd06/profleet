@@ -157,8 +157,6 @@ export default function CreateInstantOfferPage() {
         color: vehicle.exteriorColor,
         metallic: vehicle.metallic,
         doors: vehicle.doors,
-        list_price_net: vehicle.listPriceNet,
-        list_price_gross: vehicle.listPriceGross,
         equipment: buildEquipmentJson(vehicle),
 
         // Images & config documents

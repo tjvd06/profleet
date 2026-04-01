@@ -358,20 +358,19 @@ export default function ProfilePage() {
   const inputClass = "h-12 bg-slate-50 border-slate-200 rounded-xl px-4 focus:bg-white transition-colors";
 
   return (
-    <div className="bg-slate-50 min-h-[calc(100vh-80px)] pb-24">
+    <div className="min-h-[calc(100vh-80px)] pb-24">
       {/* Header */}
-      <div className="relative bg-gradient-to-br from-navy-950 via-navy-900 to-blue-900 text-white py-12 overflow-hidden">
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
-        <div className="container mx-auto max-w-3xl px-4 md:px-8 relative z-10">
-          <h1 className="text-4xl font-black tracking-tight mb-4">Mein Profil</h1>
-          <p className="text-lg text-blue-100/80 leading-relaxed">
+      <div className="border-b border-slate-200 bg-white">
+        <div className="container mx-auto max-w-3xl px-4 md:px-8 py-6 md:py-8">
+          <p className="text-sm font-medium text-slate-500 mb-1">Dashboard</p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-navy-950">Mein Profil</h1>
+          <p className="text-sm text-slate-500 mt-1">
             Verwalten Sie Ihre persönlichen Daten und Unternehmensangaben.
           </p>
         </div>
       </div>
 
-      <div className="container mx-auto max-w-3xl px-4 md:px-8 mt-8 space-y-8">
+      <div className="container mx-auto max-w-3xl px-4 md:px-8 mt-6 md:mt-8 space-y-8">
         {/* Welcome banner after registration */}
         {isWelcome && (
           <div className="bg-gradient-to-r from-blue-50 to-emerald-50 border border-blue-200 rounded-2xl p-6 flex items-start gap-4">

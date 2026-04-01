@@ -14,8 +14,6 @@ type TenderVehicle = {
   model_name: string | null;
   model_series: string | null;
   trim_level: string | null;
-  list_price_gross: number | null;
-  list_price_net: number | null;
   quantity: number;
   config_method: string | null;
   fleet_discount: number | null;
@@ -81,11 +79,9 @@ function mapTenderToCardProps(
     brand: v.brand || "—",
     model: [v.model_name, v.trim_level].filter(Boolean).join(" ") || "—",
     specs: [v.fuel_type, v.body_type, v.color].filter(Boolean).join(" · ") || "",
-    price: v.list_price_gross || 0,
   }));
 
   const totalVehicles = tender.tender_vehicles.reduce((sum, v) => sum + v.quantity, 0);
-  const totalPrice = tender.tender_vehicles.reduce((sum, v) => sum + ((v.list_price_gross || 0) * v.quantity), 0);
 
   const hasFleetDiscount = tender.tender_vehicles.some(v => v.fleet_discount && v.fleet_discount > 0);
   const fleetDiscountPercent = tender.tender_vehicles.find(v => v.fleet_discount)?.fleet_discount || 0;
@@ -129,7 +125,6 @@ function mapTenderToCardProps(
     myTotalPrice: myOffers[tender.id]?.totalPrice ?? null,
     vehicles,
     totalVehicles,
-    totalPrice,
     hasAnswered: answeredTenderIds.has(tender.id),
     rawVehicles: tender.tender_vehicles,
   };
@@ -281,31 +276,31 @@ export default function InboxPage() {
   );
 
   return (
-    <div className="bg-slate-50 min-h-[calc(100vh-80px)] pb-24">
-      {/* Header Segment */}
-      <div className="relative bg-gradient-to-br from-navy-950 via-navy-900 to-blue-900 text-white py-12 md:py-16 overflow-hidden">
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
-        <div className="container mx-auto max-w-7xl px-4 md:px-8 relative z-10">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <div className="min-h-[calc(100vh-80px)] pb-24">
+      {/* Header */}
+      <div className="border-b border-slate-200 bg-white">
+        <div className="container mx-auto max-w-7xl px-4 md:px-8 py-6 md:py-8">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
             <div>
-              <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Eingang Ausschreibungen</h1>
-              <p className="text-lg text-blue-100/80 max-w-2xl leading-relaxed">
+              <p className="text-sm font-medium text-slate-500 mb-1">Dashboard</p>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-navy-950">Eingang Ausschreibungen</h1>
+              <p className="text-sm text-slate-500 mt-1">
                 {loading
                   ? "Ausschreibungen werden geladen…"
-                  : `Aktuell ${totalActive} aktive Ausschreibung${totalActive !== 1 ? "en" : ""} mit ${totalVehiclesAll} Fahrzeug${totalVehiclesAll !== 1 ? "en" : ""} verfügbar.`
+                  : `${totalActive} aktive Ausschreibung${totalActive !== 1 ? "en" : ""} · ${totalVehiclesAll} Fahrzeug${totalVehiclesAll !== 1 ? "e" : ""}`
                 }
               </p>
             </div>
             {!loading && tenders.length > 0 && (
-              <div className="bg-white/10 border border-white/20 backdrop-blur-md rounded-2xl p-4 flex gap-6 mt-auto">
-                <div className="text-center px-4">
-                  <div className="text-2xl font-black text-cyan-300">{totalActive}</div>
-                  <div className="text-sm font-semibold text-blue-200/80 uppercase tracking-wider">Aktiv</div>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-bold text-navy-950">{totalActive}</span>
+                  <span className="text-slate-500">Aktiv</span>
                 </div>
-                <div className="text-center px-4 border-l border-white/20">
-                  <div className="text-2xl font-black text-cyan-300">{totalVehiclesAll}</div>
-                  <div className="text-sm font-semibold text-blue-200/80 uppercase tracking-wider">Fahrzeuge</div>
+                <div className="w-px h-5 bg-slate-200" />
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-bold text-navy-950">{totalVehiclesAll}</span>
+                  <span className="text-slate-500">Fahrzeuge</span>
                 </div>
               </div>
             )}
@@ -313,7 +308,7 @@ export default function InboxPage() {
         </div>
       </div>
 
-      <div className="container mx-auto max-w-7xl px-4 md:px-8 mt-8">
+      <div className="container mx-auto max-w-7xl px-4 md:px-8 mt-6 md:mt-8">
         {loading ? (
           <div className="flex items-center justify-center py-32 text-slate-400">
             <Loader2 className="animate-spin mr-3" size={28} />
