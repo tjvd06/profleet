@@ -164,6 +164,7 @@ export default function InboxPage() {
               .from("tenders")
               .select("*, tender_vehicles(*)")
               .eq("status", "active")
+              .or(`end_at.gt.${new Date().toISOString()},end_at.is.null`)
               .order("created_at", { ascending: false }),
             new Promise<never>((_, reject) =>
               setTimeout(() => reject(new Error("TIMEOUT")), 10000)

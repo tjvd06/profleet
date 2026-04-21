@@ -614,8 +614,9 @@ export default function MyTendersPage() {
     }
   };
 
-  const activeTenders = tenders.filter(t => t.status === "active");
-  const completedTenders = tenders.filter(t => t.status === "completed" || t.status === "cancelled");
+  const isExpired = (t: Tender) => !!t.end_at && new Date(t.end_at).getTime() <= Date.now();
+  const activeTenders = tenders.filter(t => t.status === "active" && !isExpired(t));
+  const completedTenders = tenders.filter(t => t.status === "completed" || t.status === "cancelled" || (t.status === "active" && isExpired(t)));
   const draftTenders = tenders.filter(t => t.status === "draft");
 
   // Helper: get contact for a dealer on a tender (contact is per-dealer, not per-vehicle-offer)
@@ -847,7 +848,11 @@ export default function MyTendersPage() {
               <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                 <span>Erstellt {createdAgo(tender.created_at)}</span>
                 <span className="text-slate-300">|</span>
-                <span className="flex items-center gap-1 text-amber-600 font-semibold"><Clock size={12} /> Noch {timeLeft(tender.end_at)}</span>
+                {tender.end_at && isExpired(tender) ? (
+                  <span className="flex items-center gap-1 text-red-500 font-semibold"><Clock size={12} /> Abgelaufen</span>
+                ) : (
+                  <span className="flex items-center gap-1 text-amber-600 font-semibold"><Clock size={12} /> Noch {timeLeft(tender.end_at)}</span>
+                )}
                 <span className="text-slate-300">|</span>
                 <span className={`font-semibold ${tender.offers.length > 0 ? "text-green-600" : "text-slate-400"}`}>
                   {tender.offers.length} Angebot{tender.offers.length !== 1 ? "e" : ""}

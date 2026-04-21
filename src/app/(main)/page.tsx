@@ -268,8 +268,7 @@ export default function HomePage() {
       <section className="bg-white py-24">
         <div className="container mx-auto max-w-3xl px-4">
           <h2 className="text-3xl md:text-5xl font-bold text-navy-950 mb-12 text-center">Häufige Fragen</h2>
-          {/* @ts-ignore */}
-          <Accordion type="single" collapsible className="w-full">
+          <Accordion className="w-full">
             <AccordionItem value="item-1">
               <AccordionTrigger className="text-lg font-semibold text-navy-900">Ist proFleet wirklich kostenlos?</AccordionTrigger>
               <AccordionContent className="text-slate-600">

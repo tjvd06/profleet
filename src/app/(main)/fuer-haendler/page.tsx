@@ -169,8 +169,7 @@ export default function ForDealersLandingPage() {
           <h2 className="text-3xl md:text-5xl font-black text-navy-950 mb-4">Noch Fragen?</h2>
         </div>
 
-        {/* @ts-ignore */}
-        <Accordion type="single" collapsible className="w-full bg-white rounded-3xl border border-slate-200 p-2 shadow-sm">
+        <Accordion className="w-full bg-white rounded-3xl border border-slate-200 p-2 shadow-sm">
           <AccordionItem value="item-1" className="border-b-0 px-4">
             <AccordionTrigger className="text-lg font-bold text-navy-950 hover:no-underline py-6">Ist die Registrierung kostenlos?</AccordionTrigger>
             <AccordionContent className="text-slate-500 font-medium text-base leading-relaxed pb-6">
